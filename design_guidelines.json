@@ -1,0 +1,91 @@
+{
+  "project_summary": {
+    "app_name": "Compass Planning",
+    "description": "Three-Tier Canadian Retirement Planning Platform (Enterprise, Advisor, Solo) with PIPEDA compliance, CRM pluggable integrations, TOTP MFA, household records, and financial goal tracking.",
+    "target_audience": "Canadian residents, wealth advisors, financial planners, enterprise wealth firms",
+    "design_context": "Financial Dashboard & Multi-tier SaaS Application"
+  },
+  "brand_identity": {
+    "logo": {
+      "mark": "Compass / Clock geometric icon",
+      "wordmark": "Compass Planning",
+      "font_heading": "Montserrat",
+      "font_weight": "800",
+      "tracking": "tracking-tight",
+      "sublabel": "CANADIAN RETIREMENT INTELLIGENCE",
+      "sublabel_style": "text-xs font-bold tracking-[0.2em] text-[#00DF89] uppercase"
+    },
+    "voice_and_tone": "Trustworthy, authoritative, precise, PIPEDA-compliant, modern Canadian wealth management"
+  },
+  "colors": {
+    "primary_gradient": "bg-gradient-to-r from-[#0052FF] to-[#00DF89]",
+    "primary_blue": "#0052FF",
+    "accent_green": "#00DF89",
+    "text_navy": "#1B2559",
+    "muted_grey": "#A3AED0",
+    "white": "#FFFFFF",
+    "background_light": "#F4F7FE",
+    "background_dark": "#0B1437",
+    "card_background": "#FFFFFF",
+    "border_color": "#E2E8F0",
+    "success_green": "#00DF89",
+    "warning_amber": "#FFB800",
+    "danger_red": "#EE5D50",
+    "usage_rules": {
+      "gradient": "Reserved ONLY for brand header accents, active CTA buttons, and key progress metrics. Never blanket whole pages.",
+      "navy": "Used for main typography, structural titles, sidebars, and high-level card headers for visual weight.",
+      "muted_grey": "Used for secondary metadata, subtitles, labels, table headers, and dormant status indicators.",
+      "accent_green": "Used for active states, verified MFA badges, positive financial projections, and PIPEDA consent indicators."
+    }
+  },
+  "typography": {
+    "primary_font": "Inter, sans-serif",
+    "heading_font": "Montserrat, sans-serif",
+    "mono_font": "JetBrains Mono, monospace",
+    "scales": {
+      "h1": "text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#1B2559] tracking-tight",
+      "h2": "text-2xl sm:text-3xl font-bold text-[#1B2559]",
+      "h3": "text-xl sm:text-2xl font-semibold text-[#1B2559]",
+      "h4": "text-lg font-semibold text-[#1B2559]",
+      "body": "text-sm sm:text-base text-[#1B2559] leading-relaxed",
+      "muted_label": "text-xs font-medium text-[#A3AED0] uppercase tracking-wider"
+    }
+  },
+  "spacing_and_layout": {
+    "spacing_scale": "p-4, p-6, p-8, p-12 for generous padding in container cards to prevent text collision",
+    "tier_shells": {
+      "enterprise": "High-density CRM dashboard, Salesforce mock sync status, multi-advisor oversight, audit log table, PIPEDA breach/retention monitor.",
+      "advisor": "Client roster view with instant household drill-down, asset allocation summary, goal progress tracker, promotion requests from Solo tier.",
+      "solo": "Clean mobile-friendly personal retirement planner, CPP/OAS/RRSP/TFSA calculator, consent management toggle, promotion to Advisor flow."
+    },
+    "grid_strategy": "The Tetris Grid for metrics and High Density Grid for data analytics tables and goal progress widgets."
+  },
+  "motion_and_interactions": {
+    "transitions": "transition-colors duration-200 ease-in-out, hover:-translate-y-0.5 transform transition-transform duration-150",
+    "glassmorphism": "backdrop-blur-md bg-white/90 border border-[#E2E8F0]",
+    "prohibited_animations": "No universal transition:all. No excessive spring effects in data tables."
+  },
+  "media_assets": {
+    "image_urls": {
+      "wealth_advisory_hero": "https://images.unsplash.com/photo-1714974528703-e5ad41abc259?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHwyfHx3ZWFsdGglMjBhZHZpc29yJTIwY2xpZW50JTIwZGlzY3Vzc2lvbiUyMHRldGlyZW1lbnQlMjBwbGFubmluZ3xlbnwwfHx8fDE3OTA3MzM0NzF8MA&ixlib=rb-4.1.0&q=85",
+      "advisor_client_meeting": "https://images.unsplash.com/photo-1714974528737-3e6c7e4d11af?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHwxfHx3ZWFsdGglMjBhZHZpc29yJTIwY2xpZW50JTIwZGlzY3Vzc2lvbiUyMHRldGlyZW1lbnQlMjBwbGFubmluZ3xlbnwwfHx8fDE3OTA3MzM0NzF8MA&ixlib=rb-4.1.0&q=85",
+      "senior_retirement_planning": "https://images.unsplash.com/photo-1758686254415-9348b5b5df01?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHw0fHx3ZWFsdGglMjBhZHZpc29yJTIwY2xpZW50JTIwZGlzY3Vzc2lvbiUyMHRldGlyZW1lbnQlMjBwbGFubmluZ3xlbnwwfHx8fDE3OTA3MzM0NzF8MA&ixlib=rb-4.1.0&q=85",
+      "toronto_financial_district": "https://images.pexels.com/photos/2676848/pexels-photo-2676848.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "canadian_skyscraper_skyline": "https://images.pexels.com/photos/27638092/pexels-photo-27638092.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+    }
+  },
+  "component_guidelines": {
+    "auth_mfa": "Prominent MFA modal/step with 6-digit TOTP code input, copyable secret key, and mock QR code.",
+    "pipeda_panel": "Dedicated PIPEDA Compliance Drawer/Modal featuring: active consent toggles, Right-to-Access export (JSON/CSV download), Right-to-Erasure request modal, and Audit Log timeline.",
+    "crm_connector": "Pluggable Salesforce sync indicator card showing real-time sync status, last synced record timestamp, and Manual Re-sync trigger button.",
+    "promotion_flow": "Solo to Advisor/Enterprise promotion wizard with explicit PIPEDA consent re-capture, data sharing agreement, and advisor selection.",
+    "testing_attributes": "All interactive and key informational elements MUST include a data-testid attribute in kebab-case format (e.g. data-testid=\"login-submit-button\", data-testid=\"mfa-totp-input\", data-testid=\"pipeda-export-btn\")."
+  },
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "Strictly enforce locked visual tokens across Enterprise, Advisor, and Solo tiers to prevent visual drift.",
+    "Never use raw transparent backgrounds on dropdowns or floating headers; use solid or blurred backdrops.",
+    "Ensure all interactive elements have explicit hover/active states with contrasting text.",
+    "Include data-testid on every button, input, tab, card, and modal for automated test suites.",
+    "Use Montserrat for Wordmark/H1-H3 headers and Inter for clean body and dashboard tables."
+  ]
+}

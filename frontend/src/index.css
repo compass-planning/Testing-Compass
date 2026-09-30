@@ -1,0 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: #F4F7FE;
+    color: #1B2559;
+}
+
+@layer base {
+    :root {
+        --background: 0 0% 100%;
+        --foreground: 227 51% 23%;
+        --card: 0 0% 100%;
+        --card-foreground: 227 51% 23%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 227 51% 23%;
+        --primary: 222 100% 50%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 226 60% 96%;
+        --secondary-foreground: 227 51% 23%;
+        --muted: 226 60% 96%;
+        --muted-foreground: 225 37% 73%;
+        --accent: 158 100% 44%;
+        --accent-foreground: 227 51% 23%;
+        --destructive: 4 82% 62%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 214 32% 91%;
+        --input: 214 32% 91%;
+        --ring: 222 100% 50%;
+        --radius: 0.75rem;
+    }
+}
+
+@layer base {
+    * { @apply border-border; }
+}
+
+@layer components {
+    .gradient-text {
+        @apply bg-clip-text text-transparent;
+        background-image: linear-gradient(90deg, #0052FF, #00DF89);
+    }
+    .gradient-bg {
+        background-image: linear-gradient(90deg, #0052FF, #00DF89);
+    }
+    .compass-card {
+        @apply bg-white rounded-2xl border border-compass-border shadow-[0_4px_24px_rgba(27,37,89,0.06)];
+    }
+    .muted-label {
+        @apply text-xs font-semibold text-compass-muted uppercase tracking-wider;
+    }
+}
+
+::selection { background: rgba(0,223,137,0.25); color: #1B2559; }
+
+@layer base {
+    [data-debug-wrapper="true"] { display: contents !important; }
+}
