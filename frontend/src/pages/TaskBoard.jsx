@@ -16,6 +16,7 @@ function DigestSettings() {
     onError: () => toast.error("Could not save digest settings"),
   });
   const fmtHour = (h) => { const am = h < 12; const base = h % 12 === 0 ? 12 : h % 12; return `${base}:00 ${am ? "AM" : "PM"}`; };
+  if (q.isLoading) return <Card className="p-5 mb-6 h-24 animate-pulse" data-testid="digest-settings-card" />;
   return (
     <Card className="p-5 mb-6" data-testid="digest-settings-card">
       <div className="flex items-start gap-3">

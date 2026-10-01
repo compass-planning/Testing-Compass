@@ -1,0 +1,30 @@
+{
+  "summary": "Iter20 frontend-only testing of 3 new features PASSED on preview URL. (1) DIGEST SCOPE CONTROL (advisor /tasks): digest-settings-card renders with Toggle + 24-option hour Select ('12:00 AM' .. '11:00 PM', 'ET' label present). Changing hour to 10 fires PUT /api/advisor/digest-settings and shows 'Digest settings saved' toast. Toggling off disables the hour select (verified disabled=True). Reload shows persisted values (hour=10, disabled). Final restore to {enabled:true, hour:8} per request. (2) NUDGE UNDO (advisor /clients → Opportunities): nudge-all-button opens nudge-all-modal listing households with 'Nudge 9 goals' apply button; clicking nudge-all-apply closes modal and shows 'Nudged 9 goals across 8 households' toast with Undo action button (sonner action, duration 8s). Clicking Undo triggers POST /api/advisor/nudge-restore and shows 'Reverted 9 goals' toast. Per-row nudge flow (nudge-goals-<i> → nudge-modal) still opens correctly. (3) TOUR REPLAY (client /my-plan): Welcome tour appears for new client, tour-skip dismisses it, replay-tour link visible in footer. Clicking replay-tour re-opens welcome-tour at tour-step-0 (tour-back absent, tour-next present). tour-next advances to tour-step-1, tour-back returns to step-0, two more tour-next calls reach the last step where tour-finish appears and dismisses the overlay. my-plan-page continues to render. (4) REGRESSION: Advisor TaskBoard loads with DigestSettings card above the Open/Done columns; existing iter19 TEST task still listed with Complete/clear/date controls present.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "TaskBoard task row due-date", "issues": ["Uses native browser <input type='date'> picker (mm/dd/yyyy) instead of shadcn Calendar component — inconsistent with the rest of the app and does not honor Canadian date formatting. Pre-existing from earlier iterations, re-flagged."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "TaskBoard.jsx DigestSettings: default `s = q.data || { enabled: true, hour: 8 }` means the Toggle/Select render with 8:00 AM during initial load before GET resolves — any click in that window would persist the default state over the server value. Low risk but prefer rendering a skeleton while q.isLoading.",
+    "TaskBoard.jsx DigestSettings: toggle+select onChange call save.mutate immediately on every change. The hour <select> fires once per selection which is fine, but there is no debounce or optimistic-update, so the UI briefly shows the old value while PUT is in flight. Consider setQueryData for optimistic UX.",
+    "AdvisorClients.jsx nudgeAllMut toast action.onClick -> undoMut.mutate(applied||[]): if the undo payload is a very large array, it is sent in a single POST. Server routers/advisor.py already handles this; just worth noting the request body size scales linearly with nudged-goal count.",
+    "AdvisorClients.jsx undoMut only invalidates ['clients']; if the user has an opps-views cache open, those stay stale until the next refetch. Harmless but inconsistent with nudgeAllMut (same issue — both should also invalidate ['opps-views']).",
+    "MyPlan.jsx 'Replay tour' button is embedded inside a <p> and inherits paragraph text styles. Semantically fine but screen-reader label would benefit from aria-label='Replay welcome tour'.",
+    "server.py router split (iter19 note) remains in place; routers/{auth,planning,advisor,tasks,compliance}.py all exercised indirectly through the frontend flows and no 5xx seen.",
+    "Pre-existing WelcomeTour welcomeKey falls back to `compass_welcome_seen_` when user is null during hydration (shared across users) — same note as iter18/iter19."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only)", "frontend": "100% (3/3 new flows + regression)"},
+  "test_credentials": "advisor@compass.ca / Compass2026! (MFA enrolled with shared TOTP JBSWY3DPEHPK3PXP as requested — do NOT reset). Transient invited client delivered+iter20+1790888454@resend.dev / TourTest20! was created & deleted after test.",
+  "seed_data_creation": "Created & activated one invited client (client_a1) for the tour-replay flow; user was deleted on teardown. Advisor digest_settings restored to {enabled:true, hour:8} per request. Advisor MFA state preserved with shared secret.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 3 iter20 flows green on https://compass-vault.preview.emergentagent.com. Token-injection pattern: localStorage['compass_token']+['compass_tier'] then navigate to a protected route (AuthContext calls /auth/me on mount). Advisor is now permanently enrolled with shared TOTP secret JBSWY3DPEHPK3PXP — pyotp.TOTP('JBSWY3DPEHPK3PXP').now() gives the current code; login returns status 'mfa_required' (NOT 'mfa_setup'). New endpoints used: GET/PUT /api/advisor/digest-settings {enabled:bool,hour:int}; POST /api/advisor/nudge-all now returns {households,goals,applied:[{id,old_year,old_monthly}]}; POST /api/advisor/nudge-restore {restores:[{id,target_year,monthly_contribution}]} returns {restored:int}. WelcomeTour localStorage key: compass_welcome_seen_<userId>. The sonner toast 'Undo' action is a <button>Undo</button> inside the toast — selectable via get_by_role('button', name='Undo').",
+  "rca of the issue": "N/A — no bugs found."
+}
