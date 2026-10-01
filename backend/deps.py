@@ -133,3 +133,14 @@ def planner_scope(user: dict, household_id: str = None):
         ws["advisor_id"] = user["scope"].get("advisor_id")
         ws["client_id"] = household_id
     return store, read, ws, household_id
+
+
+def log_digest(user: dict, kind: str, channel: str, sent: bool):
+    """Record a digest send (kind=daily|weekly, channel=scheduled|preview) for the advisor's history."""
+    sc = user.get("scope", {})
+    repo.create("shared", "digest_log", {
+        "id": _id(), "store": "shared",
+        "scope": {"org_id": sc.get("org_id"), "advisor_id": sc.get("advisor_id")},
+        "kind": kind, "channel": channel, "sent": bool(sent),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })

@@ -12,7 +12,7 @@ import storage
 from security import hash_password, create_scoped_token
 from repository import repo
 from models import _id
-from deps import get_current_user, scope_context, write_scope, audit
+from deps import get_current_user, scope_context, write_scope, audit, log_digest
 from email_service import send_email, render_invite_html, render_book_digest_html
 
 logger = logging.getLogger("compass")
@@ -515,7 +515,8 @@ async def _run_book_digest():
         if u.get("tier") != "advisor":
             continue
         s = u.get("digest_settings") or {}
-        if not s.get("weekly_enabled", True) or int(s.get("hour", 8)) != now.hour:
+        weekly_hour = int(s.get("weekly_hour", s.get("hour", 8)))
+        if not s.get("weekly_enabled", True) or weekly_hour != now.hour:
             continue
         stats = _book_stats(u)
         if not stats["households"]:
@@ -525,6 +526,7 @@ async def _run_book_digest():
         try:
             await send_email(to=u["email"], subject="Your weekly book-health summary", html=html)
             sent += 1
+            log_digest(u, "weekly", "scheduled", True)
         except Exception as e:
             logger.warning(f"Book digest email failed for {u['email']}: {e}")
     logger.info(f"Book digest run (hour={now.hour} ET): emailed {sent} advisor(s)")
@@ -550,7 +552,37 @@ async def book_digest_preview(user: dict = Depends(get_current_user)):
     html = render_book_digest_html(user.get("name"), firm, stats, base_url=_app_base_url())
     try:
         await send_email(to=user["email"], subject="[Preview] Your weekly book-health summary", html=html)
+        log_digest(user, "weekly", "preview", True)
         return {"sent": True, "to": user["email"]}
     except Exception as e:
         logger.warning(f"Book digest preview failed for {user['email']}: {e}")
+        log_digest(user, "weekly", "preview", False)
         return {"sent": False, "to": user["email"], "detail": "Email delivery is unavailable in this environment"}
+
+
+@router.get("/advisor/today")
+async def advisor_today(user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    today = datetime.now(ZoneInfo("America/Toronto")).date().isoformat()
+    store, flt = scope_context(user)
+    roster = _build_roster(user)
+    primary = {c["client_id"]: (c.get("primary") or c["client_id"]) for c in roster}
+
+    def task_row(t):
+        return {"id": t["id"], "title": t.get("title"), "due_date": t.get("due_date"),
+                "client_id": t.get("scope", {}).get("client_id"),
+                "primary": primary.get(t.get("scope", {}).get("client_id"), t.get("scope", {}).get("client_id"))}
+
+    due = [t for t in repo.list(store, "tasks", flt) if not t.get("done") and t.get("due_date")]
+    overdue = sorted([task_row(t) for t in due if t["due_date"] < today], key=lambda r: r["due_date"])
+    due_today = [task_row(t) for t in due if t["due_date"] == today]
+    attention = [c for c in roster if c.get("needs_setup") or c.get("status") in ("At Risk", "Needs Review")]
+    attention.sort(key=lambda c: (not c.get("needs_setup"), c.get("score") if c.get("score") is not None else 999))
+    return {
+        "overdue": overdue,
+        "due_today": due_today,
+        "attention": [{"client_id": c["client_id"], "primary": c.get("primary") or c["client_id"],
+                       "status": c["status"], "score": c.get("score"), "next_action": c.get("next_action")}
+                      for c in attention[:6]],
+    }

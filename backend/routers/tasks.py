@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from repository import repo
 from models import _id
-from deps import get_current_user, scope_context, write_scope, audit
+from deps import get_current_user, scope_context, write_scope, audit, log_digest
 from email_service import send_email, render_task_digest_html
 
 logger = logging.getLogger("compass")
@@ -80,25 +80,42 @@ DEFAULT_DIGEST_HOUR = 8
 class DigestSettings(BaseModel):
     enabled: bool = True
     weekly_enabled: bool = True
-    hour: int = Field(default=DEFAULT_DIGEST_HOUR, ge=0, le=23)
+    daily_hour: int = Field(default=DEFAULT_DIGEST_HOUR, ge=0, le=23)
+    weekly_hour: int = Field(default=DEFAULT_DIGEST_HOUR, ge=0, le=23)
+
+
+def _resolved_settings(user: dict) -> dict:
+    s = user.get("digest_settings") or {}
+    legacy = s.get("hour", DEFAULT_DIGEST_HOUR)
+    return {"enabled": s.get("enabled", True), "weekly_enabled": s.get("weekly_enabled", True),
+            "daily_hour": s.get("daily_hour", legacy), "weekly_hour": s.get("weekly_hour", legacy)}
 
 
 @router.get("/advisor/digest-settings")
 async def get_digest_settings(user: dict = Depends(get_current_user)):
     if user["tier"] != "advisor":
         raise HTTPException(status_code=403, detail="Advisor tier only")
-    s = user.get("digest_settings") or {}
-    return {"enabled": s.get("enabled", True), "weekly_enabled": s.get("weekly_enabled", True),
-            "hour": s.get("hour", DEFAULT_DIGEST_HOUR)}
+    return _resolved_settings(user)
 
 
 @router.put("/advisor/digest-settings")
 async def put_digest_settings(body: DigestSettings, user: dict = Depends(get_current_user)):
     if user["tier"] != "advisor":
         raise HTTPException(status_code=403, detail="Advisor tier only")
-    settings = {"enabled": body.enabled, "weekly_enabled": body.weekly_enabled, "hour": body.hour}
+    settings = {"enabled": body.enabled, "weekly_enabled": body.weekly_enabled,
+                "daily_hour": body.daily_hour, "weekly_hour": body.weekly_hour}
     repo.update_user(user["id"], {"digest_settings": settings})
     return settings
+
+
+@router.get("/advisor/digest-history")
+async def digest_history(user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    store, flt = scope_context(user)
+    rows = repo.list(store, "digest_log", flt)
+    rows.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
+    return rows[:10]
 
 
 async def _run_task_digest():
@@ -108,10 +125,8 @@ async def _run_task_digest():
     for u in repo.all_users():
         if u.get("tier") != "advisor":
             continue
-        s = u.get("digest_settings") or {}
-        if not s.get("enabled", True):
-            continue
-        if int(s.get("hour", DEFAULT_DIGEST_HOUR)) != now.hour:
+        rs = _resolved_settings(u)
+        if not rs["enabled"] or int(rs["daily_hour"]) != now.hour:
             continue
         store, flt = scope_context(u)
         due = [t for t in repo.list(store, "tasks", flt)
@@ -125,6 +140,7 @@ async def _run_task_digest():
         try:
             await send_email(to=u["email"], subject=f"{len(due)} task(s) need your attention today", html=html)
             sent += 1
+            log_digest(u, "daily", "scheduled", True)
         except Exception as e:
             logger.warning(f"Task digest email failed for {u['email']}: {e}")
     logger.info(f"Task digest run (hour={now.hour} ET): emailed {sent} advisor(s)")
@@ -157,7 +173,9 @@ async def digest_preview(user: dict = Depends(get_current_user)):
     html = render_task_digest_html(user.get("name"), firm, today_tasks, overdue)
     try:
         await send_email(to=user["email"], subject="[Preview] Your morning task digest", html=html)
+        log_digest(user, "daily", "preview", True)
         return {"sent": True, "to": user["email"]}
     except Exception as e:
         logger.warning(f"Task digest preview failed for {user['email']}: {e}")
+        log_digest(user, "daily", "preview", False)
         return {"sent": False, "to": user["email"], "detail": "Email delivery is unavailable in this environment"}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { Users, ArrowLeft, Landmark, Target, AlertTriangle, ArrowRight, Download, Plus, Zap, ArrowUpDown, UserPlus, Copy, Bookmark, X } from "lucide-react";
+import { Users, ArrowLeft, Landmark, Target, AlertTriangle, ArrowRight, Download, Plus, Zap, ArrowUpDown, UserPlus, Copy, Bookmark, X, Search } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 import api, { formatApiError } from "@/lib/api";
@@ -23,6 +23,7 @@ const scoreColor = (s) => (s >= 75 ? "#00DF89" : s >= 50 ? "#FFB800" : "#EE5D50"
 export default function AdvisorClients() {
   const [selected, setSelected] = useState(null);
   const [view, setView] = useState("queue");
+  const [search, setSearch] = useState("");
   const [sort, setSort] = useState("score-asc");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -138,8 +139,15 @@ export default function AdvisorClients() {
           </div>
 
           {view === "queue" && (
+          <>
+          <div className="mb-4 relative max-w-sm">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-compass-muted" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search households by name…" data-testid="household-search" className="w-full rounded-xl border border-compass-border bg-white pl-9 pr-3 py-2 text-sm text-compass-navy placeholder:text-compass-muted focus:border-compass-blue focus:outline-none" />
+          </div>
           <div className="grid md:grid-cols-2 gap-4">
-            {[...list].sort((a, b) => (a.score || 0) - (b.score || 0)).map((c) => {
+            {(() => { const term = search.trim().toLowerCase(); const filtered = term ? list.filter((c) => (c.primary || "").toLowerCase().includes(term) || (c.members || []).some((m) => m.toLowerCase().includes(term))) : list; return filtered.length === 0 ? (
+              <div className="md:col-span-2 text-sm text-compass-muted py-8 text-center" data-testid="household-search-empty">No households match "{search}".</div>
+            ) : [...filtered].sort((a, b) => (a.score || 0) - (b.score || 0)).map((c) => {
               const meta = SCORE_META[c.status] || SCORE_META["Needs Review"];
               return (
                 <Card key={c.client_id} className="p-5" data-testid={`client-row-${c.client_id}`}>
@@ -181,8 +189,9 @@ export default function AdvisorClients() {
                   </div>
                 </Card>
               );
-            })}
+            })})()}
           </div>
+          </>
           )}
 
           {view === "opps" && <OpportunitiesList list={list} sort={sort} setSort={setSort} typeFilter={typeFilter} setTypeFilter={setTypeFilter} statusFilter={statusFilter} setStatusFilter={setStatusFilter} onOpen={openClient} />}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
-import { Wallet, Users, Target, Building2, RefreshCw, ShieldAlert, ArrowRight, TrendingUp, AlertTriangle } from "lucide-react";
+import { Wallet, Users, Target, Building2, RefreshCw, ShieldAlert, ArrowRight, TrendingUp, AlertTriangle, ClipboardCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -18,6 +18,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { data, isLoading } = useQuery({ queryKey: ["dashboard"], queryFn: async () => (await api.get("/dashboard")).data });
   const clientsQ = useQuery({ queryKey: ["clients"], queryFn: async () => (await api.get("/advisor/clients")).data, enabled: user.tier === "advisor" });
+  const todayQ = useQuery({ queryKey: ["advisor-today"], queryFn: async () => (await api.get("/advisor/today")).data, enabled: user.tier === "advisor" });
 
   if (isLoading || !data) return <div className="text-compass-muted">Loading dashboard…</div>;
 
@@ -120,6 +121,63 @@ export default function Dashboard() {
           </div>
         </Card>
       )}
+
+      {user.tier === "advisor" && todayQ.data && (() => {
+        const t = todayQ.data;
+        const openCid = (cid, name) => { setActive(cid, name || cid); navigate("/profile"); };
+        const total = t.overdue.length + t.due_today.length;
+        return (
+          <div className="grid lg:grid-cols-2 gap-6 mt-6" data-testid="advisor-today-panel">
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-heading font-bold text-compass-navy flex items-center gap-2"><ClipboardCheck size={18} className="text-compass-blue" /> Today's tasks</h3>
+                <Badge color={t.overdue.length ? "#EE5D50" : "#0052FF"} bg={t.overdue.length ? "rgba(238,93,80,0.12)" : "rgba(0,82,255,0.08)"}>{total}</Badge>
+              </div>
+              {total === 0 ? (
+                <div className="text-sm text-compass-muted py-6 text-center">Nothing due today — you're all caught up.</div>
+              ) : (
+                <div className="space-y-2">
+                  {[...t.overdue.map((x) => ({ ...x, od: true })), ...t.due_today.map((x) => ({ ...x, od: false }))].slice(0, 8).map((x) => (
+                    <button key={x.id} onClick={() => openCid(x.client_id, x.primary)} data-testid={`today-task-${x.id}`}
+                      className="w-full flex items-center gap-3 rounded-xl bg-compass-bg hover:bg-compass-blue/5 border border-transparent hover:border-compass-blue/20 px-4 py-2.5 text-left transition-colors">
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${x.od ? "bg-compass-red" : "bg-compass-blue"}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-compass-navy truncate">{x.title}</div>
+                        <div className="text-xs text-compass-muted truncate">{x.primary}</div>
+                      </div>
+                      <span className={`text-xs font-semibold shrink-0 ${x.od ? "text-compass-red" : "text-compass-muted"}`}>{x.od ? `Overdue · ${x.due_date}` : "Due today"}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <Link to="/tasks" className="inline-flex items-center gap-1 text-sm font-semibold text-compass-blue mt-3" data-testid="today-open-tasks">Open Task Board <ArrowRight size={14} /></Link>
+            </Card>
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-heading font-bold text-compass-navy flex items-center gap-2"><AlertTriangle size={18} className="text-compass-amber" /> Households needing attention</h3>
+                <Badge color="#FFB800" bg="rgba(255,184,0,0.14)">{t.attention.length}</Badge>
+              </div>
+              {t.attention.length === 0 ? (
+                <div className="text-sm text-compass-muted py-6 text-center">Every household is on track. 🎯</div>
+              ) : (
+                <div className="space-y-2">
+                  {t.attention.map((c) => (
+                    <button key={c.client_id} onClick={() => openCid(c.client_id, c.primary)} data-testid={`today-attention-${c.client_id}`}
+                      className="w-full flex items-center gap-3 rounded-xl bg-compass-bg hover:bg-compass-blue/5 border border-transparent hover:border-compass-blue/20 px-4 py-2.5 text-left transition-colors">
+                      <span className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ background: (c.score == null ? "#60708f" : c.score >= 75 ? "#00DF89" : c.score >= 50 ? "#FFB800" : "#EE5D50") }}>{c.score ?? "—"}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-compass-navy truncate">{c.primary} <span className="text-compass-muted font-normal">· {c.status}</span></div>
+                        <div className="text-xs text-compass-blue font-semibold truncate">Next: {c.next_action}</div>
+                      </div>
+                      <ArrowRight size={15} className="text-compass-muted shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+        );
+      })()}
 
       {user.tier === "advisor" && (
         <Card className="p-6 mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">

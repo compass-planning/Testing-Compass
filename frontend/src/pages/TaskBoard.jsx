@@ -36,30 +36,38 @@ function DueDatePicker({ value, onChange, testid }) {
 function DigestSettings() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["digest-settings"], queryFn: async () => (await api.get("/advisor/digest-settings")).data });
-  const s = q.data || { enabled: true, weekly_enabled: true, hour: 8 };
+  const historyQ = useQuery({ queryKey: ["digest-history"], queryFn: async () => (await api.get("/advisor/digest-history")).data });
+  const s = q.data || { enabled: true, weekly_enabled: true, daily_hour: 8, weekly_hour: 8 };
   const save = useMutation({
     mutationFn: (next) => api.put("/advisor/digest-settings", next),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["digest-settings"] }); toast.success("Digest settings saved"); },
     onError: () => toast.error("Could not save digest settings"),
   });
-  const patch = (delta) => save.mutate({ enabled: s.enabled, weekly_enabled: s.weekly_enabled, hour: s.hour, ...delta });
+  const patch = (delta) => save.mutate({ enabled: s.enabled, weekly_enabled: s.weekly_enabled, daily_hour: s.daily_hour, weekly_hour: s.weekly_hour, ...delta });
   const preview = useMutation({
     mutationFn: () => api.post("/advisor/digest-preview"),
-    onSuccess: (res) => res.data.sent ? toast.success(`Test digest sent to ${res.data.to}`) : toast.info("Preview built, but email delivery is unavailable in this environment"),
+    onSuccess: (res) => { qc.invalidateQueries({ queryKey: ["digest-history"] }); res.data.sent ? toast.success(`Test digest sent to ${res.data.to}`) : toast.info("Preview built, but email delivery is unavailable in this environment"); },
     onError: () => toast.error("Could not send test digest"),
   });
   const weeklyPreview = useMutation({
     mutationFn: () => api.post("/advisor/book-digest/preview"),
-    onSuccess: (res) => res.data.sent ? toast.success(`Weekly summary sent to ${res.data.to}`) : toast.info("Preview built, but email delivery is unavailable in this environment"),
+    onSuccess: (res) => { qc.invalidateQueries({ queryKey: ["digest-history"] }); res.data.sent ? toast.success(`Weekly summary sent to ${res.data.to}`) : toast.info("Preview built, but email delivery is unavailable in this environment"); },
     onError: () => toast.error("Could not send weekly summary"),
   });
   const fmtHour = (h) => { const am = h < 12; const base = h % 12 === 0 ? 12 : h % 12; return `${base}:00 ${am ? "AM" : "PM"}`; };
+  const HourSelect = ({ value, onChange, disabled, testid }) => (
+    <div className="w-28"><Select value={String(value)} disabled={disabled} onChange={(e) => onChange(Number(e.target.value))} data-testid={testid}>
+      {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{fmtHour(h)}</option>)}
+    </Select></div>
+  );
+  const history = historyQ.data || [];
+  const fmtTs = (ts) => new Date(ts).toLocaleString("en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   if (q.isLoading) return <Card className="p-5 mb-6 h-24 animate-pulse" data-testid="digest-settings-card" />;
   return (
     <Card className="p-5 mb-6" data-testid="digest-settings-card">
       <div className="flex items-start gap-3">
         <div className="h-10 w-10 rounded-xl bg-compass-blue/10 flex items-center justify-center shrink-0"><Bell size={18} className="text-compass-blue" /></div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="font-heading font-bold text-compass-navy">Email digests</div>
           <p className="text-sm text-compass-muted mt-0.5 mb-3">We only email you when there's something to see, and never ask for passwords or card details.</p>
           <div className="space-y-3">
@@ -69,6 +77,8 @@ function DigestSettings() {
                 <div className="text-xs text-compass-muted">Tasks due today or overdue.</div>
               </div>
               <div className="flex items-center gap-3">
+                <span className="text-xs text-compass-muted">at</span>
+                <HourSelect value={s.daily_hour} disabled={!s.enabled} onChange={(v) => patch({ daily_hour: v })} testid="digest-daily-hour-select" />
                 <Toggle checked={s.enabled} onChange={(v) => patch({ enabled: v })} testid="digest-enabled-toggle" />
                 <Button size="sm" variant="outline" onClick={() => preview.mutate()} disabled={preview.isPending} data-testid="digest-preview-button"><Send size={13} /> {preview.isPending ? "Sending…" : "Send test"}</Button>
               </div>
@@ -79,19 +89,29 @@ function DigestSettings() {
                 <div className="text-xs text-compass-muted">Mondays — avg score & households needing attention.</div>
               </div>
               <div className="flex items-center gap-3">
+                <span className="text-xs text-compass-muted">at</span>
+                <HourSelect value={s.weekly_hour} disabled={!s.weekly_enabled} onChange={(v) => patch({ weekly_hour: v })} testid="digest-weekly-hour-select" />
                 <Toggle checked={s.weekly_enabled} onChange={(v) => patch({ weekly_enabled: v })} testid="digest-weekly-toggle" />
                 <Button size="sm" variant="outline" onClick={() => weeklyPreview.mutate()} disabled={weeklyPreview.isPending} data-testid="weekly-preview-button"><Send size={13} /> {weeklyPreview.isPending ? "Sending…" : "Send weekly summary test"}</Button>
               </div>
             </div>
-            <div className="flex items-center gap-2 pt-1">
-              <span className="text-sm text-compass-muted">Send at</span>
-              <div className="w-32">
-                <Select value={String(s.hour)} disabled={!s.enabled && !s.weekly_enabled} onChange={(e) => patch({ hour: Number(e.target.value) })} data-testid="digest-hour-select">
-                  {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{fmtHour(h)}</option>)}
-                </Select>
+            <div className="text-[11px] text-compass-muted pl-1">Times are America/Toronto (ET).</div>
+            {history.length > 0 && (
+              <div className="pt-2 border-t border-compass-border" data-testid="digest-history">
+                <div className="muted-label mb-1.5">Recent sends</div>
+                <div className="space-y-1">
+                  {history.slice(0, 5).map((h) => (
+                    <div key={h.id} className="flex items-center gap-2 text-xs">
+                      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${h.sent ? "bg-compass-green" : "bg-compass-red"}`} />
+                      <span className="font-semibold text-compass-navy capitalize">{h.kind}</span>
+                      <span className="text-compass-muted">{h.channel === "preview" ? "test" : "scheduled"}</span>
+                      <span className="text-compass-muted">· {h.sent ? "sent" : "not delivered"}</span>
+                      <span className="text-compass-muted ml-auto">{fmtTs(h.timestamp)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <span className="text-xs text-compass-muted">ET · applies to both</span>
-            </div>
+            )}
           </div>
         </div>
       </div>
