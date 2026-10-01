@@ -1,0 +1,9 @@
+crons:
+  - name: task-digest
+    description: "Emails each advisor an 8am ET digest of tasks due today or overdue"
+    cron: "0 8 * * *"
+    timezone: "America/Toronto"
+    endpoint: "{{BASE_URL}}/api/cron/task-digest"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true

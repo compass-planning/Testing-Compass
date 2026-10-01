@@ -238,6 +238,45 @@ function NudgeModal({ nudge, onClose, onApply }) {
   );
 }
 
+function NudgeAllModal({ data, onClose, onApply, applying }) {
+  if (!data) return null;
+  const households = data.households || [];
+  return (
+    <Modal open={!!data} onClose={onClose} title="Nudge all underfunded goals" testid="nudge-all-modal">
+      {households.length === 0 ? (
+        <div className="space-y-4">
+          <p className="text-sm text-compass-muted" data-testid="nudge-all-empty">No underfunded goals across your book — every household is on track.</p>
+          <div className="flex justify-end"><Button onClick={onClose}>Close</Button></div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-compass-muted">This will adjust <span className="font-semibold text-compass-navy">{data.total_goals}</span> goal{data.total_goals === 1 ? "" : "s"} across <span className="font-semibold text-compass-navy">{households.length}</span> household{households.length === 1 ? "" : "s"}. Review before applying.</p>
+          <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+            {households.map((h) => (
+              <div key={h.client_id} className="rounded-lg bg-compass-bg px-3 py-2" data-testid={`nudge-all-hh-${h.client_id}`}>
+                <div className="text-sm font-semibold text-compass-navy mb-1">{h.primary}</div>
+                {h.changes.map((c) => (
+                  <div key={c.id} className="text-xs text-compass-muted mt-0.5">
+                    <span className="font-medium text-compass-navy">{c.title}:</span>{" "}
+                    {c.action === "extend"
+                      ? <>extend {c.old_year} → {c.new_year}, {money(c.old_monthly)} → {money(c.new_monthly)}/mo</>
+                      : <>{money(c.old_monthly)} → {money(c.new_monthly)}/mo to stay on track</>}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 justify-end pt-1">
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button onClick={onApply} disabled={applying} data-testid="nudge-all-apply">Nudge {data.total_goals} goal{data.total_goals === 1 ? "" : "s"}</Button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+
 function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, statusFilter, setStatusFilter, onOpen }) {
   const qc = useQueryClient();
   const viewsQ = useQuery({ queryKey: ["opps-views"], queryFn: async () => (await api.get("/advisor/opps-views")).data });
@@ -251,6 +290,9 @@ function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, sta
   const nudgeMut = useMutation({ mutationFn: (cid) => api.post(`/advisor/households/${cid}/nudge-goals`), onSuccess: (res) => { qc.invalidateQueries({ queryKey: ["clients"] }); const n = res.data.nudged; toast.success(n ? `Nudged ${n} goal${n === 1 ? "" : "s"}` : "No underfunded goals to nudge"); setNudge(null); }, onError: () => toast.error("Could not nudge goals") });
   const [nudge, setNudge] = useState(null);
   const openNudge = async (cid) => { try { const { data } = await api.get(`/advisor/households/${cid}/nudge-preview`); setNudge({ clientId: cid, changes: data.changes }); } catch { toast.error("Could not load nudge preview"); } };
+  const [nudgeAll, setNudgeAll] = useState(null);
+  const openNudgeAll = async () => { try { const { data } = await api.get("/advisor/nudge-all-preview"); setNudgeAll(data); } catch { toast.error("Could not load nudge preview"); } };
+  const nudgeAllMut = useMutation({ mutationFn: () => api.post("/advisor/nudge-all"), onSuccess: (res) => { qc.invalidateQueries({ queryKey: ["clients"] }); const { households, goals } = res.data; toast.success(goals ? `Nudged ${goals} goal${goals === 1 ? "" : "s"} across ${households} household${households === 1 ? "" : "s"}` : "No underfunded goals to nudge"); setNudgeAll(null); }, onError: () => toast.error("Could not nudge goals") });
   const saveViews = (next) => saveMut.mutate(next);
   const saveCurrentView = () => { const name = window.prompt("Name this view"); if (name && name.trim()) saveViews([...views, { name: name.trim(), type: typeFilter, status: statusFilter, sort }]); };
   const applyView = (v) => { setTypeFilter(v.type); setStatusFilter(v.status); setSort(v.sort); };
@@ -267,6 +309,7 @@ function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, sta
   return (
     <div data-testid="opportunities-list">
       <NudgeModal nudge={nudge} onClose={() => setNudge(null)} onApply={() => nudgeMut.mutate(nudge.clientId)} />
+      <NudgeAllModal data={nudgeAll} onClose={() => setNudgeAll(null)} onApply={() => nudgeAllMut.mutate()} applying={nudgeAllMut.isPending} />
       <div className="flex flex-wrap items-center gap-2 mb-3" data-testid="saved-views">
         {views.map((v, i) => (
           <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-compass-blue/10 text-compass-blue text-xs font-semibold pl-3 pr-2 py-1">
@@ -275,6 +318,7 @@ function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, sta
           </span>
         ))}
         <button onClick={saveCurrentView} className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-compass-border text-compass-muted hover:text-compass-navy text-xs font-semibold px-3 py-1" data-testid="save-view-button"><Bookmark size={12} /> Save view</button>
+        <button onClick={openNudgeAll} className="inline-flex items-center gap-1.5 rounded-full bg-compass-blue/10 text-compass-blue hover:bg-compass-blue/15 text-xs font-semibold px-3 py-1 ml-auto" data-testid="nudge-all-button"><Zap size={12} /> Nudge all underfunded</button>
       </div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
         <div className="text-sm text-compass-muted">{opps.length} open opportunit{opps.length === 1 ? "y" : "ies"}</div>

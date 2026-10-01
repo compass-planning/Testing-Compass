@@ -11,8 +11,9 @@ import os
 import logging
 from typing import Optional
 from datetime import datetime, timezone, timedelta
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, UploadFile, File, Response
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, UploadFile, File, Response, BackgroundTasks, Header
 from fastapi.concurrency import run_in_threadpool
+from zoneinfo import ZoneInfo
 from starlette.middleware.cors import CORSMiddleware
 import secrets
 import storage
@@ -33,7 +34,7 @@ from models import (
 )
 import seed
 from pydantic import BaseModel, EmailStr, Field
-from email_service import send_email, render_report_html, render_invite_html, rate_ok
+from email_service import send_email, render_report_html, render_invite_html, render_task_digest_html, rate_ok
 
 
 class ReportEmailInput(BaseModel):
@@ -1295,6 +1296,53 @@ async def nudge_preview(client_id: str, user: dict = Depends(get_current_user)):
     return {"changes": changes}
 
 
+@api.get("/advisor/nudge-all-preview")
+async def nudge_all_preview(user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    store, flt = scope_context(user)
+    owners = repo.list(store, "owners", flt)
+    primary = {o["scope"].get("client_id"): o["full_name"]
+               for o in owners if o.get("relationship") == "self" and o["scope"].get("client_id")}
+    by_client: dict[str, list] = {}
+    for g in repo.list(store, "goals", flt):
+        cid = g.get("scope", {}).get("client_id")
+        if cid:
+            by_client.setdefault(cid, []).append(g)
+    households, total = [], 0
+    for cid, gs in by_client.items():
+        changes = [p for p in (_plan_nudge(g) for g in gs) if p]
+        if changes:
+            total += len(changes)
+            households.append({"client_id": cid, "primary": primary.get(cid, cid), "changes": changes})
+    households.sort(key=lambda h: h["primary"])
+    return {"households": households, "total_goals": total}
+
+
+@api.post("/advisor/nudge-all")
+async def nudge_all(user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    store, flt = scope_context(user)
+    by_client: dict[str, list] = {}
+    for g in repo.list(store, "goals", flt):
+        cid = g.get("scope", {}).get("client_id")
+        if cid:
+            by_client.setdefault(cid, []).append(g)
+    goals_nudged, households_nudged = 0, 0
+    for cid, gs in by_client.items():
+        changes = [p for p in (_plan_nudge(g) for g in gs) if p]
+        if not changes:
+            continue
+        households_nudged += 1
+        for ch in changes:
+            repo.update(store, "goals", ch["id"], {"target_year": ch["new_year"], "monthly_contribution": ch["new_monthly"]}, flt)
+            goals_nudged += 1
+    if goals_nudged:
+        audit(user, "goal.nudge_all", "goals", f"Batch-nudged {goals_nudged} goal(s) across {households_nudged} household(s)")
+    return {"households": households_nudged, "goals": goals_nudged}
+
+
 @api.post("/advisor/households/{client_id}/nudge-goals")
 async def nudge_goals(client_id: str, user: dict = Depends(get_current_user)):
     if user["tier"] != "advisor":
@@ -1315,6 +1363,40 @@ async def report_history(user: dict = Depends(get_current_user), household_id: s
         rows = [r for r in rows if r.get("household_id") == hid]
     rows.sort(key=lambda r: r.get("sent_at", ""), reverse=True)
     return rows
+
+
+async def _run_task_digest():
+    today = datetime.now(ZoneInfo("America/Toronto")).date().isoformat()
+    sent = 0
+    for u in repo.all_users():
+        if u.get("tier") != "advisor":
+            continue
+        store, flt = scope_context(u)
+        due = [t for t in repo.list(store, "tasks", flt)
+               if not t.get("done") and t.get("due_date") and t["due_date"] <= today]
+        if not due:
+            continue
+        overdue = sorted([t for t in due if t["due_date"] < today], key=lambda t: t["due_date"])
+        today_tasks = [t for t in due if t["due_date"] == today]
+        firm = (u.get("branding") or {}).get("firm_name")
+        html = render_task_digest_html(u.get("name"), firm, today_tasks, overdue)
+        try:
+            await send_email(to=u["email"], subject=f"{len(due)} task(s) need your attention today", html=html)
+            sent += 1
+        except Exception as e:
+            logger.warning(f"Task digest email failed for {u['email']}: {e}")
+    logger.info(f"Task digest run: emailed {sent} advisor(s)")
+
+
+@api.post("/cron/task-digest")
+async def cron_task_digest(background: BackgroundTasks, authorization: str = Header(default="")):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    secret = os.environ.get("WEBHOOK_CRON_SECRET", "")
+    token = authorization[7:] if authorization.startswith("Bearer ") else ""
+    if not secret or not token or not secrets.compare_digest(token, secret):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    background.add_task(_run_task_digest)
+    return {"status": "accepted"}
 
 
 app.include_router(api)

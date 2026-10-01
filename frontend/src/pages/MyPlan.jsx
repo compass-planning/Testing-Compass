@@ -2,7 +2,7 @@ import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Wallet, Target, TrendingUp, Landmark } from "lucide-react";
 import api from "@/lib/api";
-import { Card, Progress, Empty } from "@/components/ui-kit";
+import { Card, Progress, Empty, Button } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
@@ -14,6 +14,44 @@ function Stat({ icon: Icon, label, value, tone = "navy" }) {
       <div className="flex items-center gap-2 text-compass-muted text-sm mb-1"><Icon size={16} /> {label}</div>
       <div className="font-heading text-2xl font-extrabold" style={{ color }}>{value}</div>
     </Card>
+  );
+}
+
+const TOUR_STEPS = [
+  { icon: Wallet, title: "Your net worth at a glance", body: "The cards up top show your net worth, total assets and total debt — refreshed whenever your advisor updates your plan." },
+  { icon: Target, title: "Track your goals", body: "Every goal your advisor sets up appears below with a live progress bar, so you always know how close you are." },
+  { icon: Landmark, title: "Your advisor keeps it current", body: "This view is read-only. To change a goal or add details, just reach out to your advisor — they manage everything here for you." },
+];
+
+function WelcomeTour({ onFinish }) {
+  const [step, setStep] = React.useState(0);
+  const s = TOUR_STEPS[step];
+  const Icon = s.icon;
+  const last = step === TOUR_STEPS.length - 1;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-compass-navy/40 backdrop-blur-sm px-4" data-testid="welcome-tour">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl p-7">
+        <div className="h-12 w-12 rounded-xl bg-compass-blue/10 flex items-center justify-center mb-4">
+          <Icon size={22} className="text-compass-blue" />
+        </div>
+        <div className="font-heading text-xl font-extrabold text-compass-navy mb-2" data-testid={`tour-step-${step}`}>{s.title}</div>
+        <p className="text-sm text-compass-muted leading-relaxed">{s.body}</p>
+        <div className="flex items-center justify-center gap-1.5 my-6">
+          {TOUR_STEPS.map((_, i) => (
+            <span key={i} className={`h-1.5 rounded-full transition-all ${i === step ? "w-6 bg-compass-blue" : "w-1.5 bg-compass-border"}`} />
+          ))}
+        </div>
+        <div className="flex items-center justify-between">
+          <button onClick={onFinish} className="text-sm font-semibold text-compass-muted hover:text-compass-navy" data-testid="tour-skip">Skip</button>
+          <div className="flex gap-2">
+            {step > 0 && <Button variant="ghost" onClick={() => setStep(step - 1)} data-testid="tour-back">Back</Button>}
+            {last
+              ? <Button onClick={onFinish} data-testid="tour-finish">Get started</Button>
+              : <Button onClick={() => setStep(step + 1)} data-testid="tour-next">Next</Button>}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -29,15 +67,7 @@ export default function MyPlan() {
 
   return (
     <div data-testid="my-plan-page">
-      {showWelcome && (
-        <div className="mb-5 rounded-xl border border-compass-blue/30 bg-compass-blue/5 px-5 py-4 flex items-start justify-between gap-4" data-testid="welcome-banner">
-          <div>
-            <div className="font-heading font-bold text-compass-navy">Welcome to your plan 👋</div>
-            <p className="text-sm text-compass-muted mt-1">This is your personal, read-only view of the plan your advisor manages. You can see your net worth and goal progress here any time — just reach out to your advisor to make changes.</p>
-          </div>
-          <button onClick={dismissWelcome} className="text-sm font-semibold text-compass-blue shrink-0" data-testid="welcome-dismiss">Got it</button>
-        </div>
-      )}
+      {showWelcome && <WelcomeTour onFinish={dismissWelcome} />}
       <PageHeader title={`Welcome back, ${(user?.name || "").split(" ")[0] || "there"}`} subtitle="Your plan at a glance. Your advisor keeps this up to date — reach out any time to make changes." />
 
       <div className="grid sm:grid-cols-3 gap-4 mb-6">
