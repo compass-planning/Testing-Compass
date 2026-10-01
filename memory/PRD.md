@@ -84,6 +84,16 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - Insurance: Coverage/Gap/LTC/DI sub-tabs, Protection Score, Coverage Adequacy %, Advisor Intelligence, Excel import.
 - Cash Flow income side; Tax CA engine (RRSP/TFSA Room, Tax Projection, Capital Gains, Income Splitting) + Estate; per-person Primary/Spouse/Combined toggle.
 
+## Persistent MongoDB + Debt/Retirement/Cash Flow (added 2026-06)
+- **Data layer swapped to persistent MongoDB** (`MongoRepository` in `repository.py`, now the default `repo`). Same `Repository` interface — no route changes. Scope isolation enforced via nested `scope.*` Mongo queries; `_id` projected out on every read. **Users, TOTP enrolments and all planning data now survive backend restarts** (fixes the in-memory MFA-reset issue). Seed is idempotent (skipped once `scott@sweston.ca` exists). `repo.all_users()` added to the interface (dashboard planner lookup).
+- Demo accounts seeded **unenrolled** → first login shows QR setup, which then persists in Mongo. Shared TOTP secret `JBSWY3DPEHPK3PXP` + reset snippet documented in `test_credentials.md` for automated testing.
+- **Debt Analytics** (`pages/Debt.jsx` + `lib/finance.js`): weighted-average rate, per-debt payoff months + lifetime interest, and **Avalanche vs Snowball** comparison (payoff order, months-to-debt-free, total interest, interest saved vs minimums) with an optional extra-monthly-payment input (rolled forward as debts clear). Full debt CRUD.
+- **Retirement Engine** (`pages/Retirement.jsx` + `lib/finance.js`): pension plan type **DBPP** (annual pension + indexing) / **DCPP** / **Group RRSP** (capital-accumulation note); client-side **Monte Carlo** (1,000 trials, mean 5.5% / vol 10% / inflation 2.1%, randomised returns) projecting to **age 95**, reporting success probability + 10th/50th/90th ending-balance percentiles alongside the deterministic nest egg. Saves projections with success %.
+- **Rental Cash Flow** (`pages/CashFlow.jsx`): income (owner `annual_income` + Net Worth rental income) vs expenses = monthly surplus/shortfall. Rental income from a property **Held in a holding company is excluded** from household cash flow (struck-through + badge + note). New `in_holding_company` toggle on rental real estate.
+- **Net Worth category-adaptive fields** (`pages/NetWorth.jsx`): Real Estate (value, mortgage, payment+frequency, property taxes, rate, rental toggle → income + holdco); Investments RRSP/TFSA/Non-Reg (balance, contribution+frequency, holding type GIC/SegFund/MutualFund/Stock…); new **Vehicle** category (purchase price, loan amount, rate, payment+frequency, purchase date, loan length). Persisted via `extra="allow"` planning items.
+- Server-side guard: advisor tier plan writes (POST/PUT/DELETE `/api/plan/*`) now require `household_id` (400 otherwise) — prevents unscoped writes.
+- Testing: iter5 — backend 14/14 new pytest pass; frontend 100% (Net Worth adaptive fields, Debt savings, Retirement MC + DBPP/DCPP branching, Cash Flow holdco exclusion). Report `/app/test_reports/iteration_5.json`.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.

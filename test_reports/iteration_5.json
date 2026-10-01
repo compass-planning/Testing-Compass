@@ -1,0 +1,48 @@
+{
+  "summary": "Iteration 5 — end-to-end testing of the 4 new changes: (1) MongoDB persistence, (2) Debt analytics, (3) Retirement engine with pension types + Monte Carlo, (4) Rental cash flow with holding-company exclusion, plus category-adaptive Net Worth fields. Backend: 14/14 new pytest cases pass in /app/backend/tests/test_iter5_persistence.py (TestMFAPersistence, TestFreshEnrollFlow, TestNetWorthFieldPersistence [Vehicle / Real-Estate+rental+holdco / RRSP investment], TestAdvisorHouseholdPlanCRUD [debts, expenses, retirement scoped to client_a1], TestEnterpriseWriteBlockOnPlan [all four plan collections return 403], TestPlanTenantIsolation [advisor+solo+enterprise cross-tenant reads blocked; Mongo _id stripped from responses]). Frontend: Advisor TOTP login -> Nguyen household (client_a1) -> Net Worth / Debt / Retirement / Cash Flow — all pages load without crashes/blank states. Net Worth: Vehicle quick-add shows all 7 vehicle fields and persists after save; Real-Estate (other) is_rental=Yes reveals rental_income + in_holding_company selects + holdco note; RRSP shows holding_type + contribution + frequency. Debt: 4 stat tiles + table w/ payoff months+interest render; Avalanche & Snowball cards present; entering extra=200 produces 'Saves $52,043 vs minimum payments' badge. Retirement: initial Monte Carlo renders (12%), band label visible, DBPP reveals pension_income + indexing inputs, MC updates on input change (12% -> 33%), DCPP shows capital-accumulation info note, saved projection appears in list. Cash Flow: income-card lists employment income ($11,250/mo from Anh Nguyen) + rental; UITEST_Rental (held in holding company) renders with 'Holding co — excluded' badge, struck-through amount, and NOT counted in $11,250/mo total; expense add works and persists.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/auth/mfa/verify", "issue": "When regression suites (test_compass_backend.py + test_household_centric.py) run under pytest-xdist LoadScopeScheduling with 2 workers, several logins intermittently fail with 'Invalid authentication code' — the pyotp code generated at the start of the module fixture crosses the 30s TOTP rotation window before the server verifies it. verify_totp accepts valid_window=1 but the race still fires. New iter5 tests avoid this by calling pyotp.TOTP(...).now() immediately before each verify."},
+      {"endpoint": "test_household_centric.py::test_anh_profile_fields", "issue": "Data drift: test expects annual_income=132000 for Anh Nguyen but got 135000 — leftover from a prior iteration's PUT /plan/profile that persisted to MongoDB (seed is idempotent and does not restore). Pre-existing suite needs to be updated to be idempotent against the new persistent store, or seed should re-set canonical values on startup."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter5_persistence.py",
+    "/app/test_reports/pytest/iter5.xml",
+    "/app/test_reports/pytest/iter5_full.xml"
+  ],
+  "action_items": [
+    "(Low) Make seed.py re-apply canonical demo values (annual_income, retirement_age, etc.) for seeded households so test_household_centric.py::test_anh_profile_fields does not drift between runs on persistent MongoDB.",
+    "(Low) Consider pyotp valid_window>=1 is already there; the compass_backend + household_centric suites could be hardened by regenerating the TOTP code inside each test rather than once at module-fixture time, to avoid 30s rotation races under xdist parallel execution.",
+    "(Nice-to-have) Previous iteration flagged mfa/verify not blacklisting the challenge after success — same still true; not blocking."
+  ],
+  "critical_code_review_comments": [
+    "repository.py MongoRepository: good — scope filter translated to nested scope.* query, _id excluded via projection on every read, insert_one pops _id back off doc after insert. Cross-tenant reads are impossible by construction.",
+    "server.py planner_scope(): advisor path only applies household_id to read filter when household_id is passed; without it, advisor sees ALL org/advisor rows across all households. That's by design (used by /advisor/clients roster) but it also means a planner page that forgot to pass household_id would leak data from other households into the advisor's view. Frontend lib/api.js interceptor DOES auto-inject household_id from localStorage, so the leak is only possible if a caller bypasses the axios instance. Worth adding a server-side guard: for advisor tier POST /plan/* require household_id, else 400.",
+    "models.PlanningItemInput + ProfileInput use ConfigDict(extra='allow') with NO schema — anything the client posts is persisted (including large/malicious payloads). Fine for a demo but a production tightening would be to whitelist known fields per collection.",
+    "server.py _clean() strips 'id'/'scope'/'household_id'/'created_at' from client input — good. But plan_update does repo.update(..., _clean(body), read) — if advisor passes household_id query param that differs from the row's actual household_id, update silently targets the wrong row via scope. The read filter DOES include client_id when advisor passes household_id so cross-household updates are blocked, but a stale household_id query would 404 confusingly. Minor UX.",
+    "Retirement.jsx uses client-side Monte Carlo (1000 trials in a useMemo) — fine but any input change re-runs 1000 trials synchronously on the main thread. Minor jank risk on slow devices; consider web-worker if perf becomes an issue.",
+    "CashFlow.jsx: income from owners[].annual_income assumes advisor has fetched /owners; if owners.data is slow the Monthly income briefly reads 0 then jumps. Minor; a loading state would be nicer.",
+    "Debt.jsx StrategyCard: payoff order is pulled from result.order (correctly) but the 'payoffMonth' lookup uses `debts[i].id` — iterating by index of input array, not the strategy order — so the per-item 'month X' label would be wrong IF rendered. Currently the label is empty (ternary returns empty string either way) so the user never sees it. Dead code but harmless.",
+    "test_compass_backend.py comment at top still says 'in-memory data layer' — out of date now that the backend is persistent MongoDB."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter5_persistence.py (NEW — 14 cases covering MFA enrollment persistence via Mongo, fresh-enroll secret flow, Vehicle+RealEstate(holdco)+RRSP arbitrary-field persistence end-to-end, advisor plan CRUD scoped to client_a1 for debts/expenses/retirement, enterprise 403 on plan POST, cross-tenant isolation, Mongo _id stripping)"
+  ],
+  "success_rate": {
+    "backend": "100% on new iter5 suite (14/14). Full regression: 81/82 pass + 1 pre-existing data-drift failure + flaky TOTP races under xdist that are not new feature regressions.",
+    "frontend": "100% — Net Worth category-adaptive fields, Debt analytics incl. extra-payment savings, Retirement MC + DBPP/DCPP branching, Cash Flow holding-co exclusion all verified."
+  },
+  "test_credentials": "All demo accounts: Compass2026!. All seeded demo accounts were (re-)enrolled with the shared DEMO_TOTP secret JBSWY3DPEHPK3PXP so the compass_backend / household_centric regression suites can still use `login()` helper. New users still get a fresh per-user secret on first login (verified in TestFreshEnrollFlow).",
+  "seed_data_creation": "Playwright test created UITEST_Vehicle, UITEST_Rental (held in holdco), UITEST_RRSP net-worth rows, UITEST_debt debt row, UITEST_groceries expense, 'DBPP @ 5.5%' retirement projection under household client_a1. Playwright post-run cleanup + a backend script removed the expense and projection; the networth+debt UITEST rows were deleted via Playwright inside the test. Final state verified clean (only seeded 'Family home', 'Home mortgage', 'Mortgage' remain for client_a1).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "To re-run iter5 backend tests: `REACT_APP_BACKEND_URL=https://compass-vault.preview.emergentagent.com pytest /app/backend/tests/test_iter5_persistence.py -v`. All seeded demo accounts are enrolled with the shared TOTP secret JBSWY3DPEHPK3PXP (see test_credentials.md reset snippet to flip accounts back to unenrolled for fresh-enroll testing). For UI, before navigating to /networth /debt /retirement /cashflow as advisor, you MUST set localStorage.compass_tier='advisor' and localStorage.compass_active_household='client_a1' (or use the Clients roster UI to open the Nguyen household). Pre-existing data-drift bug in test_household_centric.py::test_anh_profile_fields is not fixed — the seed does not re-apply canonical values on backend restart because seed() is idempotent on existence of scott@sweston.ca.",
+  "rca_of_the_issue": null
+}

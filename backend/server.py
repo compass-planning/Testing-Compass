@@ -790,6 +790,8 @@ async def plan_create(collection: str, body: PlanningItemInput, user: dict = Dep
         raise HTTPException(status_code=404, detail="Unknown collection")
     _block_enterprise_write(user)
     store, read, ws, hid = planner_scope(user, household_id)
+    if user["tier"] == "advisor" and not hid:
+        raise HTTPException(status_code=400, detail="Open a household before saving planning data")
     rec = {"id": _id(), "store": store, "scope": ws, "household_id": hid,
            "created_at": datetime.now(timezone.utc).isoformat(), **_clean(body.model_dump())}
     repo.create(store, f"plan_{collection}", rec)
@@ -803,6 +805,8 @@ async def plan_update(collection: str, rid: str, body: PlanningItemInput, user: 
         raise HTTPException(status_code=404, detail="Unknown collection")
     _block_enterprise_write(user)
     store, read, _, hid = planner_scope(user, household_id)
+    if user["tier"] == "advisor" and not hid:
+        raise HTTPException(status_code=400, detail="Open a household before saving planning data")
     updated = repo.update(store, f"plan_{collection}", rid, _clean(body.model_dump()), read)
     if not updated:
         raise HTTPException(status_code=404, detail="Not found")
@@ -816,6 +820,8 @@ async def plan_delete(collection: str, rid: str, user: dict = Depends(get_curren
         raise HTTPException(status_code=404, detail="Unknown collection")
     _block_enterprise_write(user)
     store, read, _, hid = planner_scope(user, household_id)
+    if user["tier"] == "advisor" and not hid:
+        raise HTTPException(status_code=400, detail="Open a household before modifying planning data")
     if not repo.delete(store, f"plan_{collection}", rid, read):
         raise HTTPException(status_code=404, detail="Not found")
     audit(user, f"{collection}.delete", collection, rid)
