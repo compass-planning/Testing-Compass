@@ -1,0 +1,26 @@
+{
+  "summary": "Iter21 frontend-only testing of 3 new features PASSED on preview URL (weekly book digest cron is backend-only and skipped per request). (1) SHADCN DATE PICKER (/tasks): task-due-<id> button initially shows 'Set due date'; clicking opens a shadcn Calendar popover (react-day-picker, class 'rdp' inside radix popover). Selecting a day fired PATCH /api/advisor/tasks/<id>, closed popover and updated the button label to '12 Oct 2026' (correct dd MMM yyyy, Canadian-friendly). Re-opening the popover showed the task-due-<id>-clear control; clicking it reset the label back to 'Set due date'. No native date input anywhere — the iter20 design-nit is now fixed. (2) DIGEST PREVIEW (/tasks): digest-settings-card now exposes data-testid='digest-preview-button' ('Send test email'). Clicking fired POST /api/advisor/digest-preview and surfaced the expected graceful info toast 'Preview built, but email delivery is unavailable in this environment' (sent:false) — treated as PASS per spec. No whitescreen / no exceptions. (3) PER-CLIENT NUDGE UNDO (/clients → Opportunities): per-row data-testid='nudge-goals-<i>' (observed 2,4,6) opens nudge-modal with 'Apply N change' button. Applying nudge-goals-2 produced the sonner toast 'Nudged 1 goal' with an 'Undo' action button; clicking Undo fired POST /api/advisor/nudge-restore and showed 'Reverted 1 goal' toast. (4) REGRESSION: digest-settings-card still renders with toggle + 24-option hour select (persisted at 8:00 AM ET, enabled:true as required); nudge-all-button is still present on the Opportunities view; Task Board open task row still has Complete + delete + due-date controls; existing iter19 TEST task still listed. Tour Replay on /my-plan was NOT retested this run as iter20 covered it fully and no related code changed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "TaskBoard DueDatePicker: 'Clear date' control lives inside the Popover content so it is only reachable after re-opening the popover. UX-wise users expect a quick clear chip next to the date; consider also surfacing an inline clear 'x' next to the formatted date on the trigger button (minor).",
+    "DigestPreview mutation: on failure path (sent:false), the backend returns 200 with sent:false and the UI shows an info toast — good. However there is no visible loading state on digest-preview-button during the ~3s POST; a disabled/spinner state would prevent double-clicks.",
+    "AdvisorClients nudgeMut (per-row): after Apply the modal closes immediately but the Undo toast duration is sonner default (~4s) — easy to miss. Consider duration:8000 like nudge-all for consistency (the iter20 nudge-all toast uses the longer duration).",
+    "Carry-over from iter20: DigestSettings still renders the default {enabled:true,hour:8} during initial GET load (no skeleton); any pre-GET click would persist the default over server state.",
+    "Carry-over from iter20: nudge/undo mutations only invalidate ['clients']; opps-views cache stays stale until next refetch. Both nudgeAllMut and per-row nudgeMut/undoMut should also invalidate ['opps-views'].",
+    "Date-picker ISO conversion uses local date (no timezone shift) — verified label '12 Oct 2026' on a 2026-10-12 selection, no off-by-one."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only)", "frontend": "100% (3/3 new flows + regression)"},
+  "test_credentials": "advisor@compass.ca / Compass2026! (MFA enrolled with shared TOTP JBSWY3DPEHPK3PXP — preserved). No new users created this run (reused existing iter19 TEST task).",
+  "seed_data_creation": "No new seed data. Advisor digest_settings left at {enabled:true, hour:8} per request. Advisor MFA shared secret preserved. Existing iter19 TEST task on client_a1 reused for date-picker testing; final state: due date cleared (back to 'Set due date'). One per-row nudge (nudge-goals-2) was applied and then immediately reverted via Undo so client_a1 goals are back to original state.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 3 iter21 flows green on https://compass-vault.preview.emergentagent.com. Token-injection auth pattern unchanged (localStorage compass_token+compass_tier then navigate). Shadcn Calendar in TaskBoard uses react-day-picker — day buttons are selectable via button[name='day']:not([disabled]) OR .rdp-day_button; the Clear control is INSIDE the popover (data-testid='task-due-<id>-clear') and only reachable after re-opening the trigger. Per-row Nudge Undo uses sonner default duration (shorter than nudge-all). Digest preview endpoint returns 200 with sent:false in preview env — treat as PASS. nudge-all-button only renders on the Opportunities tab of /clients, not on the Queue tab."
+}
