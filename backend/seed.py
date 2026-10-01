@@ -140,3 +140,25 @@ def seed():
         "controller": "self", "tier": "solo", "policy": "30_day_purge_on_optout",
         "opt_out_at": None, "purge_at": None, "status": "active",
     })
+
+    # ---------------- Planning workspace seed (Solo household) ----------------
+    def P(coll, data):
+        repo.create("shared", f"plan_{coll}", {
+            "id": _id(), "store": "shared", "scope": solo_scope,
+            "household_id": CLIENT_SOLO, "created_at": _now(), **data,
+        })
+
+    P("networth", {"kind": "asset", "category": "Property", "name": "Primary residence", "value": 650000})
+    P("networth", {"kind": "asset", "category": "Vehicle", "name": "Honda CR-V", "value": 28000})
+    P("networth", {"kind": "liability", "category": "Other", "name": "Student loan", "value": 14000})
+    P("debts", {"name": "Mortgage", "balance": 420000, "rate": 4.9, "payment": 2600, "lender": "TD"})
+    P("debts", {"name": "Line of credit", "balance": 11000, "rate": 8.2, "payment": 300, "lender": "RBC"})
+    P("expenses", {"category": "Housing", "name": "Mortgage + utilities", "amount": 2900})
+    P("expenses", {"category": "Food", "name": "Groceries & dining", "amount": 950})
+    P("expenses", {"category": "Transport", "name": "Fuel, insurance, transit", "amount": 520})
+    P("insurance", {"policy_type": "Term Life", "carrier": "Canada Life", "coverage": 500000, "premium": 46, "insured": "Jordan Blake"})
+    P("insurance", {"policy_type": "Critical Illness", "carrier": "Manulife", "coverage": 100000, "premium": 38, "insured": "Jordan Blake"})
+    P("documents", {"name": "Will & POA.pdf", "doc_type": "Estate", "status": "On file"})
+    P("documents", {"name": "Mortgage statement.pdf", "doc_type": "Debt", "status": "On file"})
+    P("retirement", {"name": "Base case", "retire_age": 65, "monthly_income_goal": 4500, "result": "On track", "note": "CPP + OAS + RRSP drawdown"})
+    P("tax_notes", {"name": "TFSA room", "note": "Maximize TFSA before RRSP given current bracket", "category": "Planning"})

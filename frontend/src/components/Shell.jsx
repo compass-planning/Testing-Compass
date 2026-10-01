@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Target, ShieldCheck, ScrollText, RefreshCw,
   ArrowUpCircle, LogOut, Menu, X, Building2, UserCog, User as UserIcon,
+  Home, TrendingUp, Scale, CreditCard, PiggyBank, Shield, Receipt, Brain, FileText, Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Logo, CompassMark } from "@/components/Logo";
@@ -11,27 +12,53 @@ import { TIER_META } from "@/lib/format";
 
 const NAV = {
   enterprise: [
-    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { to: "/owners", label: "Households", icon: Users },
-    { to: "/goals", label: "Goals", icon: Target },
-    { to: "/crm", label: "CRM Sync", icon: RefreshCw },
-    { to: "/privacy", label: "Privacy & PIPEDA", icon: ShieldCheck },
-    { to: "/audit", label: "Audit Log", icon: ScrollText },
+    { label: null, tabs: [
+      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/owners", label: "Households", icon: Users },
+      { to: "/goals", label: "Goals", icon: Target },
+      { to: "/crm", label: "CRM Sync", icon: RefreshCw },
+    ]},
+    { label: "Governance", tabs: [
+      { to: "/privacy", label: "Privacy & PIPEDA", icon: ShieldCheck },
+      { to: "/audit", label: "Audit Log", icon: ScrollText },
+    ]},
   ],
   advisor: [
-    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { to: "/clients", label: "Clients", icon: Users },
-    { to: "/goals", label: "Goals", icon: Target },
-    { to: "/privacy", label: "Privacy & PIPEDA", icon: ShieldCheck },
-    { to: "/audit", label: "Audit Log", icon: ScrollText },
+    { label: null, tabs: [
+      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/clients", label: "Clients", icon: Users },
+      { to: "/goals", label: "Goals", icon: Target },
+    ]},
+    { label: "Governance", tabs: [
+      { to: "/privacy", label: "Privacy & PIPEDA", icon: ShieldCheck },
+      { to: "/audit", label: "Audit Log", icon: ScrollText },
+    ]},
   ],
   solo: [
-    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { to: "/owners", label: "My Household", icon: Users },
-    { to: "/goals", label: "My Goals", icon: Target },
-    { to: "/promotion", label: "Work with an Advisor", icon: ArrowUpCircle },
-    { to: "/privacy", label: "Privacy & PIPEDA", icon: ShieldCheck },
-    { to: "/audit", label: "Activity Log", icon: ScrollText },
+    { label: null, tabs: [
+      { to: "/dashboard", label: "My Dashboard", icon: Home },
+      { to: "/insights", label: "Insights", icon: TrendingUp },
+      { to: "/profile", label: "My Profile", icon: UserCog },
+    ]},
+    { label: "My Plan", tabs: [
+      { to: "/networth", label: "Net Worth", icon: Scale },
+      { to: "/goals", label: "Goals", icon: Target },
+      { to: "/debt", label: "Debt", icon: CreditCard },
+      { to: "/retirement", label: "Retirement", icon: PiggyBank },
+      { to: "/insurance", label: "Insurance", icon: Shield },
+      { to: "/cashflow", label: "Cash Flow", icon: Receipt },
+      { to: "/tax", label: "Tax & Estate", icon: Building2 },
+    ]},
+    { label: "Reports", tabs: [
+      { to: "/ai", label: "AI Insights", icon: Brain },
+      { to: "/documents", label: "Documents", icon: FileText },
+      { to: "/plan", label: "Financial Plan", icon: Sparkles },
+      { to: "/promotion", label: "Work with an Advisor", icon: ArrowUpCircle },
+    ]},
+    { label: "Privacy", tabs: [
+      { to: "/privacy", label: "Privacy & PIPEDA", icon: ShieldCheck },
+      { to: "/audit", label: "Activity Log", icon: ScrollText },
+    ]},
   ],
 };
 
@@ -64,21 +91,28 @@ export default function Shell() {
         </div>
       </div>
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-        {items.map((it) => (
-          <NavLink
-            key={it.to}
-            to={it.to}
-            onClick={() => setOpen(false)}
-            data-testid={`nav-${it.to.slice(1)}`}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-150 ${
-                isActive ? "gradient-bg text-white shadow-[0_4px_14px_rgba(0,82,255,0.25)]" : "text-compass-navy hover:bg-compass-bg"
-              }`
-            }
-          >
-            <it.icon size={18} />
-            {it.label}
-          </NavLink>
+        {items.map((group, gi) => (
+          <div key={gi} className="pb-1">
+            {group.label && (
+              <div className="px-4 pt-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-compass-muted">{group.label}</div>
+            )}
+            {group.tabs.map((it) => (
+              <NavLink
+                key={it.to}
+                to={it.to}
+                onClick={() => setOpen(false)}
+                data-testid={`nav-${it.to.slice(1)}`}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-150 ${
+                    isActive ? "gradient-bg text-white shadow-[0_4px_14px_rgba(0,82,255,0.25)]" : "text-compass-navy hover:bg-compass-bg"
+                  }`
+                }
+              >
+                <it.icon size={18} />
+                {it.label}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
       <div className="p-4 border-t border-compass-border">

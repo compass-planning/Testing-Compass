@@ -20,7 +20,7 @@ from models import (
     _id, User, PublicUser, RegisterInput, LoginInput,
     PensionOwner, OwnerInput, PensionAccount, AccountInput,
     Goal, GoalInput, GoalProgressInput, AuditEntry, ConsentToggleInput,
-    ErasureInput, PromotionInput,
+    ErasureInput, PromotionInput, PlanningItemInput, ProfileInput,
 )
 import seed
 
@@ -583,6 +583,124 @@ async def promotion_request(body: PromotionInput, user: dict = Depends(get_curre
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
     return {"status": "migrated", "new_client_id": new_client, "advisor": body.advisor_email, "migrated": migrated}
+
+
+# =====================================================================
+#  PLANNING WORKSPACE (Net Worth, Debt, Cash Flow, Insurance, Tax,
+#  Documents, Retirement) — mirrors the original Compass planner.
+# =====================================================================
+
+PLAN_COLLECTIONS = {"networth", "debts", "expenses", "insurance", "documents", "tax_notes", "retirement"}
+
+
+def planner_scope(user: dict, household_id: str = None):
+    store, flt = scope_context(user)
+    read = dict(flt)
+    if user["tier"] == "solo":
+        household_id = user["scope"].get("client_id")
+    elif user["tier"] == "advisor" and household_id:
+        read["client_id"] = household_id
+    ws = {"corp_id": None, "org_id": None, "advisor_id": None, "client_id": None}
+    if user["tier"] == "enterprise":
+        ws["corp_id"] = user["scope"].get("corp_id")
+    elif user["tier"] == "solo":
+        ws["client_id"] = user["scope"].get("client_id")
+    else:
+        ws["org_id"] = user["scope"].get("org_id")
+        ws["advisor_id"] = user["scope"].get("advisor_id")
+        ws["client_id"] = household_id
+    return store, read, ws, household_id
+
+
+@api.get("/plan/overview")
+async def plan_overview(user: dict = Depends(get_current_user), household_id: str = None):
+    store, read, _, hid = planner_scope(user, household_id)
+    def hh(rows):
+        return [r for r in rows if (not hid or r.get("household_id") == hid)]
+    nw = hh(repo.list(store, "plan_networth", read))
+    debts = hh(repo.list(store, "plan_debts", read))
+    accounts = repo.list(store, "accounts", read)
+    goals = repo.list(store, "goals", read)
+    assets = sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "asset") + sum(float(a.get("balance", 0)) for a in accounts)
+    liabilities = sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "liability") + sum(float(d.get("balance", 0)) for d in debts)
+    return {
+        "netWorth": assets - liabilities, "totalAssets": assets, "totalLiabilities": liabilities,
+        "accounts": len(accounts), "goals": len(goals),
+        "retirementProjections": len(hh(repo.list(store, "plan_retirement", read))),
+        "insuranceAnalyses": len(hh(repo.list(store, "plan_insurance", read))),
+        "debtCount": len(debts),
+        "monthlyExpenses": sum(float(r.get("amount", 0)) for r in hh(repo.list(store, "plan_expenses", read))),
+        "documents": len(hh(repo.list(store, "plan_documents", read))),
+    }
+
+
+@api.get("/plan/profile")
+async def plan_profile(user: dict = Depends(get_current_user), household_id: str = None):
+    store, read, _, hid = planner_scope(user, household_id)
+    owners = repo.list(store, "owners", read)
+    return next((o for o in owners if o.get("relationship") == "self"), owners[0] if owners else {})
+
+
+@api.put("/plan/profile")
+async def plan_profile_save(body: ProfileInput, user: dict = Depends(get_current_user), household_id: str = None):
+    _block_enterprise_write(user)
+    store, read, _, hid = planner_scope(user, household_id)
+    owners = repo.list(store, "owners", read)
+    self_o = next((o for o in owners if o.get("relationship") == "self"), owners[0] if owners else None)
+    if not self_o:
+        raise HTTPException(status_code=404, detail="No household profile")
+    updated = repo.update(store, "owners", self_o["id"], body.model_dump(), read)
+    audit(user, "profile.update", "owners", self_o["id"])
+    return updated
+
+
+@api.get("/plan/{collection}")
+async def plan_list(collection: str, user: dict = Depends(get_current_user), household_id: str = None):
+    if collection not in PLAN_COLLECTIONS:
+        raise HTTPException(status_code=404, detail="Unknown collection")
+    store, read, _, hid = planner_scope(user, household_id)
+    rows = repo.list(store, f"plan_{collection}", read)
+    if hid:
+        rows = [r for r in rows if r.get("household_id") == hid]
+    return rows
+
+
+@api.post("/plan/{collection}")
+async def plan_create(collection: str, body: PlanningItemInput, user: dict = Depends(get_current_user), household_id: str = None):
+    if collection not in PLAN_COLLECTIONS:
+        raise HTTPException(status_code=404, detail="Unknown collection")
+    _block_enterprise_write(user)
+    store, read, ws, hid = planner_scope(user, household_id)
+    rec = {"id": _id(), "store": store, "scope": ws, "household_id": hid,
+           "created_at": datetime.now(timezone.utc).isoformat(), **body.model_dump()}
+    repo.create(store, f"plan_{collection}", rec)
+    audit(user, f"{collection}.create", collection, str(rec.get("name", "")))
+    return rec
+
+
+@api.put("/plan/{collection}/{rid}")
+async def plan_update(collection: str, rid: str, body: PlanningItemInput, user: dict = Depends(get_current_user), household_id: str = None):
+    if collection not in PLAN_COLLECTIONS:
+        raise HTTPException(status_code=404, detail="Unknown collection")
+    _block_enterprise_write(user)
+    store, read, _, hid = planner_scope(user, household_id)
+    updated = repo.update(store, f"plan_{collection}", rid, body.model_dump(), read)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Not found")
+    audit(user, f"{collection}.update", collection, rid)
+    return updated
+
+
+@api.delete("/plan/{collection}/{rid}")
+async def plan_delete(collection: str, rid: str, user: dict = Depends(get_current_user), household_id: str = None):
+    if collection not in PLAN_COLLECTIONS:
+        raise HTTPException(status_code=404, detail="Unknown collection")
+    _block_enterprise_write(user)
+    store, read, _, hid = planner_scope(user, household_id)
+    if not repo.delete(store, f"plan_{collection}", rid, read):
+        raise HTTPException(status_code=404, detail="Not found")
+    audit(user, f"{collection}.delete", collection, rid)
+    return {"ok": True}
 
 
 app.include_router(api)

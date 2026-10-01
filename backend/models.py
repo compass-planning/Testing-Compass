@@ -169,3 +169,11 @@ class PromotionInput(BaseModel):
     advisor_email: str
     consent_data_sharing: bool
     consent_reconfirmed: bool
+
+
+class PlanningItemInput(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+
+class ProfileInput(BaseModel):
+    model_config = ConfigDict(extra="allow")
