@@ -39,6 +39,12 @@ class ReportEmailInput(BaseModel):
     protection_score: int = 0
     retirement_success: Optional[int] = None
 
+
+class BrandingInput(BaseModel):
+    firm_name: str = "Compass Planning"
+    cover_note: str = ""
+    logo: str = ""
+
 SECURITY_QUESTIONS = [
     "What was the name of your first pet?",
     "What was the name of your elementary school?",
@@ -512,6 +518,24 @@ async def delete_goal(gid: str, user: dict = Depends(get_current_user)):
 #  ADVISOR — client roster + drill-down
 # =====================================================================
 
+def _goal_behind(g):
+    cur = float(g.get("current_amount", 0) or 0); tgt = float(g.get("target_amount", 0) or 0)
+    if tgt <= 0 or cur >= tgt:
+        return False
+    monthly = float(g.get("monthly_contribution", 0) or 0); r = float(g.get("growth_rate", 0) or 0) / 100 / 12
+    ty = int(g.get("target_year", 0) or 0)
+    if monthly <= 0 and r <= 0:
+        return False  # no funding plan to judge against
+    bal, m = cur, 0
+    while bal < tgt and m < 1200:
+        m += 1; bal = bal * (1 + r) + monthly
+    if m >= 1200:
+        return True
+    now = datetime.now(timezone.utc)
+    proj_year = now.year + ((now.month - 1 + m) // 12)
+    return bool(ty and proj_year > ty)
+
+
 def _household_score(c, nw, debts, insurance, retirement, goals, estate=None):
     assets = c["assets"] + sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "asset")
     liabilities = sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "liability") \
@@ -528,6 +552,9 @@ def _household_score(c, nw, debts, insurance, retirement, goals, estate=None):
     behind = [g for g in goals if g.get("status") in ("behind", "at_risk")]
     if behind:
         score -= min(30, 10 * len(behind)); alerts.append(f"{len(behind)} goal(s) off track"); next_action = next_action or "Rebalance goal funding"
+    nudges = [g for g in goals if _goal_behind(g)]
+    if nudges:
+        score -= min(15, 5 * len(nudges)); alerts.append(f"{len(nudges)} goal(s) behind projected schedule"); next_action = next_action or "Increase contributions or extend goal timelines"
     est = estate or []
     has_will = any(r.get("kind") == "document" and str(r.get("doc_type", "")).lower() == "will"
                    and str(r.get("status", "")).lower() in ("on file", "current", "active") for r in est)
@@ -887,7 +914,7 @@ async def plan_delete(collection: str, rid: str, user: dict = Depends(get_curren
 async def email_report(body: ReportEmailInput, user: dict = Depends(get_current_user), household_id: str = None):
     if user["tier"] == "enterprise":
         raise HTTPException(status_code=403, detail="Not available for this tier")
-    store, read, _, hid = planner_scope(user, household_id)
+    store, read, ws, hid = planner_scope(user, household_id)
     if user["tier"] == "advisor" and not hid:
         raise HTTPException(status_code=400, detail="Open a household before emailing its report")
     if not rate_ok(user["id"]):
@@ -898,8 +925,37 @@ async def email_report(body: ReportEmailInput, user: dict = Depends(get_current_
     goals = repo.list(store, "goals", read)[:5]
     html = render_report_html(household_name, body.net_worth, body.protection_score, body.retirement_success, goals)
     email_id = await send_email(to=str(body.recipient), subject=f"{household_name} — financial summary", html=html)
+    repo.create(store, "report_log", {
+        "id": _id(), "store": store, "scope": ws, "household_id": hid,
+        "recipient": str(body.recipient), "net_worth": body.net_worth,
+        "protection_score": body.protection_score, "retirement_success": body.retirement_success,
+        "sent_at": datetime.now(timezone.utc).isoformat(), "actor_email": user["email"],
+    })
     audit(user, "report.email", "report", f"to {body.recipient}")
     return {"status": "sent", "email_id": email_id}
+
+
+@api.get("/advisor/branding")
+async def get_branding(user: dict = Depends(get_current_user)):
+    return user.get("branding") or {}
+
+
+@api.put("/advisor/branding")
+async def put_branding(body: BrandingInput, user: dict = Depends(get_current_user)):
+    if user["tier"] == "enterprise":
+        raise HTTPException(status_code=403, detail="Not available for this tier")
+    repo.update_user(user["id"], {"branding": body.model_dump()})
+    return body.model_dump()
+
+
+@api.get("/report/history")
+async def report_history(user: dict = Depends(get_current_user), household_id: str = None):
+    store, read, _, hid = planner_scope(user, household_id)
+    rows = repo.list(store, "report_log", read)
+    if hid:
+        rows = [r for r in rows if r.get("household_id") == hid]
+    rows.sort(key=lambda r: r.get("sent_at", ""), reverse=True)
+    return rows
 
 
 app.include_router(api)
