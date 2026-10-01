@@ -139,8 +139,10 @@ def _money(v) -> str:
         return "$0"
 
 
-def render_report_html(household_name: str, net_worth, protection_score, retirement_success, goals) -> str:
+def render_report_html(household_name: str, net_worth, protection_score, retirement_success, goals, firm_name=None) -> str:
     name = escape(str(household_name))
+    firm = escape(str(firm_name or EMAIL_FROM_NAME))
+    initials = "".join([w[0] for w in str(firm_name or EMAIL_FROM_NAME).split()[:2]]).upper() or "C"
     rs = f"{int(retirement_success)}%" if retirement_success is not None else "Not run"
     rows = ""
     for g in (goals or [])[:5]:
@@ -160,9 +162,14 @@ def render_report_html(household_name: str, net_worth, protection_score, retirem
 
     return (
         f'<table role="presentation" width="100%" style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif">'
-        f'<tr><td style="background:#0052FF;padding:22px 24px;border-radius:10px 10px 0 0">'
-        f'<div style="color:#fff;font-size:20px;font-weight:700">{escape(EMAIL_FROM_NAME)}</div>'
-        f'<div style="color:#dbe6ff;font-size:12px">Canadian Retirement Intelligence</div></td></tr>'
+        f'<tr><td style="background:#0052FF;padding:20px 24px;border-radius:10px 10px 0 0">'
+        f'<table role="presentation"><tr>'
+        f'<td style="width:40px;height:40px;background:#ffffff;border-radius:8px;text-align:center;vertical-align:middle;'
+        f'color:#0052FF;font-weight:700;font-size:16px">{initials}</td>'
+        f'<td style="padding-left:12px">'
+        f'<div style="color:#fff;font-size:20px;font-weight:700">{firm}</div>'
+        f'<div style="color:#dbe6ff;font-size:12px">Canadian Retirement Intelligence</div>'
+        f'</td></tr></table></td></tr>'
         f'<tr><td style="padding:24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px">'
         f'<h2 style="color:#0B1437;margin:0 0 4px">{name}</h2>'
         f'<p style="color:#60708f;margin:0 0 18px;font-size:13px">Here is your latest financial summary.</p>'
@@ -171,7 +178,7 @@ def render_report_html(household_name: str, net_worth, protection_score, retirem
         f'</tr></table>'
         f'<h3 style="color:#0B1437;margin:22px 0 6px;font-size:14px">Top goals</h3>'
         f'<table role="presentation" width="100%" style="font-size:13px">{rows}</table>'
-        f'<p style="font-size:11px;color:#9aa5b9;margin-top:22px">Prepared with {escape(EMAIL_FROM_NAME)}. '
+        f'<p style="font-size:11px;color:#9aa5b9;margin-top:22px">Prepared with {firm}. '
         f'Illustrative summary — not financial, tax or legal advice. We never ask for your password or card details by email.</p>'
         f'</td></tr></table>'
     )

@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Users, ArrowLeft, Landmark, Target, AlertTriangle, ArrowRight } from "lucide-react";
+import { Users, ArrowLeft, Landmark, Target, AlertTriangle, ArrowRight, Download } from "lucide-react";
+import { jsPDF } from "jspdf";
+import { toast } from "sonner";
 import api from "@/lib/api";
 import { useHousehold } from "@/context/HouseholdContext";
 import { Card, Button, Badge, Progress, Empty } from "@/components/ui-kit";
@@ -32,9 +34,34 @@ export default function AdvisorClients() {
   const avgScore = list.length ? Math.round(list.reduce((s, c) => s + (c.score || 0), 0) / list.length) : 0;
   const needAttention = list.filter((c) => (c.status || "") !== "On Track").length;
 
+  const buildBookPdf = () => {
+    const doc = new jsPDF(); const W = 210; let y = 0;
+    doc.setFillColor(0, 82, 255); doc.rect(0, 0, W, 26, "F");
+    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("Book Review", 14, 13);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("en-CA", { dateStyle: "long" }), W - 14, 13, { align: "right" });
+    doc.setFontSize(10); doc.setTextColor(219, 230, 255);
+    doc.text(`${list.length} households · avg score ${avgScore} · ${needAttention} need attention`, 14, 20);
+    y = 38;
+    [...list].sort((a, b) => (a.score || 0) - (b.score || 0)).forEach((c) => {
+      if (y > 268) { doc.addPage(); y = 20; }
+      doc.setTextColor(11, 20, 55); doc.setFont("helvetica", "bold"); doc.setFontSize(12);
+      doc.text(c.primary || c.client_id, 14, y);
+      doc.text(`${c.score ?? "-"} · ${c.status || ""}`, W - 14, y, { align: "right" });
+      y += 6; doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(96, 112, 143);
+      doc.text(`Net worth ${money(c.net_worth || 0)} · Assets ${money(c.assets || 0)} · Goals ${c.goals || 0}`, 16, y); y += 5;
+      const top = (c.alerts || [])[0];
+      if (top) { doc.text(`Alert: ${top} — ${c.next_action || ""}`, 16, y); y += 5; }
+      doc.setDrawColor(226, 232, 240); doc.line(14, y, W - 14, y); y += 7;
+    });
+    doc.save("book-review.pdf");
+    toast.success("Book report downloaded");
+  };
+
   return (
     <div>
-      <PageHeader title="Household Queue" subtitle="Every household in your book, scored and triaged by what needs attention." />
+      <PageHeader title="Household Queue" subtitle="Every household in your book, scored and triaged by what needs attention.">
+        {list.length > 0 && <Button variant="outline" onClick={buildBookPdf} data-testid="book-report-button"><Download size={16} /> Book report</Button>}
+      </PageHeader>
       {clients.isLoading ? (
         <div className="text-compass-muted">Loading…</div>
       ) : list.length === 0 ? (

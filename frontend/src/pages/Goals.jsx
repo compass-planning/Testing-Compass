@@ -21,6 +21,18 @@ function projectFunding(current, target, monthly, annualGrowth) {
   return { label: d.toLocaleDateString("en-CA", { year: "numeric", month: "short" }), year: d.getFullYear() };
 }
 
+// Monthly contribution needed to reach `target` by `targetYear` at `annualGrowth`.
+function requiredMonthly(current, target, annualGrowth, targetYear) {
+  if (current >= target) return 0;
+  const now = new Date();
+  const n = Math.max(1, (targetYear - now.getFullYear()) * 12 - now.getMonth());
+  const rm = annualGrowth / 100 / 12;
+  if (rm <= 0) return (target - current) / n;
+  const fvCurrent = current * Math.pow(1 + rm, n);
+  const factor = (Math.pow(1 + rm, n) - 1) / rm;
+  return Math.max(0, (target - fvCurrent) / factor);
+}
+
 export default function Goals() {
   const qc = useQueryClient();
   const [modal, setModal] = useState(null);
@@ -45,6 +57,12 @@ export default function Goals() {
     onError: (e) => toast.error(formatApiError(e.response?.data?.detail)),
   });
   const del = useMutation({ mutationFn: (id) => api.delete(`/goals/${id}`), onSuccess: () => { toast.success("Goal deleted"); invalidate(); } });
+
+  const applyFix = (g, current, req) => save.mutate({
+    id: g.id, title: g.title, category: g.category, target_amount: Number(g.target_amount || 0),
+    current_amount: Number(current || 0), target_year: Number(g.target_year), owner_id: g.owner_id || null,
+    linked_asset_ids: g.linked_asset_ids || [], monthly_contribution: Math.round(req), growth_rate: Number(g.growth_rate || 0),
+  });
 
   return (
     <div>
@@ -90,6 +108,15 @@ export default function Goals() {
                       {proj.year !== 9999 && proj.label !== "Funded" && <span className="text-compass-muted font-normal">({onTime ? "on track" : "after target"})</span>}
                     </div>
                   )}
+                  {current < Number(g.target_amount || 0) && (!proj || !onTime) && (() => {
+                    const req = requiredMonthly(current, Number(g.target_amount || 0), Number(g.growth_rate || 0), Number(g.target_year || new Date().getFullYear()));
+                    return (
+                      <div className="mt-2.5 rounded-lg bg-compass-amber/10 px-3 py-2 text-xs flex items-center justify-between gap-2" data-testid={`goal-fix-${g.id}`}>
+                        <span className="text-compass-navy"><span className="font-semibold">Catch up:</span> contribute <span className="font-bold">{money(req)}/mo</span> to hit {g.target_year}</span>
+                        <button onClick={() => applyFix(g, current, req)} className="text-compass-blue font-bold shrink-0 hover:underline" data-testid={`apply-fix-${g.id}`}>Apply</button>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="flex gap-2 mt-5">
                   <Button size="sm" variant="outline" onClick={() => setModal(g)} data-testid={`edit-goal-${g.id}`}><Pencil size={14} /> Edit</Button>

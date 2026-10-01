@@ -925,7 +925,8 @@ async def email_report(body: ReportEmailInput, user: dict = Depends(get_current_
     primary = next((o for o in owners if o.get("relationship") == "self"), owners[0] if owners else None)
     household_name = f"The {primary['full_name'].split()[-1]} Household" if primary else "Household"
     goals = repo.list(store, "goals", read)[:5]
-    html = render_report_html(household_name, body.net_worth, body.protection_score, body.retirement_success, goals)
+    branding = user.get("branding") or {}
+    html = render_report_html(household_name, body.net_worth, body.protection_score, body.retirement_success, goals, branding.get("firm_name"))
     email_id = await send_email(to=str(body.recipient), subject=f"{household_name} — financial summary", html=html)
     repo.create(store, "report_log", {
         "id": _id(), "store": store, "scope": ws, "household_id": hid,

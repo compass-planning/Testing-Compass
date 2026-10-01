@@ -6,7 +6,7 @@ import { FileBarChart, Download, Upload, Mail, Palette, History, Scale } from "l
 import api, { formatApiError } from "@/lib/api";
 import { planApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
-import { Card, Button, Stat, Badge, Field, Input, Empty } from "@/components/ui-kit";
+import { Card, Button, Stat, Badge, Field, Input, Empty, Modal } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
 import { estateEstimate } from "@/lib/tax";
@@ -23,6 +23,7 @@ export default function ClientReport() {
   const brandKey = `compass_brand_${user.id}`;
   const [brand, setBrand] = useState({ firm_name: "Compass Planning", cover_note: "", logo: "" });
   const [recipient, setRecipient] = useState("");
+  const [historyModal, setHistoryModal] = useState(null);
 
   const brandingQ = useQuery({ queryKey: ["branding"], queryFn: async () => (await api.get("/advisor/branding")).data });
   useEffect(() => {
@@ -239,16 +240,28 @@ export default function ClientReport() {
             ) : (
               <div className="space-y-2.5">
                 {history.data.map((h, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm" data-testid={`history-row-${i}`}>
+                  <button key={i} onClick={() => setHistoryModal(h)} className="w-full flex items-center justify-between text-sm hover:bg-compass-bg rounded-lg px-2 py-1.5 -mx-2 transition-colors" data-testid={`history-row-${i}`}>
                     <span className="text-compass-navy truncate">{h.recipient}</span>
                     <span className="text-xs text-compass-muted shrink-0 ml-2">{new Date(h.sent_at).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}</span>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
           </Card>
         </div>
       </div>
+
+      <Modal open={!!historyModal} onClose={() => setHistoryModal(null)} title="Sent summary" testid="history-modal">
+        {historyModal && (
+          <div className="space-y-2 text-sm">
+            <Row label="Recipient" value={historyModal.recipient} />
+            <Row label="Sent" value={new Date(historyModal.sent_at).toLocaleString("en-CA")} />
+            <Row label="Net worth" value={money(historyModal.net_worth)} />
+            <Row label="Protection score" value={`${historyModal.protection_score}/100`} />
+            <Row label="Retirement success" value={historyModal.retirement_success != null ? `${historyModal.retirement_success}%` : "Not run"} />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
