@@ -160,7 +160,8 @@ function ChangeStep({ changeToken, onDone }) {
   const lengthOk = PW_RULES[0].test(pw);
   const categories = PW_RULES.slice(1).filter((r) => r.test(pw)).length;
   const strong = lengthOk && categories >= 3;
-  const strength = STRENGTH[Math.max(0, passed.length - 1)] || STRENGTH[0];
+  const rawIdx = Math.max(0, passed.length - 1);
+  const strength = STRENGTH[strong ? rawIdx : Math.min(2, rawIdx)] || STRENGTH[0];
   const match = pw.length > 0 && pw === confirm;
 
   const submit = async (e) => {

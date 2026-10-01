@@ -191,7 +191,7 @@ function OpportunitiesList({ list, sort, setSort, onOpen }) {
           {opps.map((o, i) => {
             const meta = SCORE_META[o.c.status] || SCORE_META["Needs Review"];
             return (
-              <Card key={`${o.c.client_id}-${i}`} className="p-4 flex items-center gap-4" data-testid={`opp-row-${i}`}>
+              <Card key={`${o.c.client_id}-${o.alert}`} className="p-4 flex items-center gap-4" data-testid={`opp-row-${i}`}>
                 <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: meta.bg }}>
                   <AlertTriangle size={16} style={{ color: meta.color }} />
                 </div>
