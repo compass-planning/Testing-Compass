@@ -58,7 +58,7 @@ export default function AdvisorClients() {
     try {
       const { data } = await api.post("/advisor/clients/invite/resend", { client_id: cid, base_url: window.location.origin });
       if (data.emailed) { toast.success(`Invitation re-sent to ${data.email}`); }
-      else { navigator.clipboard?.writeText(data.activation_link); toast.success("Activation link regenerated & copied"); }
+      else { try { await navigator.clipboard.writeText(data.activation_link); toast.success("Activation link regenerated & copied"); } catch { toast.message("Activation link regenerated", { description: data.activation_link }); } }
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
   };
 
