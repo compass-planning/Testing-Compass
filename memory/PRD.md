@@ -178,3 +178,10 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - **Client View** (`_public.is_client` + `components/Shell.jsx`): invited clients (tier solo with `invited_by`) get a trimmed, simplified nav (My Plan, Insights, My Goals, My Profile) instead of the full advisor planner surface.
 - **Inline Actions** (`POST/GET/PATCH /api/advisor/tasks` + `OpportunitiesList`): advisors log a follow-up task straight from an Opportunities row (prefilled with the alert); rows show an open-task count. Tasks are scoped to the household.
 - Testing: iter16 — backend verified by main agent (invite link + activate + resend + tasks CRUD + email send to a valid recipient = emailed:true). Frontend pending verification.
+
+## Client Dashboard / Task Board / Invite Expiry / Nudge From Row (added 2026-06, iter17)
+- **Client Dashboard** (`pages/MyPlan.jsx`, route `/my-plan`): invited clients land on a purpose-built read-only page (net worth, assets, debt, goal progress) instead of the solo dashboard. `Login.finish()` redirects `is_client` users to `/my-plan`; client nav 'My Plan' points there.
+- **Task Board** (`pages/TaskBoard.jsx`, route `/tasks`, advisor-only): logged tasks get a home — Open/Completed lists with Complete (`PATCH /advisor/tasks/{id}`) and Clear (`DELETE /advisor/tasks/{id}`). Added 'Tasks' to advisor nav.
+- **Invite Expiry UI** (`server.py` stores `invite_expires_at` on invite/resend; `pages/AdvisorClients.jsx`): pending cards show 'Link expires in Nd' (muted) or 'Link expired' (red).
+- **Nudge From Row** (`POST /advisor/households/{client_id}/nudge-goals` + `OpportunitiesList`): Goals/Retirement opportunity rows get a 'Nudge' button that sets underfunded goals' monthly contribution to the required catch-up (or extends the timeline 10y if unrealistic).
+- Testing: iter17 — backend 100% + frontend 4/4 flows pass. Report `/app/test_reports/iteration_17.json`.

@@ -26,7 +26,7 @@ export default function MyPlan() {
 
   return (
     <div data-testid="my-plan-page">
-      <PageHeader title={`Welcome back, ${(user.name || "").split(" ")[0] || "there"}`} subtitle="Your plan at a glance. Your advisor keeps this up to date — reach out any time to make changes." />
+      <PageHeader title={`Welcome back, ${(user?.name || "").split(" ")[0] || "there"}`} subtitle="Your plan at a glance. Your advisor keeps this up to date — reach out any time to make changes." />
 
       <div className="grid sm:grid-cols-3 gap-4 mb-6">
         <Stat icon={Wallet} label="Net Worth" value={money(o.netWorth || 0)} tone={(o.netWorth || 0) >= 0 ? "green" : "red"} />

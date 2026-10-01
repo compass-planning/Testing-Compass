@@ -14,7 +14,7 @@ export default function TaskBoard() {
   const clients = clientsQ.data || [];
   const nameFor = (cid) => clients.find((c) => c.client_id === cid)?.primary || cid;
 
-  const complete = useMutation({ mutationFn: (id) => api.patch(`/advisor/tasks/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }), onError: () => toast.error("Could not update task") });
+  const complete = useMutation({ mutationFn: (id) => api.patch(`/advisor/tasks/${id}`), onSuccess: () => { qc.invalidateQueries({ queryKey: ["tasks"] }); toast.success("Task completed"); }, onError: () => toast.error("Could not update task") });
   const clear = useMutation({ mutationFn: (id) => api.delete(`/advisor/tasks/${id}`), onSuccess: () => { qc.invalidateQueries({ queryKey: ["tasks"] }); toast.success("Task cleared"); }, onError: (e) => toast.error(formatApiError(e.response?.data?.detail)) });
 
   const open = tasks.filter((t) => !t.done);
