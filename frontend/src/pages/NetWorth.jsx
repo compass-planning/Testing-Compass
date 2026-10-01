@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Scale, Plus, Pencil, Trash2, Home, Landmark, GraduationCap } from "lucide-react";
+import { Scale, Plus, Pencil, Trash2, Home, Landmark, GraduationCap, Car } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { planApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
@@ -11,11 +11,17 @@ import { money } from "@/lib/format";
 
 const ASSET_CATEGORIES = [
   "Principal Residence", "Real Estate (other)", "RRSP", "TFSA", "Non-Registered",
-  "Cash / Bank", "Business", "Employer Stock Options", "Other Asset",
+  "Cash / Bank", "Vehicle", "Business", "Employer Stock Options", "Other Asset",
 ];
 const LIABILITY_CATEGORIES = ["Mortgage", "Loan", "Credit Card", "Line of Credit", "Student Loan", "Other Liability"];
 const EDUCATION_CATEGORIES = ["RESP", "Education Savings", "Other Education"];
 const REAL_ESTATE = ["Principal Residence", "Real Estate (other)"];
+const INVESTMENT = ["RRSP", "TFSA", "Non-Registered"];
+const FREQUENCIES = ["Monthly", "Bi-weekly", "Weekly", "Annual"];
+const HOLDING_TYPES = ["GIC", "Segregated Fund", "Mutual Fund", "Stock", "Cash", "Bond", "ETF", "Other"];
+
+const groupOf = (cat) =>
+  REAL_ESTATE.includes(cat) ? "real_estate" : INVESTMENT.includes(cat) ? "investment" : cat === "Vehicle" ? "vehicle" : "basic";
 
 const TABS = [
   { key: "assets", label: "Assets", icon: Landmark },
@@ -27,6 +33,7 @@ const sectionOf = (r) => {
   if (EDUCATION_CATEGORIES.includes(r.category)) return "education";
   return r.kind === "liability" ? "liabilities" : "assets";
 };
+const encumbrance = (r) => Number(r.mortgage || r.loan_amount || 0);
 
 export default function NetWorth() {
   const { user } = useAuth();
@@ -100,7 +107,7 @@ export default function NetWorth() {
               <th className="muted-label px-5 py-3.5">Name</th>
               <th className="muted-label px-5 py-3.5">Owner</th>
               <th className="muted-label px-5 py-3.5">Category</th>
-              {tab === "assets" && <th className="muted-label px-5 py-3.5 text-right">Mortgage</th>}
+              {tab === "assets" && <th className="muted-label px-5 py-3.5 text-right">Mortgage / Loan</th>}
               <th className="muted-label px-5 py-3.5 text-right">{tab === "liabilities" ? "Balance" : "Market value"}</th>
               {!readOnly && <th className="px-5 py-3.5" />}
             </tr></thead>
@@ -108,11 +115,13 @@ export default function NetWorth() {
               {visible.map((r) => (
                 <tr key={r.id} className="border-b border-compass-border last:border-0 hover:bg-compass-bg/40" data-testid={`networth-row-${r.id}`}>
                   <td className="px-5 py-3.5 font-semibold text-compass-navy flex items-center gap-2">
-                    {REAL_ESTATE.includes(r.category) && <Home size={14} className="text-compass-blue" />}{r.name || "—"}
+                    {REAL_ESTATE.includes(r.category) && <Home size={14} className="text-compass-blue" />}
+                    {r.category === "Vehicle" && <Car size={14} className="text-compass-blue" />}
+                    {r.name || "—"}
                   </td>
                   <td className="px-5 py-3.5 text-compass-muted">{r.owner || "—"}</td>
                   <td className="px-5 py-3.5"><Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{r.category}</Badge></td>
-                  {tab === "assets" && <td className="px-5 py-3.5 text-right text-compass-muted">{r.mortgage ? money(r.mortgage) : "—"}</td>}
+                  {tab === "assets" && <td className="px-5 py-3.5 text-right text-compass-muted">{encumbrance(r) ? money(encumbrance(r)) : "—"}</td>}
                   <td className="px-5 py-3.5 text-right font-heading font-bold text-compass-navy">{money(r.value)}</td>
                   {!readOnly && (
                     <td className="px-5 py-3.5 text-right whitespace-nowrap">
@@ -135,6 +144,7 @@ export default function NetWorth() {
 
 const ownerName = (owners, i) => (owners && owners[i] ? owners[i].full_name : "Joint");
 const clean = (b) => { const { id, store, scope, household_id, created_at, ...rest } = b; return rest; };
+const num = (v) => Number(v || 0);
 
 function EntryModal({ open, initial, owners, tab, onClose, onSubmit, loading }) {
   const isLiab = (initial?.kind === "liability") || tab === "liabilities";
@@ -146,18 +156,49 @@ function EntryModal({ open, initial, owners, tab, onClose, onSubmit, loading }) 
       id: initial?.id, kind: initial?.kind || (isLiab ? "liability" : "asset"),
       owner: initial?.owner || (owners[0]?.full_name ?? "Joint"),
       category: initial?.category || cats[0], name: initial?.name || "",
-      value: initial?.value ?? "", mortgage: initial?.mortgage ?? "", cash_flow: initial?.cash_flow ?? "",
+      value: initial?.value ?? "",
+      // real estate
+      mortgage: initial?.mortgage ?? "", mortgage_payment: initial?.mortgage_payment ?? "",
+      payment_frequency: initial?.payment_frequency ?? "Monthly", property_taxes: initial?.property_taxes ?? "",
+      interest_rate: initial?.interest_rate ?? "", is_rental: initial?.is_rental ? "yes" : "no",
+      rental_income: initial?.rental_income ?? "",
+      // investment
+      contribution: initial?.contribution ?? "", contribution_frequency: initial?.contribution_frequency ?? "Monthly",
+      holding_type: initial?.holding_type ?? HOLDING_TYPES[0],
+      // vehicle
+      purchase_price: initial?.purchase_price ?? "", loan_amount: initial?.loan_amount ?? "",
+      payment: initial?.payment ?? "", purchase_date: initial?.purchase_date ?? "",
+      loan_length_years: initial?.loan_length_years ?? "",
     });
   }, [open, initial]); // eslint-disable-line
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
-  const showRE = REAL_ESTATE.includes(f.category);
+  const group = groupOf(f.category);
+  const isRental = f.is_rental === "yes";
   const ownerOpts = [...owners.map((o) => o.full_name), "Joint"];
 
-  const submit = () => onSubmit({
-    ...f, value: Number(f.value || 0),
-    mortgage: showRE ? Number(f.mortgage || 0) : undefined,
-    cash_flow: showRE ? Number(f.cash_flow || 0) : undefined,
-  });
+  const submit = () => {
+    const base = {
+      id: f.id, kind: f.kind, owner: f.owner, category: f.category, name: f.name,
+      value: num(f.value),
+    };
+    if (group === "real_estate") Object.assign(base, {
+      mortgage: num(f.mortgage), mortgage_payment: num(f.mortgage_payment),
+      payment_frequency: f.payment_frequency, property_taxes: num(f.property_taxes),
+      interest_rate: num(f.interest_rate), is_rental: isRental,
+      rental_income: isRental ? num(f.rental_income) : 0,
+    });
+    if (group === "investment") Object.assign(base, {
+      contribution: num(f.contribution), contribution_frequency: f.contribution_frequency,
+      holding_type: f.holding_type,
+    });
+    if (group === "vehicle") Object.assign(base, {
+      purchase_price: num(f.purchase_price), loan_amount: num(f.loan_amount),
+      interest_rate: num(f.interest_rate), payment: num(f.payment),
+      payment_frequency: f.payment_frequency, purchase_date: f.purchase_date,
+      loan_length_years: num(f.loan_length_years),
+    });
+    onSubmit(base);
+  };
 
   return (
     <Modal open={open} onClose={onClose} title={`${f.id ? "Edit" : "Add"} ${isLiab ? "liability" : "asset"}`} testid="networth-modal">
@@ -167,13 +208,58 @@ function EntryModal({ open, initial, owners, tab, onClose, onSubmit, loading }) 
           <Field label="Category"><Select value={f.category || ""} onChange={set("category")} data-testid="field-category">{cats.map((c) => <option key={c}>{c}</option>)}</Select></Field>
         </div>
         <Field label="Name / notes"><Input value={f.name || ""} onChange={set("name")} data-testid="field-name" /></Field>
-        <Field label={isLiab ? "Balance (CAD)" : "Market value (CAD)"}><Input type="number" value={f.value ?? ""} onChange={set("value")} data-testid="field-value" /></Field>
-        {showRE && (
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Mortgage ($)"><Input type="number" value={f.mortgage ?? ""} onChange={set("mortgage")} data-testid="field-mortgage" /></Field>
-            <Field label="Cash flow ($/mo)"><Input type="number" value={f.cash_flow ?? ""} onChange={set("cash_flow")} /></Field>
+        <Field label={isLiab ? "Balance (CAD)" : group === "real_estate" ? "Total value (CAD)" : group === "vehicle" ? "Current value (CAD)" : group === "investment" ? "Balance (CAD)" : "Market value (CAD)"}>
+          <Input type="number" value={f.value ?? ""} onChange={set("value")} data-testid="field-value" />
+        </Field>
+
+        {group === "real_estate" && (
+          <div className="space-y-4 rounded-xl bg-compass-bg/50 p-4" data-testid="re-fields">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Mortgage amount ($)"><Input type="number" value={f.mortgage ?? ""} onChange={set("mortgage")} data-testid="field-mortgage" /></Field>
+              <Field label="Interest rate (%)"><Input type="number" step="0.01" value={f.interest_rate ?? ""} onChange={set("interest_rate")} data-testid="field-interest-rate" /></Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Mortgage payment ($)"><Input type="number" value={f.mortgage_payment ?? ""} onChange={set("mortgage_payment")} data-testid="field-mortgage-payment" /></Field>
+              <Field label="Payment frequency"><Select value={f.payment_frequency || "Monthly"} onChange={set("payment_frequency")} data-testid="field-payment-frequency">{FREQUENCIES.map((x) => <option key={x}>{x}</option>)}</Select></Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Property taxes ($/yr)"><Input type="number" value={f.property_taxes ?? ""} onChange={set("property_taxes")} data-testid="field-property-taxes" /></Field>
+              <Field label="Rental property?"><Select value={f.is_rental || "no"} onChange={set("is_rental")} data-testid="field-is-rental"><option value="no">No</option><option value="yes">Yes</option></Select></Field>
+            </div>
+            {isRental && (
+              <Field label="Monthly rental income ($)"><Input type="number" value={f.rental_income ?? ""} onChange={set("rental_income")} data-testid="field-rental-income" /></Field>
+            )}
           </div>
         )}
+
+        {group === "investment" && (
+          <div className="space-y-4 rounded-xl bg-compass-bg/50 p-4" data-testid="inv-fields">
+            <Field label="Holding type"><Select value={f.holding_type || HOLDING_TYPES[0]} onChange={set("holding_type")} data-testid="field-holding-type">{HOLDING_TYPES.map((x) => <option key={x}>{x}</option>)}</Select></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Contribution amount ($)"><Input type="number" value={f.contribution ?? ""} onChange={set("contribution")} data-testid="field-contribution" /></Field>
+              <Field label="Contribution frequency"><Select value={f.contribution_frequency || "Monthly"} onChange={set("contribution_frequency")} data-testid="field-contribution-frequency">{FREQUENCIES.map((x) => <option key={x}>{x}</option>)}</Select></Field>
+            </div>
+          </div>
+        )}
+
+        {group === "vehicle" && (
+          <div className="space-y-4 rounded-xl bg-compass-bg/50 p-4" data-testid="veh-fields">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Purchase price ($)"><Input type="number" value={f.purchase_price ?? ""} onChange={set("purchase_price")} data-testid="field-purchase-price" /></Field>
+              <Field label="Loan amount ($)"><Input type="number" value={f.loan_amount ?? ""} onChange={set("loan_amount")} data-testid="field-loan-amount" /></Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Interest rate (%)"><Input type="number" step="0.01" value={f.interest_rate ?? ""} onChange={set("interest_rate")} data-testid="field-veh-interest-rate" /></Field>
+              <Field label="Payment ($)"><Input type="number" value={f.payment ?? ""} onChange={set("payment")} data-testid="field-payment" /></Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Payment frequency"><Select value={f.payment_frequency || "Monthly"} onChange={set("payment_frequency")} data-testid="field-veh-payment-frequency">{FREQUENCIES.map((x) => <option key={x}>{x}</option>)}</Select></Field>
+              <Field label="Loan length (years)"><Input type="number" value={f.loan_length_years ?? ""} onChange={set("loan_length_years")} data-testid="field-loan-length" /></Field>
+            </div>
+            <Field label="Purchase date"><Input type="date" value={f.purchase_date ?? ""} onChange={set("purchase_date")} data-testid="field-purchase-date" /></Field>
+          </div>
+        )}
+
         <div className="flex gap-2 justify-end pt-2">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={submit} disabled={loading} data-testid="networth-save">Save</Button>
