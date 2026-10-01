@@ -1,10 +1,48 @@
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Trash2, ClipboardList } from "lucide-react";
+import { CheckCircle2, Trash2, ClipboardList, Bell } from "lucide-react";
 import { toast } from "sonner";
 import api, { formatApiError } from "@/lib/api";
-import { Card, Button, Empty, Badge } from "@/components/ui-kit";
+import { Card, Button, Empty, Badge, Toggle, Select } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
+
+function DigestSettings() {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["digest-settings"], queryFn: async () => (await api.get("/advisor/digest-settings")).data });
+  const s = q.data || { enabled: true, hour: 8 };
+  const save = useMutation({
+    mutationFn: (next) => api.put("/advisor/digest-settings", next),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["digest-settings"] }); toast.success("Digest settings saved"); },
+    onError: () => toast.error("Could not save digest settings"),
+  });
+  const fmtHour = (h) => { const am = h < 12; const base = h % 12 === 0 ? 12 : h % 12; return `${base}:00 ${am ? "AM" : "PM"}`; };
+  return (
+    <Card className="p-5 mb-6" data-testid="digest-settings-card">
+      <div className="flex items-start gap-3">
+        <div className="h-10 w-10 rounded-xl bg-compass-blue/10 flex items-center justify-center shrink-0"><Bell size={18} className="text-compass-blue" /></div>
+        <div className="flex-1">
+          <div className="font-heading font-bold text-compass-navy">Morning task digest</div>
+          <p className="text-sm text-compass-muted mt-0.5 mb-3">Get a daily email of tasks due today or overdue. We only email you on days you actually have tasks.</p>
+          <div className="flex flex-wrap items-center gap-5">
+            <label className="flex items-center gap-2 text-sm font-semibold text-compass-navy">
+              <Toggle checked={s.enabled} onChange={(v) => save.mutate({ enabled: v, hour: s.hour })} testid="digest-enabled-toggle" />
+              {s.enabled ? "On" : "Off"}
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-compass-muted">Send at</span>
+              <div className="w-32">
+                <Select value={String(s.hour)} disabled={!s.enabled} onChange={(e) => save.mutate({ enabled: s.enabled, hour: Number(e.target.value) })} data-testid="digest-hour-select">
+                  {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{fmtHour(h)}</option>)}
+                </Select>
+              </div>
+              <span className="text-xs text-compass-muted">ET</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 export default function TaskBoard() {
   const qc = useQueryClient();
@@ -38,6 +76,7 @@ export default function TaskBoard() {
   return (
     <div data-testid="task-board-page">
       <PageHeader title="Task Board" subtitle="Follow-ups logged from your household queue, in one place." />
+      <DigestSettings />
       {tasks.length === 0 ? (
         <Empty icon={ClipboardList} title="No tasks yet">Log a task from any Opportunities row to see it here.</Empty>
       ) : (

@@ -98,7 +98,7 @@ export default function MyPlan() {
         )}
       </Card>
 
-      <p className="text-xs text-compass-muted mt-6">This is a read-only view maintained by your advisor. Contact them to update your goals or financial details.</p>
+      <p className="text-xs text-compass-muted mt-6">This is a read-only view maintained by your advisor. Contact them to update your goals or financial details. <button onClick={() => setShowWelcome(true)} className="font-semibold text-compass-blue hover:underline" data-testid="replay-tour">Replay tour</button></p>
     </div>
   );
 }
