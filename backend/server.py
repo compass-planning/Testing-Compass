@@ -9,6 +9,7 @@ load_dotenv(Path(__file__).parent / ".env")
 
 import os
 import logging
+from typing import Optional
 from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request
 from starlette.middleware.cors import CORSMiddleware
@@ -28,6 +29,15 @@ from models import (
     MFAVerifyInput, SecurityQuestionInput, ForgotInput, ResetInput,
 )
 import seed
+from pydantic import BaseModel, EmailStr
+from email_service import send_email, render_report_html, rate_ok
+
+
+class ReportEmailInput(BaseModel):
+    recipient: EmailStr
+    net_worth: float = 0
+    protection_score: int = 0
+    retirement_success: Optional[int] = None
 
 SECURITY_QUESTIONS = [
     "What was the name of your first pet?",
@@ -502,7 +512,7 @@ async def delete_goal(gid: str, user: dict = Depends(get_current_user)):
 #  ADVISOR — client roster + drill-down
 # =====================================================================
 
-def _household_score(c, nw, debts, insurance, retirement, goals):
+def _household_score(c, nw, debts, insurance, retirement, goals, estate=None):
     assets = c["assets"] + sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "asset")
     liabilities = sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "liability") \
         + sum(float(d.get("balance", 0)) for d in debts)
@@ -518,6 +528,12 @@ def _household_score(c, nw, debts, insurance, retirement, goals):
     behind = [g for g in goals if g.get("status") in ("behind", "at_risk")]
     if behind:
         score -= min(30, 10 * len(behind)); alerts.append(f"{len(behind)} goal(s) off track"); next_action = next_action or "Rebalance goal funding"
+    est = estate or []
+    has_will = any(r.get("kind") == "document" and r.get("doc_type") == "Will" and r.get("status") == "On file" for r in est)
+    if not has_will:
+        score -= 10; alerts.append("No will on file"); next_action = next_action or "Add or confirm the client's will"
+    if not any(r.get("kind") == "beneficiary" for r in est):
+        score -= 5; alerts.append("Beneficiary designations missing"); next_action = next_action or "Record beneficiary designations"
     if net_worth < 0:
         score -= 15; alerts.append("Negative net worth")
     score = max(0, min(100, score))
@@ -562,6 +578,7 @@ async def advisor_clients(user: dict = Depends(get_current_user)):
             repo.list(store, "plan_insurance", cflt),
             repo.list(store, "plan_retirement", cflt),
             hh_goals,
+            repo.list(store, "plan_estate", cflt),
         ))
     return list(clients.values())
 
@@ -863,6 +880,25 @@ async def plan_delete(collection: str, rid: str, user: dict = Depends(get_curren
         raise HTTPException(status_code=404, detail="Not found")
     audit(user, f"{collection}.delete", collection, rid)
     return {"ok": True}
+
+
+@api.post("/report/email")
+async def email_report(body: ReportEmailInput, user: dict = Depends(get_current_user), household_id: str = None):
+    if user["tier"] == "enterprise":
+        raise HTTPException(status_code=403, detail="Not available for this tier")
+    store, read, _, hid = planner_scope(user, household_id)
+    if user["tier"] == "advisor" and not hid:
+        raise HTTPException(status_code=400, detail="Open a household before emailing its report")
+    if not rate_ok(user["id"]):
+        raise HTTPException(status_code=429, detail="Too many emails — please wait a minute")
+    owners = repo.list(store, "owners", read)
+    primary = next((o for o in owners if o.get("relationship") == "self"), owners[0] if owners else None)
+    household_name = f"The {primary['full_name'].split()[-1]} Household" if primary else "Household"
+    goals = repo.list(store, "goals", read)[:5]
+    html = render_report_html(household_name, body.net_worth, body.protection_score, body.retirement_success, goals)
+    email_id = await send_email(to=str(body.recipient), subject=f"{household_name} — financial summary", html=html)
+    audit(user, "report.email", "report", f"to {body.recipient}")
+    return {"status": "sent", "email_id": email_id}
 
 
 app.include_router(api)

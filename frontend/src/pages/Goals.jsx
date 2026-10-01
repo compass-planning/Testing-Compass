@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Target, Trash2, Pencil, Link2 } from "lucide-react";
+import { Plus, Target, Trash2, Pencil, Link2, CalendarCheck } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { planApi } from "@/lib/planning";
 import { Card, Button, Input, Field, Select, Badge, Progress, Modal, Empty } from "@/components/ui-kit";
@@ -10,16 +10,26 @@ import { money, STATUS_META } from "@/lib/format";
 
 const CATEGORIES = ["retirement", "income", "legacy", "purchase"];
 
+// Months until `current` reaches `target` given monthly contribution + annual growth.
+function projectFunding(current, target, monthly, annualGrowth) {
+  if (current >= target) return { label: "Funded", year: new Date().getFullYear() };
+  if (monthly <= 0 && annualGrowth <= 0) return null;
+  let bal = current, m = 0; const r = annualGrowth / 100 / 12;
+  while (bal < target && m < 1200) { m++; bal = bal * (1 + r) + monthly; }
+  if (m >= 1200) return { label: "60+ yrs", year: 9999 };
+  const d = new Date(); d.setMonth(d.getMonth() + m);
+  return { label: d.toLocaleDateString("en-CA", { year: "numeric", month: "short" }), year: d.getFullYear() };
+}
+
 export default function Goals() {
   const qc = useQueryClient();
-  const [modal, setModal] = useState(null); // null | {} (new) | goal (edit)
+  const [modal, setModal] = useState(null);
 
   const goals = useQuery({ queryKey: ["goals"], queryFn: async () => (await api.get("/goals")).data });
   const owners = useQuery({ queryKey: ["owners"], queryFn: async () => (await api.get("/owners")).data });
   const networth = useQuery({ queryKey: ["plan", "networth"], queryFn: () => planApi.list("networth") });
   const accounts = useQuery({ queryKey: ["accounts"], queryFn: async () => (await api.get("/accounts")).data });
 
-  // Linkable funding sources: net-worth assets + investment accounts.
   const linkItems = useMemo(() => {
     const nw = (networth.data || []).filter((r) => r.kind === "asset").map((r) => ({ id: r.id, label: `${r.name || r.category} (Net Worth)`, value: Number(r.value || 0) }));
     const acc = (accounts.data || []).map((a) => ({ id: a.id, label: `${a.account_type} · ${a.institution} (Account)`, value: Number(a.balance || 0) }));
@@ -53,6 +63,8 @@ export default function Goals() {
             const current = linked ? linkedTotal(g.linked_asset_ids) : Number(g.current_amount || 0);
             const pct = g.target_amount ? Math.round((current / g.target_amount) * 100) : 0;
             const meta = STATUS_META[g.status] || STATUS_META.on_track;
+            const proj = projectFunding(current, Number(g.target_amount || 0), Number(g.monthly_contribution || 0), Number(g.growth_rate || 0));
+            const onTime = proj && proj.year <= Number(g.target_year || 9999);
             return (
               <Card key={g.id} className="p-6" data-testid={`goal-${g.id}`}>
                 <div className="flex items-start justify-between gap-3">
@@ -72,6 +84,12 @@ export default function Goals() {
                     <span className="text-compass-muted">{pct}% funded</span>
                     {linked && <Badge color="#00DF89" bg="rgba(0,223,137,0.12)" data-testid={`goal-linked-${g.id}`}><Link2 size={11} /> Auto-funded · {g.linked_asset_ids.length} source{g.linked_asset_ids.length > 1 ? "s" : ""}</Badge>}
                   </div>
+                  {proj && (
+                    <div className={`flex items-center gap-1.5 text-xs mt-2.5 font-semibold ${onTime ? "text-compass-green" : "text-compass-amber"}`} data-testid={`goal-projection-${g.id}`}>
+                      <CalendarCheck size={13} /> Projected funding: {proj.label}
+                      {proj.year !== 9999 && proj.label !== "Funded" && <span className="text-compass-muted font-normal">({onTime ? "on track" : "after target"})</span>}
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2 mt-5">
                   <Button size="sm" variant="outline" onClick={() => setModal(g)} data-testid={`edit-goal-${g.id}`}><Pencil size={14} /> Edit</Button>
@@ -92,13 +110,14 @@ export default function Goals() {
 function strip(body) { const { store, scope, household_id, created_at, status, ...rest } = body; return rest; }
 
 function GoalModal({ open, initial, owners, linkItems, onClose, onSubmit, loading }) {
-  const [f, setF] = useState({ title: "", category: "retirement", target_amount: "", current_amount: "", target_year: new Date().getFullYear() + 10, owner_id: "", linked_asset_ids: [] });
+  const [f, setF] = useState({ title: "", category: "retirement", target_amount: "", current_amount: "", target_year: new Date().getFullYear() + 10, owner_id: "", linked_asset_ids: [], monthly_contribution: "", growth_rate: "" });
   React.useEffect(() => {
     if (open) setF({
       id: initial?.id, title: initial?.title || "", category: initial?.category || "retirement",
       target_amount: initial?.target_amount ?? "", current_amount: initial?.current_amount ?? "",
       target_year: initial?.target_year || new Date().getFullYear() + 10, owner_id: initial?.owner_id || "",
       linked_asset_ids: initial?.linked_asset_ids || [],
+      monthly_contribution: initial?.monthly_contribution ?? "", growth_rate: initial?.growth_rate ?? "",
     });
   }, [open, initial]); // eslint-disable-line
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -110,6 +129,7 @@ function GoalModal({ open, initial, owners, linkItems, onClose, onSubmit, loadin
     id: f.id, title: f.title, category: f.category, target_amount: Number(f.target_amount || 0),
     current_amount: linked ? computed : Number(f.current_amount || 0),
     target_year: Number(f.target_year), owner_id: f.owner_id || null, linked_asset_ids: f.linked_asset_ids,
+    monthly_contribution: Number(f.monthly_contribution || 0), growth_rate: Number(f.growth_rate || 0),
   });
 
   return (
@@ -125,6 +145,10 @@ function GoalModal({ open, initial, owners, linkItems, onClose, onSubmit, loadin
           <Field label="Current amount">
             <Input type="number" value={linked ? computed : f.current_amount} onChange={set("current_amount")} disabled={linked} data-testid="goal-current" />
           </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Monthly contribution"><Input type="number" value={f.monthly_contribution} onChange={set("monthly_contribution")} data-testid="goal-contribution" /></Field>
+          <Field label="Expected growth (%/yr)"><Input type="number" step="0.1" value={f.growth_rate} onChange={set("growth_rate")} data-testid="goal-growth" /></Field>
         </div>
         {owners.length > 0 && (
           <Field label="Link to owner (optional)">
