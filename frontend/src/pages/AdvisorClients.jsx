@@ -54,6 +54,14 @@ export default function AdvisorClients() {
     navigate("/profile");
   };
 
+  const resendInvite = async (cid) => {
+    try {
+      const { data } = await api.post("/advisor/clients/invite/resend", { client_id: cid, base_url: window.location.origin });
+      if (data.emailed) { toast.success(`Invitation re-sent to ${data.email}`); }
+      else { navigator.clipboard?.writeText(data.activation_link); toast.success("Activation link regenerated & copied"); }
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
+
   if (selected) return <ClientDetail clientId={selected} onBack={() => setSelected(null)} />;
 
   const list = clients.data || [];
@@ -136,6 +144,7 @@ export default function AdvisorClients() {
                       <div className="font-heading text-2xl font-extrabold" style={{ color: scoreColor(c.score || 0) }} data-testid={`client-score-${c.client_id}`}>{c.score ?? "—"}</div>
                       <Badge color={meta.color} bg={meta.bg} data-testid={`client-status-${c.client_id}`}>{c.status || "—"}</Badge>
                       {c.invite_pending && <div className="mt-1 text-[10px] font-semibold text-compass-amber" data-testid={`invite-pending-${c.client_id}`}>Invited · not activated</div>}
+                      {c.invite_pending && <button onClick={() => resendInvite(c.client_id)} className="mt-0.5 text-[10px] font-semibold text-compass-blue hover:underline" data-testid={`resend-invite-${c.client_id}`}>Resend invite</button>}
                     </div>
                   </div>
                   <Progress value={c.score || 0} color={scoreColor(c.score || 0)} />
@@ -198,6 +207,11 @@ function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, sta
   const viewsQ = useQuery({ queryKey: ["opps-views"], queryFn: async () => (await api.get("/advisor/opps-views")).data });
   const views = viewsQ.data || [];
   const saveMut = useMutation({ mutationFn: (next) => api.put("/advisor/opps-views", { views: next }), onSuccess: () => qc.invalidateQueries({ queryKey: ["opps-views"] }), onError: () => toast.error("Could not save view") });
+  const tasksQ = useQuery({ queryKey: ["tasks"], queryFn: async () => (await api.get("/advisor/tasks")).data });
+  const tasks = tasksQ.data || [];
+  const taskMut = useMutation({ mutationFn: (b) => api.post("/advisor/tasks", b), onSuccess: () => { qc.invalidateQueries({ queryKey: ["tasks"] }); toast.success("Task logged"); }, onError: () => toast.error("Could not log task") });
+  const logTask = (o) => { const t = window.prompt("Log a follow-up task", o.alert); if (t && t.trim()) taskMut.mutate({ client_id: o.c.client_id, title: t.trim() }); };
+  const taskCount = (cid) => tasks.filter((t) => t.scope?.client_id === cid && !t.done).length;
   const saveViews = (next) => saveMut.mutate(next);
   const saveCurrentView = () => { const name = window.prompt("Name this view"); if (name && name.trim()) saveViews([...views, { name: name.trim(), type: typeFilter, status: statusFilter, sort }]); };
   const applyView = (v) => { setTypeFilter(v.type); setStatusFilter(v.status); setSort(v.sort); };
@@ -252,7 +266,9 @@ function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, sta
                 </div>
                 <div className="text-right shrink-0">
                   <div className="font-heading text-xl font-extrabold" style={{ color: o.c.score == null ? "#60708f" : scoreColor(o.c.score) }}>{o.c.score ?? "—"}</div>
+                  {taskCount(o.c.client_id) > 0 && <div className="text-[10px] font-semibold text-compass-blue" data-testid={`task-count-${o.c.client_id}`}>{taskCount(o.c.client_id)} task{taskCount(o.c.client_id) > 1 ? "s" : ""}</div>}
                 </div>
+                <Button size="sm" variant="ghost" onClick={() => logTask(o)} data-testid={`log-task-${i}`}>Log task</Button>
                 <Button size="sm" variant="outline" onClick={() => onOpen(o.c)} data-testid={`opp-open-${i}`}>Open <ArrowRight size={14} /></Button>
               </Card>
             );
@@ -395,7 +411,7 @@ function InviteModal({ open, onClose, clientId, defaultName }) {
     if (!email.trim()) return;
     setLoading(true);
     try {
-      const { data } = await api.post("/advisor/clients/invite", { email: email.trim(), full_name: name.trim() || "Client", client_id: clientId });
+      const { data } = await api.post("/advisor/clients/invite", { email: email.trim(), full_name: name.trim() || "Client", client_id: clientId, base_url: window.location.origin });
       setResult(data);
       toast.success("Client login created");
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
@@ -405,17 +421,17 @@ function InviteModal({ open, onClose, clientId, defaultName }) {
     <Modal open={open} onClose={onClose} title="Invite client login" testid="invite-client-modal">
       {result ? (
         <div className="space-y-4" data-testid="invite-result">
-          <p className="text-sm text-compass-navy">Share these one-time credentials securely. The client will set up MFA and choose their own password on first sign-in.</p>
+          <p className="text-sm text-compass-navy">{result.emailed ? `We emailed a secure activation link to ${result.email}.` : `Couldn't send the email automatically — copy the secure activation link below and share it with ${result.email}.`}</p>
           <div className="rounded-lg bg-compass-bg px-4 py-3 text-sm space-y-2">
             <div><div className="muted-label">Email</div><div className="font-mono text-compass-navy" data-testid="invite-email">{result.email}</div></div>
-            <div><div className="muted-label">Temporary password</div><div className="font-mono font-bold text-compass-navy flex items-center gap-2" data-testid="invite-temp-password">{result.temp_password}
-              <button onClick={() => { navigator.clipboard?.writeText(result.temp_password); toast.success("Copied"); }} className="text-compass-blue" data-testid="invite-copy"><Copy size={14} /></button></div></div>
+            <div><div className="muted-label">Activation link</div><div className="font-mono text-compass-navy break-all flex items-start gap-2" data-testid="invite-activation-link">{result.activation_link}
+              <button onClick={() => { navigator.clipboard?.writeText(result.activation_link); toast.success("Link copied"); }} className="text-compass-blue shrink-0" data-testid="invite-copy"><Copy size={14} /></button></div></div>
           </div>
           <div className="flex justify-end"><Button onClick={onClose} data-testid="invite-done">Done</Button></div>
         </div>
       ) : (
         <div className="space-y-4">
-          <p className="text-sm text-compass-muted">Create a secure login for this household. They'll be forced to set up MFA and a new password on first sign-in.</p>
+          <p className="text-sm text-compass-muted">Create a secure login for this household. They'll get an email with an activation link, then set up MFA and a password on first sign-in.</p>
           <Field label="Client email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="client@email.com" data-testid="invite-email-input" /></Field>
           <Field label="Client name"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" data-testid="invite-name-input" /></Field>
           <div className="flex gap-2 justify-end pt-2">

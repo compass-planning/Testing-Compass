@@ -11,7 +11,7 @@ import { Logo, CompassMark } from "@/components/Logo";
 import { Badge } from "@/components/ui-kit";
 import { TIER_META } from "@/lib/format";
 
-function getNav(tier, active) {
+function getNav(tier, active, isClient) {
   const suite = { label: "Financial Planning Suite", tabs: [
     { to: "/networth", label: "Net Worth", icon: Scale },
     { to: "/goals", label: "Goals", icon: Target },
@@ -31,6 +31,16 @@ function getNav(tier, active) {
     { to: "/privacy", label: "Privacy & PIPEDA", icon: ShieldCheck },
     { to: "/audit", label: "Audit Log", icon: ScrollText },
   ]};
+  if (tier === "solo" && isClient) {
+    return [
+      { label: null, tabs: [
+        { to: "/dashboard", label: "My Plan", icon: Home },
+        { to: "/insights", label: "Insights", icon: TrendingUp },
+        { to: "/goals", label: "My Goals", icon: Target },
+        { to: "/profile", label: "My Profile", icon: UserCog },
+      ]},
+    ];
+  }
   if (tier === "solo") {
     return [
       { label: null, tabs: [
@@ -68,7 +78,7 @@ export default function Shell() {
   const { active, name: hhName, clear } = useHousehold();
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
-  const items = getNav(user.tier, active);
+  const items = getNav(user.tier, active, user.is_client);
   const TierIcon = TIER_ICON[user.tier];
   const backTo = user.tier === "enterprise" ? "/owners" : "/clients";
 

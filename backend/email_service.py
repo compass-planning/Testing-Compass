@@ -188,3 +188,25 @@ def render_report_html(household_name: str, net_worth, protection_score, retirem
         f'Illustrative summary — not financial, tax or legal advice. We never ask for your password or card details by email.</p>'
         f'</td></tr></table>'
     )
+
+
+
+def render_invite_html(name, firm, link) -> str:
+    firm = escape(str(firm or EMAIL_FROM_NAME))
+    name = escape(str(name or "there"))
+    link = escape(str(link))
+    return (
+        f'<table role="presentation" width="100%" style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif">'
+        f'<tr><td style="background:#0052FF;padding:20px 24px;border-radius:10px 10px 0 0">'
+        f'<div style="color:#fff;font-size:20px;font-weight:700">{firm}</div>'
+        f'<div style="color:#dbe6ff;font-size:12px">Canadian Retirement Intelligence</div></td></tr>'
+        f'<tr><td style="padding:24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px">'
+        f'<h2 style="color:#0B1437;margin:0 0 8px">Welcome, {name}</h2>'
+        f'<p style="color:#60708f;font-size:14px;margin:0 0 18px">Your advisor at {firm} has set up secure access to your retirement plan. '
+        f'Click below to choose your password. You will set up two-factor authentication on your first sign-in.</p>'
+        f'<p style="margin:0 0 22px"><a href="{link}" style="display:inline-block;background:#0052FF;color:#fff;'
+        f'text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px">Activate my account</a></p>'
+        f'<p style="font-size:12px;color:#9aa5b9">This link expires in 7 days. If you did not expect this email, you can ignore it. '
+        f'We never ask for your password or card details by email.</p>'
+        f'</td></tr></table>'
+    )

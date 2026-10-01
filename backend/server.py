@@ -33,7 +33,7 @@ from models import (
 )
 import seed
 from pydantic import BaseModel, EmailStr, Field
-from email_service import send_email, render_report_html, rate_ok
+from email_service import send_email, render_report_html, render_invite_html, rate_ok
 
 
 class ReportEmailInput(BaseModel):
@@ -82,6 +82,7 @@ def _public(user: dict) -> dict:
     u = dict(user)
     for k in ("password_hash", "mfa_secret", "security_answer_hash"):
         u.pop(k, None)
+    u["is_client"] = bool(user.get("invited_by"))
     return u
 
 
@@ -1099,6 +1100,23 @@ class InviteClientInput(BaseModel):
     email: EmailStr
     full_name: str
     client_id: str
+    base_url: str = ""
+
+
+def _activation_link(base_url: str, token: str) -> str:
+    return f"{(base_url or '').rstrip('/')}/activate?token={token}"
+
+
+async def _send_invite(to_email: str, name: str, firm: str, link: str) -> bool:
+    if not (link and link.startswith("https://")):
+        return False
+    try:
+        await send_email(to=to_email, subject=f"Activate your {firm or 'Compass Planning'} account",
+                         html=render_invite_html(name, firm, link))
+        return True
+    except Exception as e:
+        logger.warning(f"Invite email failed: {e}")
+        return False
 
 
 @api.post("/advisor/clients/invite")
@@ -1112,10 +1130,9 @@ async def invite_client(body: InviteClientInput, user: dict = Depends(get_curren
     email = body.email.lower()
     if repo.find_user_by_email(email):
         raise HTTPException(status_code=409, detail="An account with this email already exists")
-    temp_password = "Cmps-" + secrets.token_urlsafe(10)
     sc = user.get("scope", {})
     client = {
-        "id": _id(), "email": email, "password_hash": hash_password(temp_password),
+        "id": _id(), "email": email, "password_hash": hash_password("Cmps-" + secrets.token_urlsafe(10)),
         "name": body.full_name, "tier": "solo", "role": "solo_user",
         "scope": {"corp_id": None, "org_id": sc.get("org_id"), "advisor_id": sc.get("advisor_id"), "client_id": body.client_id},
         "mfa_enabled": False, "mfa_secret": None, "must_change_password": True,
@@ -1125,8 +1142,94 @@ async def invite_client(body: InviteClientInput, user: dict = Depends(get_curren
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     repo.insert_user(client)
+    token = create_scoped_token({"sub": client["id"]}, 60 * 24 * 7, "activate")
+    link = _activation_link(body.base_url, token)
+    firm = (user.get("branding") or {}).get("firm_name")
+    emailed = await _send_invite(email, client["name"], firm, link)
     audit(user, "client.invite", "account", f"Invited client login {email} for {body.client_id}")
-    return {"email": email, "temp_password": temp_password}
+    return {"email": email, "activation_link": link, "emailed": emailed}
+
+
+class ResendInviteInput(BaseModel):
+    client_id: str
+    base_url: str = ""
+
+
+@api.post("/advisor/clients/invite/resend")
+async def resend_invite(body: ResendInviteInput, user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Only advisors can resend invites")
+    pending = next((u for u in repo.all_users()
+                    if u.get("invited_by") and u.get("scope", {}).get("client_id") == body.client_id
+                    and u.get("must_change_password")), None)
+    if not pending:
+        raise HTTPException(status_code=404, detail="No pending invite for this household")
+    repo.update_user(pending["id"], {"password_hash": hash_password("Cmps-" + secrets.token_urlsafe(10)),
+                                     "must_change_password": True})
+    token = create_scoped_token({"sub": pending["id"]}, 60 * 24 * 7, "activate")
+    link = _activation_link(body.base_url, token)
+    firm = (user.get("branding") or {}).get("firm_name")
+    emailed = await _send_invite(pending["email"], pending["name"], firm, link)
+    audit(user, "client.invite_resend", "account", f"Re-invited {pending['email']}")
+    return {"email": pending["email"], "activation_link": link, "emailed": emailed}
+
+
+class ActivateInput(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8)
+
+
+@api.post("/auth/activate")
+async def activate_account(body: ActivateInput):
+    try:
+        p = decode_token(body.token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="This link has expired — ask your advisor to resend it")
+    if p.get("type") != "activate":
+        raise HTTPException(status_code=401, detail="Invalid activation link")
+    u = repo.find_user_by_id(p["sub"])
+    if not u:
+        raise HTTPException(status_code=404, detail="Account not found")
+    repo.update_user(u["id"], {"password_hash": hash_password(body.new_password), "must_change_password": False})
+    return {"ok": True, "email": u["email"]}
+
+
+class TaskInput(BaseModel):
+    client_id: str
+    title: str = Field(min_length=1)
+
+
+@api.post("/advisor/tasks")
+async def create_task(body: TaskInput, user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    store, _ = scope_context(user)
+    rec = {"id": _id(), "store": store, "scope": write_scope(user, client_id=body.client_id),
+           "title": body.title, "done": False, "actor_email": user["email"],
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    repo.create(store, "tasks", rec)
+    audit(user, "task.create", "tasks", body.title)
+    return rec
+
+
+@api.get("/advisor/tasks")
+async def list_tasks(user: dict = Depends(get_current_user), client_id: str = None):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    store, flt = scope_context(user)
+    rows = repo.list(store, "tasks", flt)
+    if client_id:
+        rows = [r for r in rows if r.get("scope", {}).get("client_id") == client_id]
+    return rows
+
+
+@api.patch("/advisor/tasks/{tid}")
+async def complete_task(tid: str, user: dict = Depends(get_current_user)):
+    store, flt = scope_context(user)
+    updated = repo.update(store, "tasks", tid, {"done": True}, flt)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return updated
 
 
 @api.get("/report/history")

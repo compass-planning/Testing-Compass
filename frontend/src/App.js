@@ -18,6 +18,7 @@ import AuditLog from "@/pages/AuditLog";
 import Promotion from "@/pages/Promotion";
 import PlanningPage from "@/components/PlanningPage";
 import ClientReport from "@/pages/ClientReport";
+import Activate from "@/pages/Activate";
 import Retirement from "@/pages/Retirement";
 import AIInsights from "@/pages/AIInsights";
 import FinancialPlan from "@/pages/FinancialPlan";
@@ -51,6 +52,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/activate" element={<Activate />} />
             <Route
               element={
                 <ProtectedRoute>
