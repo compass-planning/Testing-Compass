@@ -1,0 +1,22 @@
+{
+  "summary": "Iter25 frontend-only review of 4 new advisor features (plus the regression checks). All PASS end-to-end on the live preview URL with real advisor MFA login. (1) Snooze + Undo on /dashboard advisor-today-panel: 4 today-review-<id> SELECT dropdowns rendered. Selecting 'month' for client_0a836c02 fired POST /advisor/households/<id>/review {duration:'month'}, showed 'Snoozed from the panel' toast with Undo action, removed the attention row, and rendered snoozed-<id> chip inside today-snoozed section with unsnooze-<id> X. Clicking the X restored the household into the attention list (DELETE /review). Separately verified the toast 'Undo' action also restores the row after a 'week' snooze on the same client. (2) Queue card test IDs on /clients Queue: 5 queue-household-card-<client_id> cards present; sub-testids open-client-<id>, score-<id>, status-<id> all still render inside each card. (3) Today Summary Email on /tasks digest-settings-card: third row 'End-of-day recap' present with digest-summary-toggle, digest-summary-hour-select (correctly disabled while toggle=off, enabled when toggle=on), and summary-preview-button. Toggling on + changing hour to 17 then full page reload confirmed persistence (toggle stayed on, hour stayed 17), independent of daily/weekly rows. Clicking 'Send recap test' triggered POST /advisor/today-summary/preview; graceful info toast 'Preview built, but email delivery is unavailable in this environment' shown — expected PASS in preview per task note. (4) Digest Retry covers summary: 'Recent sends' now shows a Summary row (test · not delivered) alongside Daily/Weekly rows, with digest-retry-<id> Resend buttons on each; clicking the first Summary Resend re-fired preview successfully (no console errors). Regression spot-checks (daily/weekly toggles + hours still persist independently, summary chip removal from attention) also pass. One pre-auth console 401 observed (AuthContext bootstrap before token-inject) — not a bug.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "No functional issues this iter. digest-settings-card nicely groups all 3 recap rows with consistent at+toggle+send-test layout. Snooze dropdown uses a native <select> which is accessible and keyboard-friendly; chip + unsnooze X are discoverable."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (frontend-only)", "frontend": "100%" },
+  "test_credentials": "advisor@compass.ca / Compass2026! + shared TOTP JBSWY3DPEHPK3PXP (pyotp)",
+  "seed_data_creation": "No persistent data left behind. All snoozes created during Test 1 were un-snoozed (both via X and via toast Undo). advisor digest-settings restored via API after the run to {enabled:true, weekly_enabled:true, summary_enabled:false, daily_hour:8, weekly_hour:8, summary_hour:17} per task note. digest-history did accumulate 1 new 'summary' preview entry + 1 resend during the test (not deliverable in preview — matches history grow-only behaviour already seen in iter24).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 4 iter25 features confirmed working against the production preview URL. Advisor mfa_enabled stays true (shared TOTP), digest settings reset to summary_enabled=false/summary_hour=17 after the run. No snoozes left. If re-running Test 1, pick any client — all 4 rows start un-snoozed again. digest-history now has >=5 undeliverable rows across iter23/24/25 runs; harmless.",
+  "rca of the issue": "N/A — no bugs found."
+}
