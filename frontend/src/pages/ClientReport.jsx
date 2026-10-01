@@ -235,7 +235,7 @@ export default function ClientReport() {
                   <Upload size={15} /> {brand.logo ? "Replace logo" : "Upload logo"}
                   <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={onLogo} />
                 </label>
-                {brand.logo && <button className="ml-3 text-xs text-compass-red font-semibold" onClick={() => persist({ ...brand, logo: "", logo_url: "" })} data-testid="brand-logo-remove">Remove</button>}
+                {brand.logo && <button className="ml-3 text-xs text-compass-red font-semibold" onClick={async () => { try { await api.delete("/advisor/branding/logo"); } catch (e) { /* ignore */ } persist({ ...brand, logo: "", logo_url: "" }); }} data-testid="brand-logo-remove">Remove</button>}
               </div>
               <p className="text-xs text-compass-muted">Branding is saved to your advisor profile and follows you across devices.</p>
             </div>

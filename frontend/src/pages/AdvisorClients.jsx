@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Users, ArrowLeft, Landmark, Target, AlertTriangle, ArrowRight, Download, Plus, Zap, ArrowUpDown } from "lucide-react";
+import { Users, ArrowLeft, Landmark, Target, AlertTriangle, ArrowRight, Download, Plus, Zap, ArrowUpDown, UserPlus, Copy, Bookmark, X } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 import api, { formatApiError } from "@/lib/api";
 import { useHousehold } from "@/context/HouseholdContext";
-import { Card, Button, Badge, Progress, Empty, Modal, Input, Field, Select } from "@/components/ui-kit";
+import { Card, Button, Badge, Progress, Empty, Modal, Input, Field, Select, Toggle } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money, STATUS_META } from "@/lib/format";
 
@@ -44,6 +44,9 @@ export default function AdvisorClients() {
     const cid = data?.scope?.client_id;
     if (form.spouse_name && form.spouse_name.trim()) {
       await api.post("/owners", { full_name: form.spouse_name.trim(), relationship: "spouse", province: form.province, annual_income: Number(form.spouse_income || 0) }, { params: { household_id: cid } });
+    }
+    if (form.seed_goal) {
+      await api.post("/goals", { title: "Retirement", category: "retirement", target_amount: 1000000, current_amount: 0, target_year: new Date().getFullYear() + 30, owner_id: null, linked_asset_ids: [], monthly_contribution: 0, growth_rate: 5 }, { params: { household_id: cid } });
     }
     qc.invalidateQueries({ queryKey: ["clients"] });
     setActive(cid, form.full_name);
@@ -190,6 +193,11 @@ function alertType(a) {
 }
 
 function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, statusFilter, setStatusFilter, onOpen }) {
+  const [views, setViews] = useState(() => { try { return JSON.parse(localStorage.getItem("compass_opps_views") || "[]"); } catch { return []; } });
+  const saveViews = (next) => { setViews(next); localStorage.setItem("compass_opps_views", JSON.stringify(next)); };
+  const saveCurrentView = () => { const name = window.prompt("Name this view"); if (name && name.trim()) saveViews([...views, { name: name.trim(), type: typeFilter, status: statusFilter, sort }]); };
+  const applyView = (v) => { setTypeFilter(v.type); setStatusFilter(v.status); setSort(v.sort); };
+  const deleteView = (i) => saveViews(views.filter((_, j) => j !== i));
   const statuses = ["all", ...Array.from(new Set(list.map((c) => c.status).filter(Boolean)))];
   let opps = list.flatMap((c) => (c.alerts || []).map((a) => ({ c, alert: a, type: alertType(a) })));
   if (typeFilter !== "all") opps = opps.filter((o) => o.type === typeFilter);
@@ -201,6 +209,15 @@ function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, sta
   });
   return (
     <div data-testid="opportunities-list">
+      <div className="flex flex-wrap items-center gap-2 mb-3" data-testid="saved-views">
+        {views.map((v, i) => (
+          <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-compass-blue/10 text-compass-blue text-xs font-semibold pl-3 pr-2 py-1">
+            <button onClick={() => applyView(v)} data-testid={`saved-view-${i}`}>{v.name}</button>
+            <button onClick={() => deleteView(i)} className="opacity-60 hover:opacity-100" data-testid={`saved-view-delete-${i}`}><X size={12} /></button>
+          </span>
+        ))}
+        <button onClick={saveCurrentView} className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-compass-border text-compass-muted hover:text-compass-navy text-xs font-semibold px-3 py-1" data-testid="save-view-button"><Bookmark size={12} /> Save view</button>
+      </div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
         <div className="text-sm text-compass-muted">{opps.length} open opportunit{opps.length === 1 ? "y" : "ies"}</div>
         <div className="flex flex-wrap items-center gap-2">
@@ -248,12 +265,13 @@ function NewHouseholdModal({ open, onClose, onCreate }) {
   const [income, setIncome] = useState("");
   const [spouse_name, setSpouseName] = useState("");
   const [spouse_income, setSpouseIncome] = useState("");
+  const [seed_goal, setSeedGoal] = useState(true);
   const [loading, setLoading] = useState(false);
-  React.useEffect(() => { if (open) { setFullName(""); setProvince("ON"); setIncome(""); setSpouseName(""); setSpouseIncome(""); } }, [open]);
+  React.useEffect(() => { if (open) { setFullName(""); setProvince("ON"); setIncome(""); setSpouseName(""); setSpouseIncome(""); setSeedGoal(true); } }, [open]);
   const submit = async () => {
     if (!full_name.trim()) return;
     setLoading(true);
-    try { await onCreate({ full_name: full_name.trim(), province, income, spouse_name, spouse_income }); }
+    try { await onCreate({ full_name: full_name.trim(), province, income, spouse_name, spouse_income, seed_goal }); }
     catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
     finally { setLoading(false); }
   };
@@ -272,6 +290,10 @@ function NewHouseholdModal({ open, onClose, onCreate }) {
           <Field label="Spouse name"><Input value={spouse_name} onChange={(e) => setSpouseName(e.target.value)} placeholder="e.g. Sam Blake" data-testid="new-household-spouse-name" /></Field>
           <Field label="Spouse annual income"><Input type="number" min="0" value={spouse_income} onChange={(e) => setSpouseIncome(e.target.value)} placeholder="e.g. 60000" data-testid="new-household-spouse-income" /></Field>
         </div>
+        <label className="flex items-center justify-between gap-3 rounded-lg bg-compass-bg/60 px-3 py-2">
+          <span className="text-sm text-compass-navy">Add a starter retirement goal <span className="text-compass-muted">· $1M by {new Date().getFullYear() + 30}</span></span>
+          <Toggle checked={seed_goal} onChange={setSeedGoal} testid="new-household-seed-goal" />
+        </label>
         <div className="flex gap-2 justify-end pt-2">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={submit} disabled={!full_name.trim() || loading} data-testid="new-household-create">{loading ? "Creating…" : "Create & open"}</Button>
@@ -291,6 +313,7 @@ function StatCard({ label, value, color }) {
 }
 
 function ClientDetail({ clientId, onBack }) {
+  const [inviteOpen, setInviteOpen] = useState(false);
   const { data, isLoading } = useQuery({ queryKey: ["client", clientId], queryFn: async () => (await api.get(`/advisor/clients/${clientId}`)).data });
   if (isLoading || !data) return <div className="text-compass-muted">Loading household…</div>;
 
@@ -302,7 +325,10 @@ function ClientDetail({ clientId, onBack }) {
       <button onClick={onBack} className="flex items-center gap-2 text-sm font-semibold text-compass-blue mb-4" data-testid="back-to-roster">
         <ArrowLeft size={16} /> Back to roster
       </button>
-      <PageHeader title={primary ? `${primary.full_name}'s Household` : "Household"} subtitle={`Client ${clientId} · ${money(totalAssets)} under plan`} />
+      <PageHeader title={primary ? `${primary.full_name}'s Household` : "Household"} subtitle={`Client ${clientId} · ${money(totalAssets)} under plan`}>
+        <Button variant="outline" onClick={() => setInviteOpen(true)} data-testid="invite-client-button"><UserPlus size={16} /> Invite client login</Button>
+      </PageHeader>
+      <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} clientId={clientId} defaultName={primary ? primary.full_name : ""} />
 
       <div className="grid lg:grid-cols-2 gap-6">
         <Card className="p-6">
@@ -352,5 +378,48 @@ function ClientDetail({ clientId, onBack }) {
         </Card>
       </div>
     </div>
+  );
+}
+
+function InviteModal({ open, onClose, clientId, defaultName }) {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState(defaultName);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  React.useEffect(() => { if (open) { setEmail(""); setName(defaultName); setResult(null); } }, [open, defaultName]);
+  const submit = async () => {
+    if (!email.trim()) return;
+    setLoading(true);
+    try {
+      const { data } = await api.post("/advisor/clients/invite", { email: email.trim(), full_name: name.trim() || "Client", client_id: clientId });
+      setResult(data);
+      toast.success("Client login created");
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+    finally { setLoading(false); }
+  };
+  return (
+    <Modal open={open} onClose={onClose} title="Invite client login" testid="invite-client-modal">
+      {result ? (
+        <div className="space-y-4" data-testid="invite-result">
+          <p className="text-sm text-compass-navy">Share these one-time credentials securely. The client will set up MFA and choose their own password on first sign-in.</p>
+          <div className="rounded-lg bg-compass-bg px-4 py-3 text-sm space-y-2">
+            <div><div className="muted-label">Email</div><div className="font-mono text-compass-navy" data-testid="invite-email">{result.email}</div></div>
+            <div><div className="muted-label">Temporary password</div><div className="font-mono font-bold text-compass-navy flex items-center gap-2" data-testid="invite-temp-password">{result.temp_password}
+              <button onClick={() => { navigator.clipboard?.writeText(result.temp_password); toast.success("Copied"); }} className="text-compass-blue" data-testid="invite-copy"><Copy size={14} /></button></div></div>
+          </div>
+          <div className="flex justify-end"><Button onClick={onClose} data-testid="invite-done">Done</Button></div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-compass-muted">Create a secure login for this household. They'll be forced to set up MFA and a new password on first sign-in.</p>
+          <Field label="Client email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="client@email.com" data-testid="invite-email-input" /></Field>
+          <Field label="Client name"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" data-testid="invite-name-input" /></Field>
+          <div className="flex gap-2 justify-end pt-2">
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button onClick={submit} disabled={!email.trim() || loading} data-testid="invite-submit">{loading ? "Creating…" : "Create login"}</Button>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }

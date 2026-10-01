@@ -14,6 +14,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, UploadFile, File, Response
 from fastapi.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
+import secrets
 import storage
 
 import jwt
@@ -130,6 +131,8 @@ def write_scope(user: dict, client_id: str = None, advisor_id: str = None) -> di
         base["corp_id"] = sc.get("corp_id")
     elif tier == "solo":
         base["client_id"] = sc.get("client_id")
+        base["org_id"] = sc.get("org_id")
+        base["advisor_id"] = sc.get("advisor_id")
     else:  # advisor
         base["org_id"] = sc.get("org_id")
         base["advisor_id"] = advisor_id or sc.get("advisor_id")
@@ -1033,6 +1036,59 @@ async def public_logo(uid: str):
     except Exception:
         raise HTTPException(status_code=404, detail="No logo on file")
     return Response(content=content, media_type=ct, headers={"Cache-Control": "public, max-age=3600"})
+
+
+@api.delete("/advisor/branding/logo")
+async def delete_branding_logo(user: dict = Depends(get_current_user)):
+    if user["tier"] == "enterprise":
+        raise HTTPException(status_code=403, detail="Not available for this tier")
+    branding = dict(user.get("branding") or {})
+    path = branding.get("logo_path")
+    if path:
+        try:
+            await run_in_threadpool(storage.delete_object, path)
+        except Exception as e:
+            logger.warning(f"Logo delete (storage) failed: {e}")
+    branding.pop("logo_path", None)
+    branding["logo"] = ""
+    branding["logo_url"] = ""
+    repo.update_user(user["id"], {"branding": branding})
+    audit(user, "branding.logo_remove", "branding", "Removed firm logo")
+    return {"ok": True}
+
+
+class InviteClientInput(BaseModel):
+    email: EmailStr
+    full_name: str
+    client_id: str
+
+
+@api.post("/advisor/clients/invite")
+async def invite_client(body: InviteClientInput, user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Only advisors can invite client logins")
+    store, flt = scope_context(user)
+    owners = [o for o in repo.list(store, "owners", flt) if o.get("scope", {}).get("client_id") == body.client_id]
+    if not owners:
+        raise HTTPException(status_code=404, detail="Household not found in your book")
+    email = body.email.lower()
+    if repo.find_user_by_email(email):
+        raise HTTPException(status_code=409, detail="An account with this email already exists")
+    temp_password = "Cmps-" + secrets.token_urlsafe(6)
+    sc = user.get("scope", {})
+    client = {
+        "id": _id(), "email": email, "password_hash": hash_password(temp_password),
+        "name": body.full_name, "tier": "solo", "role": "solo_user",
+        "scope": {"corp_id": None, "org_id": sc.get("org_id"), "advisor_id": sc.get("advisor_id"), "client_id": body.client_id},
+        "mfa_enabled": False, "mfa_secret": None, "must_change_password": True,
+        "invited_by": user["id"],
+        "consent": {"marketing": False, "data_processing": True, "crm_sharing": True,
+                    "updated_at": datetime.now(timezone.utc).isoformat()},
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    repo.insert_user(client)
+    audit(user, "client.invite", "account", f"Invited client login {email} for {body.client_id}")
+    return {"email": email, "temp_password": temp_password}
 
 
 @api.get("/report/history")
