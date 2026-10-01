@@ -71,7 +71,7 @@ class LoginInput(BaseModel):
 # ---------------- Domain ----------------
 
 class PensionOwner(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="allow")
     id: str = Field(default_factory=_id)
     store: str = "shared"
     scope: Scope = Field(default_factory=Scope)
@@ -85,6 +85,7 @@ class PensionOwner(BaseModel):
 
 
 class OwnerInput(BaseModel):
+    model_config = ConfigDict(extra="allow")
     full_name: str = Field(min_length=1)
     relationship: str = "self"
     date_of_birth: Optional[str] = None

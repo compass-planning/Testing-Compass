@@ -124,6 +124,30 @@ def seed():
         repo.create("shared", "goals", _goal("shared", sc, o["id"], f"{hh.split()[1]} retirement", "retirement", 900000, 420000 + hash(cid) % 200000, 2036, "on_track"))
         repo.create("shared", "audit_log", _audit("shared", sc, "advisor@compass.ca", "client.create", "household", f"Onboarded {hh}"))
 
+    # Enrich the first advisor household (client_a1) for the household-centric planner
+    a1 = {"org_id": ORG_MAPLE, "advisor_id": ADV_LENA, "client_id": "client_a1"}
+    a1_owners = repo.list("shared", "owners", {"client_id": "client_a1"})
+    if a1_owners:
+        self_o = a1_owners[0]
+        repo.update("shared", "owners", self_o["id"], {
+            "email": "anh@nguyen.ca", "phone": "416-555-0123", "occupation": "Software Engineer",
+            "annual_income": 132000, "pension_type": "DCPP", "retirement_age": 63, "desired_income": 6000,
+        }, {"client_id": "client_a1"})
+        repo.create("shared", "owners", _owner("shared", a1, "Mai Nguyen", "spouse", "1977-05-10", "ON"))
+        repo.create("shared", "owners", _owner("shared", a1, "Linh Nguyen", "dependent", "2010-09-01", "ON"))
+
+        def PA(coll, data):
+            repo.create("shared", f"plan_{coll}", {"id": _id(), "store": "shared", "scope": a1,
+                                                    "household_id": "client_a1", "created_at": _now(), **data})
+        PA("networth", {"kind": "asset", "category": "Property", "name": "Family home", "value": 820000})
+        PA("networth", {"kind": "liability", "category": "Mortgage", "name": "Home mortgage", "value": 390000})
+        PA("debts", {"name": "Mortgage", "balance": 390000, "rate": 4.6, "payment": 2400, "lender": "Scotiabank"})
+        PA("expenses", {"category": "Housing", "name": "Mortgage + utilities", "amount": 2700})
+        PA("expenses", {"category": "Food", "name": "Groceries", "amount": 1100})
+        PA("insurance", {"policy_type": "Term Life", "carrier": "Sun Life", "coverage": 750000, "premium": 62, "insured": "Anh Nguyen"})
+        PA("documents", {"name": "Will.pdf", "doc_type": "Estate", "status": "On file"})
+        PA("retirement", {"name": "Base case", "retire_age": 63, "monthly_income_goal": 6000, "result": "On track", "note": "DCPP + CPP"})
+
     # ---------------- Shared store: Solo tier (client_solo1) ----------------
     solo_scope = {"client_id": CLIENT_SOLO}
     so = _owner("shared", solo_scope, "Jordan Blake", "self", "1985-08-30", "ON")

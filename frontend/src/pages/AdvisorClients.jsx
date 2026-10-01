@@ -1,14 +1,23 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Users, ArrowLeft, Landmark, Target } from "lucide-react";
 import api from "@/lib/api";
+import { useHousehold } from "@/context/HouseholdContext";
 import { Card, Button, Badge, Progress, Empty } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money, STATUS_META } from "@/lib/format";
 
 export default function AdvisorClients() {
   const [selected, setSelected] = useState(null);
+  const { setActive } = useHousehold();
+  const navigate = useNavigate();
   const clients = useQuery({ queryKey: ["clients"], queryFn: async () => (await api.get("/advisor/clients")).data });
+
+  const openClient = (c) => {
+    setActive(c.client_id, c.primary || c.client_id);
+    navigate("/profile");
+  };
 
   if (selected) return <ClientDetail clientId={selected} onBack={() => setSelected(null)} />;
 
@@ -46,7 +55,7 @@ export default function AdvisorClients() {
                   <td className="px-6 py-4 text-right font-heading font-bold text-compass-navy">{money(c.assets)}</td>
                   <td className="px-6 py-4 text-center hidden sm:table-cell"><Badge>{c.goals}</Badge></td>
                   <td className="px-6 py-4 text-right">
-                    <Button size="sm" variant="outline" onClick={() => setSelected(c.client_id)} data-testid={`open-client-${c.client_id}`}>Open</Button>
+                    <Button size="sm" variant="outline" onClick={() => openClient(c)} data-testid={`open-client-${c.client_id}`}>Open</Button>
                   </td>
                 </tr>
               ))}

@@ -13,6 +13,11 @@ const api = axios.create({ baseURL: API });
 api.interceptors.request.use((cfg) => {
   const t = getToken();
   if (t) cfg.headers.Authorization = `Bearer ${t}`;
+  const tier = localStorage.getItem("compass_tier");
+  const hh = localStorage.getItem("compass_active_household");
+  if (tier && tier !== "solo" && hh) {
+    cfg.params = { ...(cfg.params || {}), household_id: hh };
+  }
   return cfg;
 });
 

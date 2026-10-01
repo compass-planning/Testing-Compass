@@ -11,6 +11,7 @@ export function AuthProvider({ children }) {
     (async () => {
       try {
         const { data } = await api.get("/auth/me");
+        localStorage.setItem("compass_tier", data.tier);
         setUser(data);
       } catch {
         setUser(null);
@@ -21,6 +22,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const { data } = await api.post("/auth/login", { email, password });
     setToken(data.token);
+    localStorage.setItem("compass_tier", data.user.tier);
     setUser(data.user);
     return data.user;
   };
@@ -28,12 +30,16 @@ export function AuthProvider({ children }) {
   const register = async (payload) => {
     const { data } = await api.post("/auth/register", payload);
     setToken(data.token);
+    localStorage.setItem("compass_tier", data.user.tier);
     setUser(data.user);
     return data.user;
   };
 
   const logout = () => {
     setToken(null);
+    localStorage.removeItem("compass_tier");
+    localStorage.removeItem("compass_active_household");
+    localStorage.removeItem("compass_active_household_name");
     setUser(null);
   };
 

@@ -217,17 +217,29 @@ def _block_enterprise_write(user):
                             detail="CRM (Salesforce) is the source of truth for Enterprise records. Edit in CRM; Compass syncs from it.")
 
 
+def _eff_hh(user: dict, household_id: str = None):
+    """Effective household (client_id) a request operates on."""
+    if user["tier"] == "solo":
+        return user["scope"].get("client_id")
+    return household_id
+
+
 @api.get("/owners")
-async def list_owners(user: dict = Depends(get_current_user)):
+async def list_owners(user: dict = Depends(get_current_user), household_id: str = None):
     store, flt = scope_context(user)
-    return repo.list(store, "owners", flt)
+    hid = _eff_hh(user, household_id)
+    rows = repo.list(store, "owners", flt)
+    if hid:
+        rows = [r for r in rows if r.get("scope", {}).get("client_id") == hid]
+    return rows
 
 
 @api.post("/owners")
-async def create_owner(body: OwnerInput, user: dict = Depends(get_current_user)):
+async def create_owner(body: OwnerInput, user: dict = Depends(get_current_user), household_id: str = None):
     _block_enterprise_write(user)
     store, _ = scope_context(user)
-    owner = PensionOwner(store=store, scope=write_scope(user), **body.model_dump()).model_dump()
+    hid = _eff_hh(user, household_id)
+    owner = PensionOwner(store=store, scope=write_scope(user, client_id=hid), **body.model_dump()).model_dump()
     repo.create(store, "owners", owner)
     audit(user, "owner.create", "owners", f"Added {body.full_name}")
     return owner
@@ -259,9 +271,12 @@ async def delete_owner(oid: str, user: dict = Depends(get_current_user)):
 # =====================================================================
 
 @api.get("/accounts")
-async def list_accounts(user: dict = Depends(get_current_user), owner_id: str = None):
+async def list_accounts(user: dict = Depends(get_current_user), owner_id: str = None, household_id: str = None):
     store, flt = scope_context(user)
+    hid = _eff_hh(user, household_id)
     rows = repo.list(store, "accounts", flt)
+    if hid:
+        rows = [r for r in rows if r.get("scope", {}).get("client_id") == hid]
     if owner_id:
         rows = [r for r in rows if r["owner_id"] == owner_id]
     return rows
@@ -310,16 +325,20 @@ async def delete_account(aid: str, user: dict = Depends(get_current_user)):
 # =====================================================================
 
 @api.get("/goals")
-async def list_goals(user: dict = Depends(get_current_user)):
+async def list_goals(user: dict = Depends(get_current_user), household_id: str = None):
     store, flt = scope_context(user)
-    return repo.list(store, "goals", flt)
+    hid = _eff_hh(user, household_id)
+    rows = repo.list(store, "goals", flt)
+    if hid:
+        rows = [r for r in rows if r.get("scope", {}).get("client_id") == hid]
+    return rows
 
 
 @api.post("/goals")
-async def create_goal(body: GoalInput, user: dict = Depends(get_current_user)):
+async def create_goal(body: GoalInput, user: dict = Depends(get_current_user), household_id: str = None):
     store, flt = scope_context(user)
-    cid = None
-    aid = None
+    cid = _eff_hh(user, household_id)
+    aid = user["scope"].get("advisor_id")
     if body.owner_id:
         owner = repo.get(store, "owners", body.owner_id, flt)
         if owner:
