@@ -25,6 +25,8 @@ export default function Dashboard() {
   const [qaTitle, setQaTitle] = useState("");
   const reviewMut = useMutation({ mutationFn: ({ cid, duration }) => api.post(`/advisor/households/${cid}/review`, { duration }), onSuccess: (res, vars) => { qc.invalidateQueries({ queryKey: ["advisor-today"] }); toast.success("Snoozed from the panel", { duration: 8000, action: { label: "Undo", onClick: () => unreviewMut.mutate(vars.cid) } }); }, onError: () => toast.error("Could not snooze household") });
   const unreviewMut = useMutation({ mutationFn: (cid) => api.delete(`/advisor/households/${cid}/review`), onSuccess: () => { qc.invalidateQueries({ queryKey: ["advisor-today"] }); toast.success("Brought back to the panel"); }, onError: () => toast.error("Could not un-snooze") });
+  const noteMut = useMutation({ mutationFn: ({ cid, note }) => api.post(`/advisor/households/${cid}/review`, { note }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["advisor-today"] }); toast.success("Note saved"); }, onError: () => toast.error("Could not save note") });
+  const bulkSnoozeMut = useMutation({ mutationFn: () => api.post("/advisor/snooze-bulk", { duration: "week", statuses: ["Needs Review", "Needs Setup"] }), onSuccess: (res) => { qc.invalidateQueries({ queryKey: ["advisor-today"] }); const ids = res.data.applied || []; if (!ids.length) { toast.info("No lower-priority households to snooze"); return; } toast.success(`Snoozed ${res.data.count} household${res.data.count === 1 ? "" : "s"}`, { duration: 8000, action: { label: "Undo", onClick: () => Promise.all(ids.map((id) => api.delete(`/advisor/households/${id}/review`))).then(() => qc.invalidateQueries({ queryKey: ["advisor-today"] })) } }); }, onError: () => toast.error("Could not snooze households") });
   const addTaskMut = useMutation({ mutationFn: (b) => api.post("/advisor/tasks", b), onSuccess: () => { qc.invalidateQueries({ queryKey: ["advisor-today"] }); qc.invalidateQueries({ queryKey: ["tasks"] }); setQaTitle(""); toast.success("Task added"); }, onError: () => toast.error("Could not add task") });
 
   if (isLoading || !data) return <div className="text-compass-muted">Loading dashboard…</div>;
@@ -168,9 +170,15 @@ export default function Dashboard() {
               <Link to="/tasks" className="inline-flex items-center gap-1 text-sm font-semibold text-compass-blue mt-3" data-testid="today-open-tasks">Open Task Board <ArrowRight size={14} /></Link>
             </Card>
             <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-1">
                 <h3 className="font-heading font-bold text-compass-navy flex items-center gap-2"><AlertTriangle size={18} className="text-compass-amber" /> Households needing attention</h3>
                 <Badge color="#FFB800" bg="rgba(255,184,0,0.14)">{t.attention.length}</Badge>
+              </div>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs text-compass-muted" data-testid="reviewed-this-week">Reviewed this week: <span className="font-semibold text-compass-navy">{t.reviewed_this_week ?? 0}</span></span>
+                {t.attention.some((c) => c.status === "Needs Review" || c.status === "Needs Setup") && (
+                  <button onClick={() => bulkSnoozeMut.mutate()} disabled={bulkSnoozeMut.isPending} className="text-xs font-semibold text-compass-blue hover:underline" data-testid="bulk-snooze-button">Snooze lower-priority</button>
+                )}
               </div>
               {t.attention.length === 0 ? (
                 <div className="text-sm text-compass-muted py-6 text-center">Every household is on track. 🎯</div>
@@ -199,12 +207,13 @@ export default function Dashboard() {
               {(t.snoozed || []).length > 0 && (
                 <div className="mt-3 pt-3 border-t border-compass-border" data-testid="today-snoozed">
                   <div className="muted-label mb-1.5">Snoozed</div>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="space-y-1.5">
                     {t.snoozed.map((sn) => (
-                      <span key={sn.client_id} className="inline-flex items-center gap-1.5 rounded-full bg-compass-bg text-compass-muted text-xs font-semibold pl-3 pr-1.5 py-1" data-testid={`snoozed-${sn.client_id}`}>
-                        {sn.primary}
-                        <button onClick={() => unreviewMut.mutate(sn.client_id)} className="hover:text-compass-navy" title="Bring back to the panel" data-testid={`unsnooze-${sn.client_id}`}><X size={12} /></button>
-                      </span>
+                      <div key={sn.client_id} className="flex items-center gap-2" data-testid={`snoozed-${sn.client_id}`}>
+                        <span className="text-xs font-semibold text-compass-navy truncate shrink-0 max-w-[32%]">{sn.primary}</span>
+                        <input defaultValue={sn.note || ""} placeholder="Add a note…" onBlur={(e) => { if (e.target.value !== (sn.note || "")) noteMut.mutate({ cid: sn.client_id, note: e.target.value }); }} onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }} data-testid={`snooze-note-${sn.client_id}`} className="flex-1 min-w-0 rounded-lg border border-compass-border bg-white px-2 py-1 text-xs text-compass-navy placeholder:text-compass-muted focus:border-compass-blue focus:outline-none" />
+                        <button onClick={() => unreviewMut.mutate(sn.client_id)} className="shrink-0 text-compass-muted hover:text-compass-navy" title="Bring back to the panel" data-testid={`unsnooze-${sn.client_id}`}><X size={13} /></button>
+                      </div>
                     ))}
                   </div>
                 </div>

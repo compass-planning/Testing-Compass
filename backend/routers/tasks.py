@@ -2,7 +2,7 @@
 import os
 import logging
 import secrets as _secrets
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header
 from pydantic import BaseModel, Field
@@ -168,7 +168,8 @@ async def _run_today_summary():
             continue
         store, flt = scope_context(u)
         tasks = repo.list(store, "tasks", flt)
-        completed = [t for t in tasks if t.get("done") and (t.get("completed_at") or "")[:10] == today]
+        cutoff = u.get("last_summary_at") or (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        completed = [t for t in tasks if t.get("done") and (t.get("completed_at") or "") > cutoff]
         rolled = sorted([t for t in tasks if not t.get("done") and t.get("due_date") and t["due_date"] <= today],
                         key=lambda t: t["due_date"])
         if not completed and not rolled:
@@ -179,6 +180,7 @@ async def _run_today_summary():
             await send_email(to=u["email"], subject="Your end-of-day recap", html=html)
             sent += 1
             log_digest(u, "summary", "scheduled", True)
+            repo.update_user(u["id"], {"last_summary_at": datetime.now(timezone.utc).isoformat()})
         except Exception as e:
             logger.warning(f"Today summary email failed for {u['email']}: {e}")
     logger.info(f"Today summary run (hour={now.hour} ET): emailed {sent} advisor(s)")
@@ -202,7 +204,8 @@ async def today_summary_preview(user: dict = Depends(get_current_user)):
     today = datetime.now(ZoneInfo("America/Toronto")).date().isoformat()
     store, flt = scope_context(user)
     tasks = repo.list(store, "tasks", flt)
-    completed = [t for t in tasks if t.get("done") and (t.get("completed_at") or "")[:10] == today]
+    cutoff = user.get("last_summary_at") or (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    completed = [t for t in tasks if t.get("done") and (t.get("completed_at") or "") > cutoff]
     rolled = sorted([t for t in tasks if not t.get("done") and t.get("due_date") and t["due_date"] <= today],
                     key=lambda t: t["due_date"])
     if not completed and not rolled:

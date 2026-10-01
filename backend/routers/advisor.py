@@ -500,7 +500,8 @@ def _reviewed_set(user: dict) -> set:
 
 
 class ReviewInput(BaseModel):
-    duration: str = "week"
+    duration: str | None = None
+    note: str | None = None
 
 
 @router.post("/advisor/households/{client_id}/review")
@@ -508,20 +509,63 @@ async def mark_reviewed(client_id: str, body: ReviewInput | None = None, user: d
     if user["tier"] != "advisor":
         raise HTTPException(status_code=403, detail="Advisor tier only")
     store, flt = scope_context(user)
-    duration = (body.duration if body else "week")
-    days = _REVIEW_DURATIONS.get(duration, 7)
+    body = body or ReviewInput()
     now_dt = datetime.now(timezone.utc)
-    now, expires = now_dt.isoformat(), (now_dt + timedelta(days=days)).isoformat()
+    now = now_dt.isoformat()
     existing = next((r for r in repo.list(store, "reviews", flt) if r.get("client_id") == client_id), None)
     if existing:
-        repo.update(store, "reviews", existing["id"], {"reviewed_at": now, "expires_at": expires, "duration": duration}, flt)
+        patch = {"reviewed_at": now}
+        if body.note is not None:
+            patch["note"] = body.note
+        if body.duration:
+            patch["duration"] = body.duration
+            patch["expires_at"] = (now_dt + timedelta(days=_REVIEW_DURATIONS.get(body.duration, 7))).isoformat()
+        repo.update(store, "reviews", existing["id"], patch, flt)
+        res_expires = patch.get("expires_at", existing.get("expires_at"))
+        res_dur = patch.get("duration", existing.get("duration"))
     else:
+        duration = body.duration or "week"
+        res_expires = (now_dt + timedelta(days=_REVIEW_DURATIONS.get(duration, 7))).isoformat()
+        res_dur = duration
         sc = user.get("scope", {})
         repo.create(store, "reviews", {"id": _id(), "store": store, "client_id": client_id,
                                        "scope": {"org_id": sc.get("org_id"), "advisor_id": sc.get("advisor_id"), "client_id": client_id},
-                                       "reviewed_at": now, "expires_at": expires, "duration": duration})
-    audit(user, "household.review", "reviews", f"{client_id} ({duration})")
-    return {"client_id": client_id, "expires_at": expires, "duration": duration}
+                                       "reviewed_at": now, "expires_at": res_expires, "duration": duration, "note": body.note or ""})
+    audit(user, "household.review", "reviews", f"{client_id} ({res_dur})")
+    return {"client_id": client_id, "expires_at": res_expires, "duration": res_dur, "note": body.note}
+
+
+class BulkSnoozeInput(BaseModel):
+    duration: str = "week"
+    statuses: list[str] = ["Needs Review", "Needs Setup"]
+
+
+@router.post("/advisor/snooze-bulk")
+async def snooze_bulk(body: BulkSnoozeInput | None = None, user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    body = body or BulkSnoozeInput()
+    store, flt = scope_context(user)
+    reviewed = _reviewed_set(user)
+    targets = [c for c in _build_roster(user) if c.get("status") in body.statuses and c["client_id"] not in reviewed]
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.isoformat()
+    expires = (now_dt + timedelta(days=_REVIEW_DURATIONS.get(body.duration, 7))).isoformat()
+    sc = user.get("scope", {})
+    existing_map = {r.get("client_id"): r for r in repo.list(store, "reviews", flt)}
+    applied = []
+    for c in targets:
+        cid = c["client_id"]
+        if cid in existing_map:
+            repo.update(store, "reviews", existing_map[cid]["id"], {"reviewed_at": now, "expires_at": expires, "duration": body.duration}, flt)
+        else:
+            repo.create(store, "reviews", {"id": _id(), "store": store, "client_id": cid,
+                                           "scope": {"org_id": sc.get("org_id"), "advisor_id": sc.get("advisor_id"), "client_id": cid},
+                                           "reviewed_at": now, "expires_at": expires, "duration": body.duration, "note": ""})
+        applied.append(cid)
+    if applied:
+        audit(user, "household.snooze_bulk", "reviews", f"Snoozed {len(applied)} household(s) ({', '.join(body.statuses)})")
+    return {"count": len(applied), "applied": applied}
 
 
 @router.delete("/advisor/households/{client_id}/review")
@@ -631,13 +675,18 @@ async def advisor_today(user: dict = Depends(get_current_user)):
     attention = [c for c in roster if (c.get("needs_setup") or c.get("status") in ("At Risk", "Needs Review")) and c["client_id"] not in reviewed]
     attention.sort(key=lambda c: (not c.get("needs_setup"), c.get("score") if c.get("score") is not None else 999))
     now_iso = datetime.now(timezone.utc).isoformat()
-    snoozed = [{"client_id": r["client_id"], "primary": primary.get(r["client_id"], r["client_id"]), "expires_at": r.get("expires_at")}
-               for r in repo.list(store, "reviews", flt) if r.get("client_id") and r.get("expires_at", "") > now_iso]
+    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    all_reviews = repo.list(store, "reviews", flt)
+    snoozed = [{"client_id": r["client_id"], "primary": primary.get(r["client_id"], r["client_id"]),
+                "expires_at": r.get("expires_at"), "note": r.get("note", "")}
+               for r in all_reviews if r.get("client_id") and r.get("expires_at", "") > now_iso]
     snoozed.sort(key=lambda x: x["primary"])
+    reviewed_this_week = sum(1 for r in all_reviews if r.get("reviewed_at", "") >= week_ago)
     return {
         "overdue": overdue,
         "due_today": due_today,
         "snoozed": snoozed,
+        "reviewed_this_week": reviewed_this_week,
         "attention": [{"client_id": c["client_id"], "primary": c.get("primary") or c["client_id"],
                        "status": c["status"], "score": c.get("score"), "next_action": c.get("next_action")}
                       for c in attention[:6]],
