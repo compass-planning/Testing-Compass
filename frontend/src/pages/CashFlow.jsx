@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Card, Button, Input, Field, Select, Badge, Modal, Stat, Empty } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
+import { PersonToggle, matchPerson, OWNER_TAGS } from "@/components/PersonToggle";
 
 const CATEGORIES = ["Housing", "Food", "Transport", "Insurance", "Lifestyle", "Childcare", "Debt", "Other"];
 const REAL_ESTATE = ["Principal Residence", "Real Estate (other)"];
@@ -17,6 +18,7 @@ export default function CashFlow() {
   const qc = useQueryClient();
   const readOnly = user.tier === "enterprise";
   const [modal, setModal] = useState(null);
+  const [view, setView] = useState("combined");
 
   const expenses = useQuery({ queryKey: ["plan", "expenses"], queryFn: () => planApi.list("expenses") });
   const networth = useQuery({ queryKey: ["plan", "networth"], queryFn: () => planApi.list("networth") });
@@ -31,34 +33,31 @@ export default function CashFlow() {
   const del = useMutation({ mutationFn: (id) => planApi.remove("expenses", id), onSuccess: () => { toast.success("Deleted"); invalidate(); } });
 
   const income = useMemo(() => {
+    const ownerTag = (rel) => (rel === "self" ? "Primary" : rel === "spouse" ? "Spouse" : "Joint");
     const employment = (owners.data || [])
       .filter((o) => Number(o.annual_income || 0) > 0)
-      .map((o) => ({ label: `${o.full_name} — employment`, monthly: Number(o.annual_income) / 12 }));
+      .map((o) => ({ label: `${o.full_name} — employment`, monthly: Number(o.annual_income) / 12, owner: ownerTag(o.relationship) }));
     const rentals = (networth.data || [])
       .filter((r) => REAL_ESTATE.includes(r.category) && r.is_rental && Number(r.rental_income || 0) > 0)
-      .map((r) => ({
-        label: `${r.name || "Rental"} — rent`, monthly: Number(r.rental_income),
-        holdco: !!r.in_holding_company,
-      }));
-    const counted = [...employment, ...rentals.filter((r) => !r.holdco)];
-    const excluded = rentals.filter((r) => r.holdco);
-    return {
-      lines: [...employment, ...rentals],
-      total: counted.reduce((s, l) => s + l.monthly, 0),
-      excluded,
-      excludedTotal: excluded.reduce((s, l) => s + l.monthly, 0),
-    };
-  }, [owners.data, networth.data]);
+      .map((r) => ({ label: `${r.name || "Rental"} — rent`, monthly: Number(r.rental_income), holdco: !!r.in_holding_company, owner: "Joint" }));
+    const all = [...employment, ...rentals].filter((l) => matchPerson(l.owner, view));
+    const counted = all.filter((l) => !l.holdco);
+    const excluded = all.filter((l) => l.holdco);
+    return { lines: all, total: counted.reduce((s, l) => s + l.monthly, 0), excluded, excludedTotal: excluded.reduce((s, l) => s + l.monthly, 0) };
+  }, [owners.data, networth.data, view]);
 
-  const rows = expenses.data || [];
+  const rows = (expenses.data || []).filter((r) => matchPerson(r.owner, view));
   const totalExpenses = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
   const net = income.total - totalExpenses;
 
   return (
     <div>
       <PageHeader title="Cash Flow" subtitle="Monthly household income versus expenses.">
-        {readOnly ? <Badge color="#A3AED0" bg="rgba(163,174,208,0.15)">CRM-managed</Badge>
-          : <Button onClick={() => setModal({})} data-testid="add-expenses-button"><Plus size={16} /> Add expense</Button>}
+        <div className="flex items-center gap-3">
+          <PersonToggle owners={owners.data || []} value={view} onChange={setView} testid="cashflow-person" />
+          {readOnly ? <Badge color="#A3AED0" bg="rgba(163,174,208,0.15)">CRM-managed</Badge>
+            : <Button onClick={() => setModal({})} data-testid="add-expenses-button"><Plus size={16} /> Add expense</Button>}
+        </div>
       </PageHeader>
 
       <div className="grid grid-cols-3 gap-4 mb-6">
@@ -101,7 +100,7 @@ export default function CashFlow() {
             <div className="space-y-2.5">
               {rows.map((r) => (
                 <div key={r.id} className="flex items-center justify-between text-sm group" data-testid={`expenses-row-${r.id}`}>
-                  <span className="text-compass-navy flex items-center gap-2"><Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{r.category}</Badge>{r.name}</span>
+                  <span className="text-compass-navy flex items-center gap-2"><Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{r.category}</Badge>{r.name}<span className="text-xs text-compass-muted">{r.owner && r.owner !== "Joint" ? r.owner : ""}</span></span>
                   <span className="flex items-center gap-2">
                     <span className="font-semibold text-compass-navy">{money(r.amount)}/mo</span>
                     {!readOnly && (
@@ -131,14 +130,17 @@ function strip(body) { const { id, store, scope, household_id, created_at, ...re
 function ExpenseModal({ open, initial, onClose, onSubmit, loading }) {
   const [f, setF] = useState({});
   React.useEffect(() => {
-    if (open) setF({ id: initial?.id, category: initial?.category || CATEGORIES[0], name: initial?.name || "", amount: initial?.amount ?? "" });
-  }, [open, initial]);
+    if (open) setF({ id: initial?.id, category: initial?.category || CATEGORIES[0], name: initial?.name || "", owner: initial?.owner || "Joint", amount: initial?.amount ?? "" });
+  }, [open, initial]); // eslint-disable-line
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const submit = () => onSubmit({ ...f, amount: Number(f.amount || 0) });
   return (
     <Modal open={open} onClose={onClose} title={`${f.id ? "Edit" : "Add"} expense`} testid="expenses-modal">
       <div className="space-y-4">
-        <Field label="Category"><Select value={f.category || ""} onChange={set("category")} data-testid="field-category">{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</Select></Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Category"><Select value={f.category || ""} onChange={set("category")} data-testid="field-category">{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</Select></Field>
+          <Field label="Owner"><Select value={f.owner || "Joint"} onChange={set("owner")} data-testid="field-owner">{OWNER_TAGS.map((t) => <option key={t}>{t}</option>)}</Select></Field>
+        </div>
         <Field label="Description"><Input value={f.name || ""} onChange={set("name")} data-testid="field-name" /></Field>
         <Field label="Monthly amount (CAD)"><Input type="number" value={f.amount ?? ""} onChange={set("amount")} data-testid="field-amount" /></Field>
         <div className="flex gap-2 justify-end pt-2">

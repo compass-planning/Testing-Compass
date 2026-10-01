@@ -2,13 +2,14 @@ import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CreditCard, Plus, Pencil, Trash2, TrendingDown, Snowflake, Mountain } from "lucide-react";
+import api, { formatApiError } from "@/lib/api";
 import { planApi } from "@/lib/planning";
-import { formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Card, Button, Input, Field, Badge, Modal, Stat, Empty } from "@/components/ui-kit";
+import { Card, Button, Input, Field, Select, Badge, Modal, Stat, Empty } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
 import { weightedAvgRate, singlePayoff, baseline, strategy, monthsLabel } from "@/lib/finance";
+import { PersonToggle, matchPerson, OWNER_TAGS } from "@/components/PersonToggle";
 
 export default function Debt() {
   const { user } = useAuth();
@@ -16,8 +17,10 @@ export default function Debt() {
   const readOnly = user.tier === "enterprise";
   const [modal, setModal] = useState(null);
   const [extra, setExtra] = useState(0);
+  const [view, setView] = useState("combined");
 
   const { data = [], isLoading } = useQuery({ queryKey: ["plan", "debts"], queryFn: () => planApi.list("debts") });
+  const owners = useQuery({ queryKey: ["owners"], queryFn: async () => (await api.get("/owners")).data });
   const invalidate = () => { qc.invalidateQueries({ queryKey: ["plan", "debts"] }); qc.invalidateQueries({ queryKey: ["plan", "overview"] }); };
 
   const save = useMutation({
@@ -27,23 +30,24 @@ export default function Debt() {
   });
   const del = useMutation({ mutationFn: (id) => planApi.remove("debts", id), onSuccess: () => { toast.success("Deleted"); invalidate(); } });
 
-  const totalBalance = data.reduce((s, d) => s + Number(d.balance || 0), 0);
-  const totalPayment = data.reduce((s, d) => s + Number(d.payment || 0), 0);
-  const avgRate = weightedAvgRate(data);
+  const rows = data.filter((d) => matchPerson(d.owner, view));
+  const totalBalance = rows.reduce((s, d) => s + Number(d.balance || 0), 0);
+  const totalPayment = rows.reduce((s, d) => s + Number(d.payment || 0), 0);
+  const avgRate = weightedAvgRate(rows);
 
   const analysis = useMemo(() => {
-    if (data.length === 0) return null;
-    const base = baseline(data);
-    const ava = strategy(data, extra, "avalanche");
-    const snow = strategy(data, extra, "snowball");
-    return { base, ava, snow };
-  }, [data, extra]);
+    if (rows.length === 0) return null;
+    return { base: baseline(rows), ava: strategy(rows, extra, "avalanche"), snow: strategy(rows, extra, "snowball") };
+  }, [rows, extra]);
 
   return (
     <div>
       <PageHeader title="Debt" subtitle="Balances, rates and payoff strategy for the household.">
-        {readOnly ? <Badge color="#A3AED0" bg="rgba(163,174,208,0.15)">CRM-managed</Badge>
-          : <Button onClick={() => setModal({})} data-testid="add-debts-button"><Plus size={16} /> Add debt</Button>}
+        <div className="flex items-center gap-3">
+          <PersonToggle owners={owners.data || []} value={view} onChange={setView} testid="debt-person" />
+          {readOnly ? <Badge color="#A3AED0" bg="rgba(163,174,208,0.15)">CRM-managed</Badge>
+            : <Button onClick={() => setModal({})} data-testid="add-debts-button"><Plus size={16} /> Add debt</Button>}
+        </div>
       </PageHeader>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -53,7 +57,7 @@ export default function Debt() {
         <Stat label="Lifetime interest" value={analysis ? (analysis.base.neverPaysOff ? "—" : money(analysis.base.interest)) : "$0"} />
       </div>
 
-      {isLoading ? <div className="text-compass-muted">Loading…</div> : data.length === 0 ? (
+      {isLoading ? <div className="text-compass-muted">Loading…</div> : rows.length === 0 ? (
         <Empty icon={CreditCard} title="No debts yet">Add a mortgage, loan or line of credit to see payoff analytics.</Empty>
       ) : (
         <>
@@ -61,6 +65,7 @@ export default function Debt() {
             <table className="w-full text-sm">
               <thead><tr className="text-left border-b border-compass-border">
                 <th className="muted-label px-5 py-3.5">Debt</th>
+                <th className="muted-label px-5 py-3.5">Owner</th>
                 <th className="muted-label px-5 py-3.5">Lender</th>
                 <th className="muted-label px-5 py-3.5 text-right">Rate</th>
                 <th className="muted-label px-5 py-3.5 text-right">Payment</th>
@@ -70,11 +75,12 @@ export default function Debt() {
                 {!readOnly && <th className="px-5 py-3.5" />}
               </tr></thead>
               <tbody>
-                {data.map((d) => {
+                {rows.map((d) => {
                   const p = singlePayoff(d.balance, d.rate, d.payment);
                   return (
                     <tr key={d.id} className="border-b border-compass-border last:border-0 hover:bg-compass-bg/40" data-testid={`debts-row-${d.id}`}>
                       <td className="px-5 py-3.5 font-semibold text-compass-navy">{d.name || "—"}</td>
+                      <td className="px-5 py-3.5 text-compass-muted">{d.owner || "Joint"}</td>
                       <td className="px-5 py-3.5 text-compass-muted">{d.lender || "—"}</td>
                       <td className="px-5 py-3.5 text-right">{Number(d.rate || 0).toFixed(2)}%</td>
                       <td className="px-5 py-3.5 text-right">{money(d.payment)}</td>
@@ -106,8 +112,8 @@ export default function Debt() {
 
           {analysis && (
             <div className="grid md:grid-cols-2 gap-5">
-              <StrategyCard title="Avalanche" tag="Highest rate first" icon={Mountain} result={analysis.ava} base={analysis.base} debts={data} testid="strategy-avalanche" />
-              <StrategyCard title="Snowball" tag="Lowest balance first" icon={Snowflake} result={analysis.snow} base={analysis.base} debts={data} testid="strategy-snowball" />
+              <StrategyCard title="Avalanche" tag="Highest rate first" icon={Mountain} result={analysis.ava} base={analysis.base} testid="strategy-avalanche" />
+              <StrategyCard title="Snowball" tag="Lowest balance first" icon={Snowflake} result={analysis.snow} base={analysis.base} testid="strategy-snowball" />
             </div>
           )}
         </>
@@ -118,9 +124,8 @@ export default function Debt() {
   );
 }
 
-function StrategyCard({ title, tag, icon: Icon, result, base, debts, testid }) {
+function StrategyCard({ title, tag, icon: Icon, result, base, testid }) {
   const saved = (!result.neverPaysOff && !base.neverPaysOff) ? base.interest - result.interest : null;
-  const orderNames = result.order.map((o) => o.name);
   return (
     <Card className="p-6" data-testid={testid}>
       <div className="flex items-center justify-between mb-4">
@@ -138,11 +143,10 @@ function StrategyCard({ title, tag, icon: Icon, result, base, debts, testid }) {
       )}
       <div className="muted-label mb-2">Payoff order</div>
       <ol className="space-y-1.5">
-        {orderNames.map((n, i) => (
-          <li key={n + i} className="flex items-center gap-2 text-sm text-compass-navy">
+        {result.order.map((o, i) => (
+          <li key={o.key + i} className="flex items-center gap-2 text-sm text-compass-navy">
             <span className="h-5 w-5 rounded-full bg-compass-blue/10 text-compass-blue text-xs font-bold flex items-center justify-center">{i + 1}</span>
-            {n}
-            <span className="ml-auto text-xs text-compass-muted">{result.payoffMonth[(debts[i] && (debts[i].id)) || ""] ? "" : ""}</span>
+            {o.name}
           </li>
         ))}
       </ol>
@@ -155,15 +159,18 @@ function strip(body) { const { id, store, scope, household_id, created_at, ...re
 function DebtModal({ open, initial, onClose, onSubmit, loading }) {
   const [f, setF] = useState({});
   React.useEffect(() => {
-    if (open) setF({ id: initial?.id, name: initial?.name || "", lender: initial?.lender || "",
+    if (open) setF({ id: initial?.id, name: initial?.name || "", lender: initial?.lender || "", owner: initial?.owner || "Joint",
       balance: initial?.balance ?? "", rate: initial?.rate ?? "", payment: initial?.payment ?? "" });
-  }, [open, initial]);
+  }, [open, initial]); // eslint-disable-line
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const submit = () => onSubmit({ ...f, balance: Number(f.balance || 0), rate: Number(f.rate || 0), payment: Number(f.payment || 0) });
   return (
     <Modal open={open} onClose={onClose} title={`${f.id ? "Edit" : "Add"} debt`} testid="debts-modal">
       <div className="space-y-4">
-        <Field label="Debt name"><Input value={f.name || ""} onChange={set("name")} data-testid="field-name" /></Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Debt name"><Input value={f.name || ""} onChange={set("name")} data-testid="field-name" /></Field>
+          <Field label="Owner"><Select value={f.owner || "Joint"} onChange={set("owner")} data-testid="field-owner">{OWNER_TAGS.map((t) => <option key={t}>{t}</option>)}</Select></Field>
+        </div>
         <Field label="Lender"><Input value={f.lender || ""} onChange={set("lender")} data-testid="field-lender" /></Field>
         <div className="grid grid-cols-3 gap-3">
           <Field label="Balance ($)"><Input type="number" value={f.balance ?? ""} onChange={set("balance")} data-testid="field-balance" /></Field>

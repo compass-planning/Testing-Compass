@@ -502,6 +502,30 @@ async def delete_goal(gid: str, user: dict = Depends(get_current_user)):
 #  ADVISOR — client roster + drill-down
 # =====================================================================
 
+def _household_score(c, nw, debts, insurance, retirement, goals):
+    assets = c["assets"] + sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "asset")
+    liabilities = sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "liability") \
+        + sum(float(d.get("balance", 0)) for d in debts)
+    net_worth = assets - liabilities
+    alerts, next_action, score = [], None, 100
+    if not retirement:
+        score -= 25; alerts.append("No retirement projection on file"); next_action = next_action or "Build a retirement projection"
+    if not insurance:
+        score -= 20; alerts.append("No insurance analysis — protection gap"); next_action = next_action or "Run an insurance gap analysis"
+    high = [d for d in debts if float(d.get("rate", 0)) > 10]
+    if high:
+        score -= 15; alerts.append(f"High-interest debt (>10%): {len(high)}"); next_action = next_action or "Review debt payoff strategy"
+    behind = [g for g in goals if g.get("status") in ("behind", "at_risk")]
+    if behind:
+        score -= min(30, 10 * len(behind)); alerts.append(f"{len(behind)} goal(s) off track"); next_action = next_action or "Rebalance goal funding"
+    if net_worth < 0:
+        score -= 15; alerts.append("Negative net worth")
+    score = max(0, min(100, score))
+    status = "On Track" if score >= 75 else ("Needs Review" if score >= 50 else "At Risk")
+    return {"score": score, "status": status, "alerts": alerts,
+            "next_action": next_action or "Schedule annual review", "net_worth": net_worth, "debt": liabilities}
+
+
 @api.get("/advisor/clients")
 async def advisor_clients(user: dict = Depends(get_current_user)):
     if user["tier"] != "advisor":
@@ -528,6 +552,17 @@ async def advisor_clients(user: dict = Depends(get_current_user)):
         cid = g["scope"].get("client_id")
         if cid in clients:
             clients[cid]["goals"] += 1
+    for cid, c in clients.items():
+        cflt = {**flt, "client_id": cid}
+        hh_goals = [g for g in goals if g["scope"].get("client_id") == cid]
+        c.update(_household_score(
+            c,
+            repo.list(store, "plan_networth", cflt),
+            repo.list(store, "plan_debts", cflt),
+            repo.list(store, "plan_insurance", cflt),
+            repo.list(store, "plan_retirement", cflt),
+            hh_goals,
+        ))
     return list(clients.values())
 
 

@@ -7,6 +7,8 @@ import { Card, Button, Input, Field, Select, Badge, Empty } from "@/components/u
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
 import { monteCarlo } from "@/lib/finance";
+import { PersonToggle } from "@/components/PersonToggle";
+import api from "@/lib/api";
 
 const PENSION_TYPES = ["None", "DBPP", "DCPP", "Group RRSP"];
 
@@ -21,6 +23,24 @@ export default function Retirement() {
   const str = (k) => (e) => setInp({ ...inp, [k]: e.target.value });
 
   const { data = [] } = useQuery({ queryKey: ["plan", "retirement"], queryFn: () => planApi.list("retirement") });
+  const owners = useQuery({ queryKey: ["owners"], queryFn: async () => (await api.get("/owners")).data });
+  const [view, setView] = useState("combined");
+  const applyPerson = (v) => {
+    setView(v);
+    const list = owners.data || [];
+    const primary = list.find((o) => o.relationship === "self") || list[0];
+    const spouse = list.find((o) => o.relationship === "spouse");
+    const match = (t) => (PENSION_TYPES.includes(t) ? t : null);
+    if (v === "combined") {
+      const goalSum = Number(primary?.desired_income || 0) + Number(spouse?.desired_income || 0);
+      setInp((s) => ({ ...s, retire_age: Number(primary?.retirement_age || s.retire_age),
+        monthly_income_goal: goalSum || s.monthly_income_goal, pension_type: match(primary?.pension_type) || s.pension_type }));
+    } else {
+      const p = v === "spouse" ? spouse : primary;
+      if (p) setInp((s) => ({ ...s, retire_age: Number(p.retirement_age || s.retire_age),
+        monthly_income_goal: Number(p.desired_income || s.monthly_income_goal), pension_type: match(p.pension_type) || s.pension_type }));
+    }
+  };
   const save = useMutation({
     mutationFn: (body) => planApi.create("retirement", body),
     onSuccess: () => { toast.success("Projection saved"); qc.invalidateQueries({ queryKey: ["plan", "retirement"] }); qc.invalidateQueries({ queryKey: ["plan", "overview"] }); },
@@ -46,7 +66,9 @@ export default function Retirement() {
 
   return (
     <div>
-      <PageHeader title="Retirement" subtitle="Model pension income and run a Monte Carlo simulation to age 95." />
+      <PageHeader title="Retirement" subtitle="Model pension income and run a Monte Carlo simulation to age 95.">
+        <PersonToggle owners={owners.data || []} value={view} onChange={applyPerson} testid="ret-person" />
+      </PageHeader>
       <div className="grid lg:grid-cols-3 gap-6">
         <Card className="p-6 lg:col-span-2">
           <h3 className="font-heading font-bold text-compass-navy mb-4 flex items-center gap-2"><Calculator size={18} className="text-compass-blue" /> Projection inputs</h3>

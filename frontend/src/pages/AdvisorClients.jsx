@@ -1,12 +1,19 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Users, ArrowLeft, Landmark, Target } from "lucide-react";
+import { Users, ArrowLeft, Landmark, Target, AlertTriangle, ArrowRight } from "lucide-react";
 import api from "@/lib/api";
 import { useHousehold } from "@/context/HouseholdContext";
 import { Card, Button, Badge, Progress, Empty } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money, STATUS_META } from "@/lib/format";
+
+const SCORE_META = {
+  "On Track": { color: "#00DF89", bg: "rgba(0,223,137,0.12)" },
+  "Needs Review": { color: "#FFB800", bg: "rgba(255,184,0,0.14)" },
+  "At Risk": { color: "#EE5D50", bg: "rgba(238,93,80,0.12)" },
+};
+const scoreColor = (s) => (s >= 75 ? "#00DF89" : s >= 50 ? "#FFB800" : "#EE5D50");
 
 export default function AdvisorClients() {
   const [selected, setSelected] = useState(null);
@@ -21,49 +28,80 @@ export default function AdvisorClients() {
 
   if (selected) return <ClientDetail clientId={selected} onBack={() => setSelected(null)} />;
 
+  const list = clients.data || [];
+  const avgScore = list.length ? Math.round(list.reduce((s, c) => s + (c.score || 0), 0) / list.length) : 0;
+  const needAttention = list.filter((c) => (c.status || "") !== "On Track").length;
+
   return (
     <div>
-      <PageHeader title="Client Roster" subtitle="Every household in your book. Select one to drill into owners, accounts and goals." />
+      <PageHeader title="Household Queue" subtitle="Every household in your book, scored and triaged by what needs attention." />
       {clients.isLoading ? (
         <div className="text-compass-muted">Loading…</div>
-      ) : (clients.data || []).length === 0 ? (
+      ) : list.length === 0 ? (
         <Empty icon={Users} title="No clients yet">Onboard a household to get started.</Empty>
       ) : (
-        <Card className="overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left border-b border-compass-border">
-                <th className="muted-label px-6 py-4">Household</th>
-                <th className="muted-label px-6 py-4 hidden sm:table-cell">Members</th>
-                <th className="muted-label px-6 py-4 text-right">Assets</th>
-                <th className="muted-label px-6 py-4 text-center hidden sm:table-cell">Goals</th>
-                <th className="px-6 py-4"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {clients.data.map((c) => (
-                <tr key={c.client_id} className="border-b border-compass-border last:border-0 hover:bg-compass-bg/50 transition-colors" data-testid={`client-row-${c.client_id}`}>
-                  <td className="px-6 py-4">
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatCard label="Households" value={list.length} />
+            <StatCard label="Book assets" value={money(list.reduce((s, c) => s + (c.assets || 0), 0))} />
+            <StatCard label="Avg. health score" value={avgScore} color={scoreColor(avgScore)} />
+            <StatCard label="Need attention" value={needAttention} color={needAttention ? "#EE5D50" : "#00DF89"} />
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {[...list].sort((a, b) => (a.score || 0) - (b.score || 0)).map((c) => {
+              const meta = SCORE_META[c.status] || SCORE_META["Needs Review"];
+              return (
+                <Card key={c.client_id} className="p-5" data-testid={`client-row-${c.client_id}`}>
+                  <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-lg gradient-bg flex items-center justify-center text-white font-bold text-sm">
-                        {(c.primary || "H").slice(0, 1)}
+                      <div className="h-10 w-10 rounded-xl gradient-bg flex items-center justify-center text-white font-bold">{(c.primary || "H").slice(0, 1)}</div>
+                      <div>
+                        <div className="font-heading font-bold text-compass-navy">{c.primary || c.client_id}</div>
+                        <div className="text-xs text-compass-muted">{c.members.join(", ")}</div>
                       </div>
-                      <span className="font-semibold text-compass-navy">{c.primary || c.client_id}</span>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 text-compass-muted hidden sm:table-cell">{c.members.join(", ")}</td>
-                  <td className="px-6 py-4 text-right font-heading font-bold text-compass-navy">{money(c.assets)}</td>
-                  <td className="px-6 py-4 text-center hidden sm:table-cell"><Badge>{c.goals}</Badge></td>
-                  <td className="px-6 py-4 text-right">
-                    <Button size="sm" variant="outline" onClick={() => openClient(c)} data-testid={`open-client-${c.client_id}`}>Open</Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
+                    <div className="text-right">
+                      <div className="font-heading text-2xl font-extrabold" style={{ color: scoreColor(c.score || 0) }} data-testid={`client-score-${c.client_id}`}>{c.score ?? "—"}</div>
+                      <Badge color={meta.color} bg={meta.bg} data-testid={`client-status-${c.client_id}`}>{c.status || "—"}</Badge>
+                    </div>
+                  </div>
+                  <Progress value={c.score || 0} color={scoreColor(c.score || 0)} />
+                  <div className="grid grid-cols-3 gap-2 mt-3 text-sm">
+                    <div><div className="muted-label">Assets</div><div className="font-semibold text-compass-navy">{money(c.assets)}</div></div>
+                    <div><div className="muted-label">Net worth</div><div className="font-semibold text-compass-navy">{money(c.net_worth || 0)}</div></div>
+                    <div><div className="muted-label">Goals</div><div className="font-semibold text-compass-navy">{c.goals}</div></div>
+                  </div>
+                  {(c.alerts || []).length > 0 && (
+                    <div className="mt-3 space-y-1" data-testid={`client-alerts-${c.client_id}`}>
+                      {c.alerts.map((a, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs text-compass-navy"><AlertTriangle size={12} className="text-compass-amber shrink-0" /> {a}</div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-compass-border">
+                    <div className="text-xs"><span className="muted-label">Next: </span><span className="font-semibold text-compass-blue" data-testid={`client-action-${c.client_id}`}>{c.next_action}</span></div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => setSelected(c.client_id)}>Details</Button>
+                      <Button size="sm" variant="outline" onClick={() => openClient(c)} data-testid={`open-client-${c.client_id}`}>Open <ArrowRight size={14} /></Button>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
+  );
+}
+
+function StatCard({ label, value, color }) {
+  return (
+    <Card className="p-5">
+      <div className="muted-label">{label}</div>
+      <div className="font-heading text-2xl font-extrabold mt-1" style={{ color: color || "#0B1437" }}>{value}</div>
+    </Card>
   );
 }
 
