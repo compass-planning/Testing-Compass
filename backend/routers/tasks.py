@@ -137,3 +137,25 @@ async def cron_task_digest(background: BackgroundTasks, authorization: str = Hea
         raise HTTPException(status_code=401, detail="Unauthorized")
     background.add_task(_run_task_digest)
     return {"status": "accepted"}
+
+
+@router.post("/advisor/digest-preview")
+async def digest_preview(user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    today = datetime.now(ZoneInfo("America/Toronto")).date().isoformat()
+    store, flt = scope_context(user)
+    due = [t for t in repo.list(store, "tasks", flt)
+           if not t.get("done") and t.get("due_date") and t["due_date"] <= today]
+    overdue = sorted([t for t in due if t["due_date"] < today], key=lambda t: t["due_date"])
+    today_tasks = [t for t in due if t["due_date"] == today]
+    if not due:
+        today_tasks = [{"title": "Sample: review a household's retirement plan", "due_date": today}]
+    firm = (user.get("branding") or {}).get("firm_name")
+    html = render_task_digest_html(user.get("name"), firm, today_tasks, overdue)
+    try:
+        await send_email(to=user["email"], subject="[Preview] Your morning task digest", html=html)
+        return {"sent": True, "to": user["email"]}
+    except Exception as e:
+        logger.warning(f"Task digest preview failed for {user['email']}: {e}")
+        return {"sent": False, "to": user["email"], "detail": "Email delivery is unavailable in this environment"}

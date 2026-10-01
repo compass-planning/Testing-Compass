@@ -1,9 +1,17 @@
 crons:
   - name: task-digest
-    description: "Hourly check that emails advisors their task digest at each advisor's chosen hour (ET)"
+    description: "Hourly check that emails advisors their daily task digest at each advisor's chosen hour (ET)"
     cron: "0 * * * *"
     timezone: "America/Toronto"
     endpoint: "{{BASE_URL}}/api/cron/task-digest"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true
+  - name: book-digest
+    description: "Weekly (Mondays) book-health summary emailed at each advisor's chosen hour (ET)"
+    cron: "0 * * * 1"
+    timezone: "America/Toronto"
+    endpoint: "{{BASE_URL}}/api/cron/book-digest"
     method: POST
     # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
     enabled: true

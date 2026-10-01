@@ -246,3 +246,58 @@ def render_task_digest_html(advisor_name, firm, today_tasks, overdue_tasks) -> s
         f'We never ask for your password or card details by email.</p>'
         f'</td></tr></table>'
     )
+
+
+def render_book_digest_html(advisor_name, firm, stats) -> str:
+    firm = escape(str(firm or EMAIL_FROM_NAME))
+    name = escape(str(advisor_name or "there").split()[0])
+    counts = stats.get("counts", {})
+    avg = stats.get("avg_score")
+    attention = stats.get("attention", [])
+
+    def stat_cell(label, value, color):
+        return (f'<td style="padding:12px;background:#f6f8fc;border-radius:8px;text-align:center" width="25%">'
+                f'<div style="font-size:22px;font-weight:800;color:{color}">{escape(str(value))}</div>'
+                f'<div style="font-size:11px;color:#60708f;margin-top:2px">{escape(str(label))}</div></td>')
+
+    cells = (
+        stat_cell("Households", stats.get("households", 0), "#0B1437")
+        + '<td width="8"></td>'
+        + stat_cell("Avg score", avg if avg is not None else "—", "#0052FF")
+        + '<td width="8"></td>'
+        + stat_cell("On track", counts.get("On Track", 0), "#00A36C")
+        + '<td width="8"></td>'
+        + stat_cell("Need attention", counts.get("At Risk", 0) + counts.get("Needs Review", 0), "#EE5D50")
+    )
+
+    def att_color(status):
+        return {"At Risk": "#EE5D50", "Needs Review": "#FFB800", "Needs Setup": "#60708f"}.get(status, "#60708f")
+
+    if attention:
+        rows = "".join(
+            f'<tr><td style="padding:9px 0;border-bottom:1px solid #eef1f6">'
+            f'<div style="color:#0B1437;font-size:14px;font-weight:600">{escape(str(a.get("primary")))}</div>'
+            f'<div style="color:#60708f;font-size:12px">{escape(str(a.get("next_action") or ""))}</div></td>'
+            f'<td style="padding:9px 0;border-bottom:1px solid #eef1f6;text-align:right;white-space:nowrap">'
+            f'<span style="color:{att_color(a.get("status"))};font-size:12px;font-weight:700">{escape(str(a.get("status")))}</span>'
+            f'<span style="color:#9aa5b9;font-size:12px"> · {escape(str(a.get("score") if a.get("score") is not None else "—"))}</span></td></tr>'
+            for a in attention)
+        attention_block = (f'<h3 style="color:#0B1437;margin:22px 0 4px;font-size:14px">Households needing attention</h3>'
+                           f'<table role="presentation" width="100%">{rows}</table>')
+    else:
+        attention_block = '<p style="color:#00A36C;font-size:13px;margin-top:20px">Every household is on track this week. 🎯</p>'
+
+    return (
+        f'<table role="presentation" width="100%" style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif">'
+        f'<tr><td style="background:#0B1437;padding:20px 24px;border-radius:10px 10px 0 0">'
+        f'<div style="color:#fff;font-size:20px;font-weight:700">{firm}</div>'
+        f'<div style="color:#9db2e6;font-size:12px">Your weekly book-health summary</div></td></tr>'
+        f'<tr><td style="padding:24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px">'
+        f'<h2 style="color:#0B1437;margin:0 0 14px">Good morning, {name}</h2>'
+        f'<table role="presentation" width="100%"><tr>{cells}</tr></table>'
+        f'{attention_block}'
+        f'<p style="font-size:11px;color:#9aa5b9;margin-top:22px">Sign in to {firm} to action these households. '
+        f'We never ask for your password or card details by email.</p>'
+        f'</td></tr></table>'
+    )
+

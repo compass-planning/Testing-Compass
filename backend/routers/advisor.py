@@ -1,8 +1,10 @@
 """Advisor routes: client roster + scoring, opportunities views, branding/logo, invites, goal nudges."""
+import os
 import logging
 import secrets
 from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Response
+from zoneinfo import ZoneInfo
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Response, BackgroundTasks, Header
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, EmailStr
 
@@ -11,7 +13,7 @@ from security import hash_password, create_scoped_token
 from repository import repo
 from models import _id
 from deps import get_current_user, scope_context, write_scope, audit
-from email_service import send_email, render_invite_html
+from email_service import send_email, render_invite_html, render_book_digest_html
 
 logger = logging.getLogger("compass")
 router = APIRouter()
@@ -78,10 +80,7 @@ def _household_score(c, nw, debts, insurance, retirement, goals, estate=None):
             "next_action": next_action or "Schedule annual review", "net_worth": net_worth, "debt": liabilities}
 
 
-@router.get("/advisor/clients")
-async def advisor_clients(user: dict = Depends(get_current_user)):
-    if user["tier"] != "advisor":
-        raise HTTPException(status_code=403, detail="Advisor tier only")
+def _build_roster(user: dict) -> list[dict]:
     store, flt = scope_context(user)
     owners = repo.list(store, "owners", flt)
     accounts = repo.list(store, "accounts", flt)
@@ -129,6 +128,13 @@ async def advisor_clients(user: dict = Depends(get_current_user)):
         else:
             clients[cid]["has_login"] = True
     return list(clients.values())
+
+
+@router.get("/advisor/clients")
+async def advisor_clients(user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    return _build_roster(user)
 
 
 class OppsView(BaseModel):
@@ -456,8 +462,77 @@ async def nudge_goals(client_id: str, user: dict = Depends(get_current_user)):
     if user["tier"] != "advisor":
         raise HTTPException(status_code=403, detail="Advisor tier only")
     store, flt, changes = _household_goal_nudges(user, client_id)
+    applied = []
     for ch in changes:
         repo.update(store, "goals", ch["id"], {"target_year": ch["new_year"], "monthly_contribution": ch["new_monthly"]}, flt)
+        applied.append({"id": ch["id"], "old_year": ch["old_year"], "old_monthly": ch["old_monthly"]})
     if changes:
         audit(user, "goal.nudge", "goals", f"Nudged {len(changes)} goal(s) for {client_id}")
-    return {"nudged": len(changes)}
+    return {"nudged": len(changes), "applied": applied}
+
+
+# ---------------- Weekly book-health digest ----------------
+
+def _book_stats(user: dict) -> dict:
+    roster = _build_roster(user)
+    scored = [c for c in roster if c.get("score") is not None]
+    counts = {"On Track": 0, "Needs Review": 0, "At Risk": 0, "Needs Setup": 0}
+    for c in roster:
+        counts[c.get("status", "Needs Review")] = counts.get(c.get("status", "Needs Review"), 0) + 1
+    attention = [c for c in roster if c.get("needs_setup") or c.get("status") in ("At Risk", "Needs Review")]
+    attention.sort(key=lambda c: (not c.get("needs_setup"), c.get("score") if c.get("score") is not None else 999))
+    return {
+        "households": len(roster),
+        "avg_score": round(sum(c["score"] for c in scored) / len(scored)) if scored else None,
+        "counts": counts,
+        "attention": [{"primary": c.get("primary") or c["client_id"], "status": c["status"],
+                       "score": c.get("score"), "next_action": c.get("next_action")} for c in attention[:8]],
+    }
+
+
+async def _run_book_digest():
+    now = datetime.now(ZoneInfo("America/Toronto"))
+    sent = 0
+    for u in repo.all_users():
+        if u.get("tier") != "advisor":
+            continue
+        s = u.get("digest_settings") or {}
+        if not s.get("enabled", True) or int(s.get("hour", 8)) != now.hour:
+            continue
+        stats = _book_stats(u)
+        if not stats["households"]:
+            continue
+        firm = (u.get("branding") or {}).get("firm_name")
+        html = render_book_digest_html(u.get("name"), firm, stats)
+        try:
+            await send_email(to=u["email"], subject="Your weekly book-health summary", html=html)
+            sent += 1
+        except Exception as e:
+            logger.warning(f"Book digest email failed for {u['email']}: {e}")
+    logger.info(f"Book digest run (hour={now.hour} ET): emailed {sent} advisor(s)")
+
+
+@router.post("/cron/book-digest")
+async def cron_book_digest(background: BackgroundTasks, authorization: str = Header(default="")):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    secret = os.environ.get("WEBHOOK_CRON_SECRET", "")
+    token = authorization[7:] if authorization.startswith("Bearer ") else ""
+    if not secret or not token or not secrets.compare_digest(token, secret):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    background.add_task(_run_book_digest)
+    return {"status": "accepted"}
+
+
+@router.post("/advisor/book-digest/preview")
+async def book_digest_preview(user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    stats = _book_stats(user)
+    firm = (user.get("branding") or {}).get("firm_name")
+    html = render_book_digest_html(user.get("name"), firm, stats)
+    try:
+        await send_email(to=user["email"], subject="[Preview] Your weekly book-health summary", html=html)
+        return {"sent": True, "to": user["email"]}
+    except Exception as e:
+        logger.warning(f"Book digest preview failed for {user['email']}: {e}")
+        return {"sent": False, "to": user["email"], "detail": "Email delivery is unavailable in this environment"}
