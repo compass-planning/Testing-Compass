@@ -92,7 +92,7 @@ export default function Goals() {
 function strip(body) { const { store, scope, household_id, created_at, status, ...rest } = body; return rest; }
 
 function GoalModal({ open, initial, owners, linkItems, onClose, onSubmit, loading }) {
-  const [f, setF] = useState({});
+  const [f, setF] = useState({ title: "", category: "retirement", target_amount: "", current_amount: "", target_year: new Date().getFullYear() + 10, owner_id: "", linked_asset_ids: [] });
   React.useEffect(() => {
     if (open) setF({
       id: initial?.id, title: initial?.title || "", category: initial?.category || "retirement",

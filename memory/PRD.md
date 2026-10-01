@@ -102,6 +102,13 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - Server guard extended: advisor `PUT /plan/profile` now also requires an open household.
 - Testing: iter6 — backend 12/12 pass; frontend 100% (Household Queue scoring, Insurance score + 3 tabs + add-policy, Tax 5 tabs reactive incl. RRSP cap, person toggles present/working). Report `/app/test_reports/iteration_6.json`.
 
+## Estate / Goal Funding / Alerts Feed / Client PDF (added 2026-06)
+- **Estate Planning** (`pages/Tax.jsx` Estate tab + `lib/tax.js`): beneficiary register (asset → beneficiary + allocation %) and will/POA register (type + status) stored in a new `estate` plan collection; **estate settlement estimate** = provincial probate fees (ON 1.5% over $50k, BC ~1.4%, AB flat, QC $0) + deemed-disposition tax on registered assets (RRSP/RRIF at marginal rate). Illustrative, Canada-only.
+- **Goal Funding Link** (`pages/Goals.jsx` + `models.py` Goal.linked_asset_ids): goals can link Net Worth assets / accounts as funding sources; linked goals auto-compute current amount from live balances (manual entry disabled), shown with an 'Auto-funded' badge. Goals are now editable. Backend persists `linked_asset_ids` on create/update.
+- **Advisor Alerts Feed** (`pages/Dashboard.jsx`): advisor dashboard 'Action feed' aggregates every household's Household-Queue alerts (reuses `/advisor/clients` scoring), worst-score first, each row opening that household.
+- **Client PDF Report** (`pages/ClientReport.jsx`, jsPDF): branded one-page household summary (net worth, assets/liabilities, protection score, retirement success %, top goals) downloadable from Reports → Client Report. Route `/report`.
+- Testing: iter7 — backend 4/4 pass; frontend 100% (Estate CRUD + estimate reactive to province, goal linking auto-funds, alerts feed navigates, PDF downloads). Fixed GoalModal uncontrolled-input warning. Report `/app/test_reports/iteration_7.json`.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.

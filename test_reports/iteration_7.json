@@ -1,0 +1,33 @@
+{
+  "summary": "Iter7 — full backend + frontend coverage of the 4 new modules: Estate CRUD, Goal.linked_asset_ids, Advisor Alerts Feed, Client PDF Report. Backend: 4/4 pytest cases pass in /app/backend/tests/test_iter7_estate_goals.py — TestEstate (advisor requires household_id -> 400; create beneficiary+document, update allocation, delete both; enterprise 403 on write) + TestGoalLinked (POST /goals with linked_asset_ids persists on create, round-trips on GET, PUT updates list, PUT can clear to empty). Frontend verified via Playwright against the public preview URL as advisor@compass.ca with client_a1 active, drilling after a feed-item click (navigated to Okafor household). (1) /dashboard renders advisor-alerts-feed with 8 feed-item-* rows, worst-score first (first row = Okafor score 55 'No retirement projection on file / Build a retirement projection'); clicking a row navigates to /profile with that household active. (2) /tax has 6th tab-estate; Estate tab shows estate-value, estate-registered (read-only) and estate-total ($85,662 ON). Province select change ON->QC recomputed estate-total to $110,982 (reactive). add-estate-button opens estate-modal; default kind=beneficiary -> added TEST_RRSP/TEST_Spouse/50% appeared in beneficiary-register; switching field-kind to document -> added TEST_Will appeared in document-register; edit (click row Edit) updated allocation 50->77 in register; delete (confirm dialog) removed the row. (3) /goals shows an edit-goal-<id> button per goal; clicking opens goal-modal with Fund-from-accounts checklist (2 link-<id> sources from Net Worth). Pre-link goal-current was editable; after checking first source goal-current became disabled with value 202,706 (sum of linked balances); on goal-save the goal card showed goal-linked-<id> badge 'Auto-funded · 1 source'. (4) /report renders report-preview with Net worth / Protection score / Retirement success / balance sheet / top goals; clicking download-report triggered a real PDF download 'The-Okafor-Household-summary.pdf' with no JS console errors from jsPDF.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Goals / GoalModal", "issue": "React warning 'A component is changing an uncontrolled input to be controlled' fires when opening the goal modal — f.current_amount starts undefined then becomes a number. Harmless but should initialise state with ({title:'', target_amount:'', current_amount:0, target_year: ..., linked_asset_ids: []}) in the modal.", "selector": "[data-testid='goal-current']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter7_estate_goals.py",
+    "/app/test_reports/pytest/iter7.xml"
+  ],
+  "action_items": [
+    "(Low) Initialise goal-modal form state fully so React does not warn about an uncontrolled->controlled input on first open."
+  ],
+  "critical_code_review_comments": [
+    "Tax.jsx Estate component: delete uses window.confirm() dialog (works but blocks Playwright unless dialog handler is set) — consider an in-app confirm toast for parity with other registers.",
+    "Goals.jsx GoalModal: form state defaults rely on spread of g which may be undefined for new goals; coerce current_amount/target_amount to numbers or '' to avoid React uncontrolled warning.",
+    "ClientReport.jsx: jsPDF generation is synchronous on main thread — fine for a one-pager but should be moved to a web worker or chunked if sections grow.",
+    "Dashboard advisor-alerts-feed: scoring/ordering mirrors AdvisorClients; good reuse but the empty-state message selector is not data-testid'd — add e.g. 'advisor-alerts-empty' for QA assertions.",
+    "server.py plan_profile_save still accepts advisor without household_id (flagged in iter6) — unchanged."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter7_estate_goals.py (NEW — 4 cases)"],
+  "success_rate": {"backend": "100% (4/4 iter7)", "frontend": "100% (all 4 new modules verified end-to-end)"},
+  "test_credentials": "advisor@compass.ca / Compass2026! — TOTP reset at start of run; after this iteration advisor is enrolled with its own freshly generated secret (not DEMO_TOTP). Reset via snippet in /app/memory/test_credentials.md for re-runs.",
+  "seed_data_creation": "Playwright created TEST_RRSP/TEST_Spouse beneficiary (then edited then deleted) and TEST_Will document (left in household client_a1 Estate register, non-blocking). Pytest created+deleted TEST_Retirement Goal + 2 estate rows under client_a1.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend regression: `pytest /app/backend/tests/test_iter7_estate_goals.py -v -o addopts=''`. Login helper handles mfa_setup (fresh enroll) + mfa_required (DEMO_TOTP=JBSWY3DPEHPK3PXP). If advisor is enrolled with a non-DEMO secret (as left by this iter), reset per /app/memory/test_credentials.md snippet before running. All 4 new modules (Estate / Goal linking / Alerts feed / Client PDF) are green; the only outstanding nit is the React controlled-input warning in GoalModal.",
+  "rca_of_the_issue": null
+}
