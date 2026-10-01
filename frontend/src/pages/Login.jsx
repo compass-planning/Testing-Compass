@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
-import { ShieldCheck, ArrowRight, Building2, UserCog, User as UserIcon, ArrowLeft, KeyRound, QrCode } from "lucide-react";
+import { ShieldCheck, ArrowRight, Building2, UserCog, User as UserIcon, ArrowLeft, KeyRound, QrCode, Check, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Logo } from "@/components/Logo";
 import { Button, Input, Field, Select } from "@/components/ui-kit";
@@ -136,12 +136,36 @@ export default function Login() {
   );
 }
 
+const PW_RULES = [
+  { key: "length", label: "At least 8 characters", test: (p) => p.length >= 8 },
+  { key: "upper", label: "An uppercase letter", test: (p) => /[A-Z]/.test(p) },
+  { key: "lower", label: "A lowercase letter", test: (p) => /[a-z]/.test(p) },
+  { key: "number", label: "A number", test: (p) => /\d/.test(p) },
+  { key: "special", label: "A symbol (!@#…)", test: (p) => /[^A-Za-z0-9]/.test(p) },
+];
+const STRENGTH = [
+  { label: "Too weak", color: "#EE5D50", width: "20%" },
+  { label: "Weak", color: "#EE5D50", width: "40%" },
+  { label: "Fair", color: "#FFB800", width: "60%" },
+  { label: "Good", color: "#0052FF", width: "80%" },
+  { label: "Strong", color: "#00DF89", width: "100%" },
+];
+
 function ChangeStep({ changeToken, onDone }) {
   const [pw, setPw] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const passed = PW_RULES.filter((r) => r.test(pw));
+  const lengthOk = PW_RULES[0].test(pw);
+  const categories = PW_RULES.slice(1).filter((r) => r.test(pw)).length;
+  const strong = lengthOk && categories >= 3;
+  const strength = STRENGTH[Math.max(0, passed.length - 1)] || STRENGTH[0];
+  const match = pw.length > 0 && pw === confirm;
+
   const submit = async (e) => {
     e.preventDefault();
+    if (!strong) { toast.error("Please choose a stronger password"); return; }
     if (pw !== confirm) { toast.error("Passwords do not match"); return; }
     setLoading(true);
     try {
@@ -156,9 +180,33 @@ function ChangeStep({ changeToken, onDone }) {
       <h1 className="font-heading text-2xl font-extrabold text-compass-navy">Set a new password</h1>
       <p className="text-sm text-compass-muted mt-1 mb-4">For your security, please choose a new password before continuing.</p>
       <form onSubmit={submit} className="space-y-4" data-testid="change-password-form">
-        <Field label="New password"><Input type="password" required minLength={8} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="At least 8 characters" data-testid="change-new-password" /></Field>
-        <Field label="Confirm new password"><Input type="password" required minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Re-enter password" data-testid="change-confirm-password" /></Field>
-        <Button type="submit" className="w-full" disabled={loading || pw.length < 8} data-testid="change-submit">{loading ? "Updating…" : "Update & continue"} <ArrowRight size={16} /></Button>
+        <Field label="New password"><Input type="password" required value={pw} onChange={(e) => setPw(e.target.value)} placeholder="At least 8 characters" data-testid="change-new-password" /></Field>
+
+        {pw.length > 0 && (
+          <div data-testid="pw-strength">
+            <div className="h-1.5 w-full rounded-full bg-compass-border overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-300" style={{ width: strength.width, backgroundColor: strength.color }} />
+            </div>
+            <div className="flex items-center justify-between mt-1.5">
+              <span className="text-xs font-semibold" style={{ color: strength.color }} data-testid="pw-strength-label">{strength.label}</span>
+            </div>
+            <ul className="mt-2 grid grid-cols-1 gap-1">
+              {PW_RULES.map((r) => {
+                const ok = r.test(pw);
+                return (
+                  <li key={r.key} className={`flex items-center gap-1.5 text-xs ${ok ? "text-compass-green" : "text-compass-muted"}`} data-testid={`pw-rule-${r.key}`}>
+                    {ok ? <Check size={13} /> : <X size={13} />} {r.label}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        <Field label="Confirm new password"><Input type="password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Re-enter password" data-testid="change-confirm-password" /></Field>
+        {confirm.length > 0 && !match && <p className="text-xs text-compass-red font-semibold -mt-2" data-testid="pw-mismatch">Passwords do not match</p>}
+
+        <Button type="submit" className="w-full" disabled={loading || !strong || !match} data-testid="change-submit">{loading ? "Updating…" : "Update & continue"} <ArrowRight size={16} /></Button>
       </form>
     </>
   );
