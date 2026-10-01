@@ -203,6 +203,41 @@ function alertType(a) {
   return "Other";
 }
 
+function NudgeModal({ nudge, onClose, onApply }) {
+  if (!nudge) return null;
+  const changes = nudge.changes || [];
+  return (
+    <Modal open={!!nudge} onClose={onClose} title="Preview goal nudge" testid="nudge-modal">
+      {changes.length === 0 ? (
+        <div className="space-y-4">
+          <p className="text-sm text-compass-muted" data-testid="nudge-empty">No underfunded goals to nudge for this household.</p>
+          <div className="flex justify-end"><Button onClick={onClose}>Close</Button></div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-compass-muted">Review the proposed changes before applying.</p>
+          <div className="space-y-2.5">
+            {changes.map((c) => (
+              <div key={c.id} className="rounded-lg bg-compass-bg px-3 py-2 text-sm" data-testid={`nudge-change-${c.id}`}>
+                <div className="font-semibold text-compass-navy">{c.title}</div>
+                <div className="text-xs text-compass-muted mt-0.5">
+                  {c.action === "extend"
+                    ? <>Extend target {c.old_year} → <span className="font-semibold text-compass-navy">{c.new_year}</span>, contribute {money(c.old_monthly)} → <span className="font-semibold text-compass-navy">{money(c.new_monthly)}/mo</span></>
+                    : <>Contribute {money(c.old_monthly)} → <span className="font-semibold text-compass-navy">{money(c.new_monthly)}/mo</span> to stay on track for {c.new_year}</>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 justify-end pt-1">
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button onClick={onApply} data-testid="nudge-apply">Apply {changes.length} change{changes.length === 1 ? "" : "s"}</Button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, statusFilter, setStatusFilter, onOpen }) {
   const qc = useQueryClient();
   const viewsQ = useQuery({ queryKey: ["opps-views"], queryFn: async () => (await api.get("/advisor/opps-views")).data });
@@ -213,7 +248,9 @@ function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, sta
   const taskMut = useMutation({ mutationFn: (b) => api.post("/advisor/tasks", b), onSuccess: () => { qc.invalidateQueries({ queryKey: ["tasks"] }); toast.success("Task logged"); }, onError: () => toast.error("Could not log task") });
   const logTask = (o) => { const t = window.prompt("Log a follow-up task", o.alert); if (t && t.trim()) taskMut.mutate({ client_id: o.c.client_id, title: t.trim() }); };
   const taskCount = (cid) => tasks.filter((t) => t.scope?.client_id === cid && !t.done).length;
-  const nudgeMut = useMutation({ mutationFn: (cid) => api.post(`/advisor/households/${cid}/nudge-goals`), onSuccess: (res) => { qc.invalidateQueries({ queryKey: ["clients"] }); const n = res.data.nudged; toast.success(n ? `Nudged ${n} goal${n === 1 ? "" : "s"}` : "No underfunded goals to nudge"); }, onError: () => toast.error("Could not nudge goals") });
+  const nudgeMut = useMutation({ mutationFn: (cid) => api.post(`/advisor/households/${cid}/nudge-goals`), onSuccess: (res) => { qc.invalidateQueries({ queryKey: ["clients"] }); const n = res.data.nudged; toast.success(n ? `Nudged ${n} goal${n === 1 ? "" : "s"}` : "No underfunded goals to nudge"); setNudge(null); }, onError: () => toast.error("Could not nudge goals") });
+  const [nudge, setNudge] = useState(null);
+  const openNudge = async (cid) => { try { const { data } = await api.get(`/advisor/households/${cid}/nudge-preview`); setNudge({ clientId: cid, changes: data.changes }); } catch { toast.error("Could not load nudge preview"); } };
   const saveViews = (next) => saveMut.mutate(next);
   const saveCurrentView = () => { const name = window.prompt("Name this view"); if (name && name.trim()) saveViews([...views, { name: name.trim(), type: typeFilter, status: statusFilter, sort }]); };
   const applyView = (v) => { setTypeFilter(v.type); setStatusFilter(v.status); setSort(v.sort); };
@@ -229,6 +266,7 @@ function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, sta
   });
   return (
     <div data-testid="opportunities-list">
+      <NudgeModal nudge={nudge} onClose={() => setNudge(null)} onApply={() => nudgeMut.mutate(nudge.clientId)} />
       <div className="flex flex-wrap items-center gap-2 mb-3" data-testid="saved-views">
         {views.map((v, i) => (
           <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-compass-blue/10 text-compass-blue text-xs font-semibold pl-3 pr-2 py-1">
@@ -271,7 +309,7 @@ function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, sta
                   {taskCount(o.c.client_id) > 0 && <div className="text-[10px] font-semibold text-compass-blue" data-testid={`task-count-${o.c.client_id}`}>{taskCount(o.c.client_id)} task{taskCount(o.c.client_id) > 1 ? "s" : ""}</div>}
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => logTask(o)} data-testid={`log-task-${i}`}>Log task</Button>
-                {(o.type === "Goals" || o.type === "Retirement") && <Button size="sm" variant="ghost" onClick={() => nudgeMut.mutate(o.c.client_id)} data-testid={`nudge-goals-${i}`}>Nudge</Button>}
+                {(o.type === "Goals" || o.type === "Retirement") && <Button size="sm" variant="ghost" onClick={() => openNudge(o.c.client_id)} data-testid={`nudge-goals-${i}`}>Nudge</Button>}
                 <Button size="sm" variant="outline" onClick={() => onOpen(o.c)} data-testid={`opp-open-${i}`}>Open <ArrowRight size={14} /></Button>
               </Card>
             );

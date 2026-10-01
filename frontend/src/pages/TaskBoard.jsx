@@ -14,18 +14,22 @@ export default function TaskBoard() {
   const clients = clientsQ.data || [];
   const nameFor = (cid) => clients.find((c) => c.client_id === cid)?.primary || cid;
 
-  const complete = useMutation({ mutationFn: (id) => api.patch(`/advisor/tasks/${id}`), onSuccess: () => { qc.invalidateQueries({ queryKey: ["tasks"] }); toast.success("Task completed"); }, onError: () => toast.error("Could not update task") });
+  const complete = useMutation({ mutationFn: (id) => api.patch(`/advisor/tasks/${id}`, { done: true }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["tasks"] }); toast.success("Task completed"); }, onError: () => toast.error("Could not update task") });
+  const setDue = useMutation({ mutationFn: ({ id, due_date }) => api.patch(`/advisor/tasks/${id}`, { due_date }), onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }), onError: () => toast.error("Could not set due date") });
   const clear = useMutation({ mutationFn: (id) => api.delete(`/advisor/tasks/${id}`), onSuccess: () => { qc.invalidateQueries({ queryKey: ["tasks"] }); toast.success("Task cleared"); }, onError: (e) => toast.error(formatApiError(e.response?.data?.detail)) });
 
   const open = tasks.filter((t) => !t.done);
   const done = tasks.filter((t) => t.done);
+  const isOverdue = (t) => t.due_date && !t.done && new Date(t.due_date) < new Date(new Date().toDateString());
 
   const Row = ({ t }) => (
-    <Card className="p-4 flex items-center gap-4" data-testid={`task-${t.id}`}>
+    <Card className={`p-4 flex items-center gap-3 flex-wrap ${isOverdue(t) ? "ring-1 ring-compass-red/40" : ""}`} data-testid={`task-${t.id}`}>
       <div className="flex-1 min-w-0">
         <div className={`font-semibold text-compass-navy ${t.done ? "line-through opacity-60" : ""}`}>{t.title}</div>
         <div className="text-xs text-compass-muted mt-0.5">{nameFor(t.scope?.client_id)} · {new Date(t.created_at).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}</div>
       </div>
+      {isOverdue(t) && <Badge color="#EE5D50" bg="rgba(238,93,80,0.12)">Overdue</Badge>}
+      {!t.done && <input type="date" value={t.due_date || ""} onChange={(e) => setDue.mutate({ id: t.id, due_date: e.target.value })} className="text-xs border border-compass-border rounded px-2 py-1 text-compass-navy" data-testid={`task-due-${t.id}`} />}
       {!t.done && <Button size="sm" variant="outline" onClick={() => complete.mutate(t.id)} data-testid={`task-complete-${t.id}`}><CheckCircle2 size={14} /> Complete</Button>}
       <Button size="sm" variant="ghost" onClick={() => clear.mutate(t.id)} data-testid={`task-clear-${t.id}`}><Trash2 size={14} /></Button>
     </Card>

@@ -1200,6 +1200,7 @@ async def activate_account(body: ActivateInput):
 class TaskInput(BaseModel):
     client_id: str
     title: str = Field(min_length=1)
+    due_date: str | None = None
 
 
 @api.post("/advisor/tasks")
@@ -1208,7 +1209,7 @@ async def create_task(body: TaskInput, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Advisor tier only")
     store, _ = scope_context(user)
     rec = {"id": _id(), "store": store, "scope": write_scope(user, client_id=body.client_id),
-           "title": body.title, "done": False, "actor_email": user["email"],
+           "title": body.title, "done": False, "due_date": body.due_date, "actor_email": user["email"],
            "created_at": datetime.now(timezone.utc).isoformat()}
     repo.create(store, "tasks", rec)
     audit(user, "task.create", "tasks", body.title)
@@ -1226,10 +1227,18 @@ async def list_tasks(user: dict = Depends(get_current_user), client_id: str = No
     return rows
 
 
+class TaskPatch(BaseModel):
+    done: bool | None = None
+    due_date: str | None = None
+
+
 @api.patch("/advisor/tasks/{tid}")
-async def complete_task(tid: str, user: dict = Depends(get_current_user)):
+async def update_task(tid: str, body: TaskPatch, user: dict = Depends(get_current_user)):
     store, flt = scope_context(user)
-    updated = repo.update(store, "tasks", tid, {"done": True}, flt)
+    patch = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not patch:
+        patch = {"done": True}
+    updated = repo.update(store, "tasks", tid, patch, flt)
     if not updated:
         raise HTTPException(status_code=404, detail="Task not found")
     return updated
@@ -1255,30 +1264,47 @@ def _required_monthly(current, target, annual_growth, target_year):
     return remaining / months
 
 
+def _plan_nudge(g):
+    cur, tgt = float(g.get("current_amount", 0)), float(g.get("target_amount", 0))
+    if tgt <= 0 or cur >= tgt:
+        return None
+    yr = int(g.get("target_year") or datetime.now(timezone.utc).year)
+    growth = float(g.get("growth_rate", 0))
+    old_monthly = round(float(g.get("monthly_contribution", 0)))
+    req = _required_monthly(cur, tgt, growth, yr)
+    if req > 50000:
+        new_yr = yr + 10
+        return {"id": g["id"], "title": g.get("title", "Goal"), "action": "extend",
+                "old_monthly": old_monthly, "new_monthly": round(_required_monthly(cur, tgt, growth, new_yr)),
+                "old_year": yr, "new_year": new_yr}
+    return {"id": g["id"], "title": g.get("title", "Goal"), "action": "catch-up",
+            "old_monthly": old_monthly, "new_monthly": round(req), "old_year": yr, "new_year": yr}
+
+
+def _household_goal_nudges(user, client_id):
+    store, flt = scope_context(user)
+    goals = [g for g in repo.list(store, "goals", flt) if g.get("scope", {}).get("client_id") == client_id]
+    return store, flt, [p for p in (_plan_nudge(g) for g in goals) if p]
+
+
+@api.get("/advisor/households/{client_id}/nudge-preview")
+async def nudge_preview(client_id: str, user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    _, _, changes = _household_goal_nudges(user, client_id)
+    return {"changes": changes}
+
+
 @api.post("/advisor/households/{client_id}/nudge-goals")
 async def nudge_goals(client_id: str, user: dict = Depends(get_current_user)):
     if user["tier"] != "advisor":
         raise HTTPException(status_code=403, detail="Advisor tier only")
-    store, flt = scope_context(user)
-    goals = [g for g in repo.list(store, "goals", flt) if g.get("scope", {}).get("client_id") == client_id]
-    nudged = 0
-    for g in goals:
-        cur, tgt = float(g.get("current_amount", 0)), float(g.get("target_amount", 0))
-        if tgt <= 0 or cur >= tgt:
-            continue
-        yr = int(g.get("target_year") or datetime.now(timezone.utc).year)
-        growth = float(g.get("growth_rate", 0))
-        req = _required_monthly(cur, tgt, growth, yr)
-        if req > 50000:  # unrealistic monthly — extend the timeline instead
-            yr += 10
-            req = _required_monthly(cur, tgt, growth, yr)
-            repo.update(store, "goals", g["id"], {"target_year": yr, "monthly_contribution": round(req)}, flt)
-        else:
-            repo.update(store, "goals", g["id"], {"monthly_contribution": round(req)}, flt)
-        nudged += 1
-    if nudged:
-        audit(user, "goal.nudge", "goals", f"Nudged {nudged} goal(s) for {client_id}")
-    return {"nudged": nudged}
+    store, flt, changes = _household_goal_nudges(user, client_id)
+    for ch in changes:
+        repo.update(store, "goals", ch["id"], {"target_year": ch["new_year"], "monthly_contribution": ch["new_monthly"]}, flt)
+    if changes:
+        audit(user, "goal.nudge", "goals", f"Nudged {len(changes)} goal(s) for {client_id}")
+    return {"nudged": len(changes)}
 
 
 @api.get("/report/history")

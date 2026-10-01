@@ -23,9 +23,21 @@ export default function MyPlan() {
   const goalsQ = useQuery({ queryKey: ["goals"], queryFn: async () => (await api.get("/goals")).data });
   const o = overview.data || {};
   const goals = goalsQ.data || [];
+  const welcomeKey = `compass_welcome_seen_${user?.id || ""}`;
+  const [showWelcome, setShowWelcome] = React.useState(() => !localStorage.getItem(welcomeKey));
+  const dismissWelcome = () => { localStorage.setItem(welcomeKey, "1"); setShowWelcome(false); };
 
   return (
     <div data-testid="my-plan-page">
+      {showWelcome && (
+        <div className="mb-5 rounded-xl border border-compass-blue/30 bg-compass-blue/5 px-5 py-4 flex items-start justify-between gap-4" data-testid="welcome-banner">
+          <div>
+            <div className="font-heading font-bold text-compass-navy">Welcome to your plan 👋</div>
+            <p className="text-sm text-compass-muted mt-1">This is your personal, read-only view of the plan your advisor manages. You can see your net worth and goal progress here any time — just reach out to your advisor to make changes.</p>
+          </div>
+          <button onClick={dismissWelcome} className="text-sm font-semibold text-compass-blue shrink-0" data-testid="welcome-dismiss">Got it</button>
+        </div>
+      )}
       <PageHeader title={`Welcome back, ${(user?.name || "").split(" ")[0] || "there"}`} subtitle="Your plan at a glance. Your advisor keeps this up to date — reach out any time to make changes." />
 
       <div className="grid sm:grid-cols-3 gap-4 mb-6">
