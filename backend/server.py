@@ -283,7 +283,7 @@ async def dashboard(user: dict = Depends(get_current_user)):
         out["crm"] = sync[0] if sync else None
         out["planners"] = [
             {"name": u["name"], "email": u["email"], "role": u["role"]}
-            for u in repo.data["shared"].get("users", [])
+            for u in repo.all_users()
             if u.get("scope", {}).get("corp_id") == user["scope"].get("corp_id")
         ]
     if user["tier"] == "solo":

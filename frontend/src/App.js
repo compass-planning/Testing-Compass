@@ -23,6 +23,8 @@ import FinancialPlan from "@/pages/FinancialPlan";
 import InsightDashboard from "@/pages/InsightDashboard";
 import ClientProfile from "@/pages/ClientProfile";
 import NetWorth from "@/pages/NetWorth";
+import Debt from "@/pages/Debt";
+import CashFlow from "@/pages/CashFlow";
 
 function TierRoute({ tiers, children }) {
   const { user } = useAuth();
@@ -62,8 +64,8 @@ function App() {
               <Route path="/profile" element={<RequireHousehold><ClientProfile /></RequireHousehold>} />
               <Route path="/networth" element={<RequireHousehold><NetWorth /></RequireHousehold>} />
               <Route path="/goals" element={<RequireHousehold><Goals /></RequireHousehold>} />
-              <Route path="/debt" element={<RequireHousehold><PlanningPage kind="debts" /></RequireHousehold>} />
-              <Route path="/cashflow" element={<RequireHousehold><PlanningPage kind="expenses" /></RequireHousehold>} />
+              <Route path="/debt" element={<RequireHousehold><Debt /></RequireHousehold>} />
+              <Route path="/cashflow" element={<RequireHousehold><CashFlow /></RequireHousehold>} />
               <Route path="/insurance" element={<RequireHousehold><PlanningPage kind="insurance" /></RequireHousehold>} />
               <Route path="/tax" element={<RequireHousehold><PlanningPage kind="tax_notes" /></RequireHousehold>} />
               <Route path="/documents" element={<RequireHousehold><PlanningPage kind="documents" /></RequireHousehold>} />

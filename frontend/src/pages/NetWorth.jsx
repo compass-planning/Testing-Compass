@@ -161,7 +161,7 @@ function EntryModal({ open, initial, owners, tab, onClose, onSubmit, loading }) 
       mortgage: initial?.mortgage ?? "", mortgage_payment: initial?.mortgage_payment ?? "",
       payment_frequency: initial?.payment_frequency ?? "Monthly", property_taxes: initial?.property_taxes ?? "",
       interest_rate: initial?.interest_rate ?? "", is_rental: initial?.is_rental ? "yes" : "no",
-      rental_income: initial?.rental_income ?? "",
+      rental_income: initial?.rental_income ?? "", in_holding_company: initial?.in_holding_company ? "yes" : "no",
       // investment
       contribution: initial?.contribution ?? "", contribution_frequency: initial?.contribution_frequency ?? "Monthly",
       holding_type: initial?.holding_type ?? HOLDING_TYPES[0],
@@ -186,6 +186,7 @@ function EntryModal({ open, initial, owners, tab, onClose, onSubmit, loading }) 
       payment_frequency: f.payment_frequency, property_taxes: num(f.property_taxes),
       interest_rate: num(f.interest_rate), is_rental: isRental,
       rental_income: isRental ? num(f.rental_income) : 0,
+      in_holding_company: isRental ? f.in_holding_company === "yes" : false,
     });
     if (group === "investment") Object.assign(base, {
       contribution: num(f.contribution), contribution_frequency: f.contribution_frequency,
@@ -227,7 +228,13 @@ function EntryModal({ open, initial, owners, tab, onClose, onSubmit, loading }) 
               <Field label="Rental property?"><Select value={f.is_rental || "no"} onChange={set("is_rental")} data-testid="field-is-rental"><option value="no">No</option><option value="yes">Yes</option></Select></Field>
             </div>
             {isRental && (
-              <Field label="Monthly rental income ($)"><Input type="number" value={f.rental_income ?? ""} onChange={set("rental_income")} data-testid="field-rental-income" /></Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Monthly rental income ($)"><Input type="number" value={f.rental_income ?? ""} onChange={set("rental_income")} data-testid="field-rental-income" /></Field>
+                <Field label="Held in a holding company?"><Select value={f.in_holding_company || "no"} onChange={set("in_holding_company")} data-testid="field-in-holding-company"><option value="no">No</option><option value="yes">Yes</option></Select></Field>
+              </div>
+            )}
+            {isRental && f.in_holding_company === "yes" && (
+              <p className="text-xs text-compass-muted" data-testid="holdco-note">Income held in a holding company is excluded from household cash flow.</p>
             )}
           </div>
         )}
