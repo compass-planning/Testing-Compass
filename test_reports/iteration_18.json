@@ -1,0 +1,27 @@
+{
+  "summary": "Iter18 — all 3 UI enhancements PASS end-to-end on preview URL. (1) NUDGE PREVIEW: On /clients → view-opps, 6 nudge-goals-<i> buttons rendered; clicking one GET'd /api/advisor/households/{cid}/nudge-preview and opened nudge-modal with 1 nudge-change-<goalId> row 'Contribute $100 → $25,505/mo to stay on track for 2029' (catch-up action). Apply click POSTed /nudge-goals returning {nudged:1}, 'Nudged 1 goal' toast shown, modal closed; GET /goals confirmed monthly_contribution 100→25505, target_year unchanged at 2029. test_preview_does_not_write confirms GET /nudge-preview makes no DB mutation. (2) TASK DUE DATES: Pre-seeded task with due_date=2024-01-01 renders on /tasks (task-board-page) with 'Overdue' badge AND 'ring-1 ring-compass-red/40' class on the Card. task-due-<id> native date input accepts 2026-11-15, PATCH /advisor/tasks/{id} {due_date} persisted (verified via GET). PATCH {done:true} and DELETE paths covered in backend tests. (3) CLIENT WELCOME: Invited client (delivered+iter18ui@resend.dev) activated and token-injected to /my-plan — welcome-banner visible on first visit, welcome-dismiss click hides it, localStorage key 'compass_welcome_seen_<userId>' set to '1', banner stays hidden on reload. Backend pytest: 7/7 passed covering nudge-preview response shape, no-write guarantee, nudge-goals mutation, task create/patch/delete with due_date.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter18.py",
+    "/app/test_reports/pytest/iter18.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py now ~1328 lines (iter18 adds TaskPatch, due_date on TaskInput, _plan_nudge/_household_goal_nudges helpers, nudge-preview + nudge-goals endpoints). Main agent explicitly deferred the router split — this remains the single highest-priority refactor and has been flagged in iter14/15/16/17/18.",
+    "TaskBoard.jsx isOverdue compares `new Date(t.due_date) < new Date(new Date().toDateString())` — toDateString() yields US-locale date string parsed as local midnight, which is correct for same-day guard but subtle. Consider `due_date < today.toISOString().slice(0,10)` string compare for clarity (due_date is YYYY-MM-DD).",
+    "TaskBoard.jsx: setDue mutation fires on every date-input change event with no debounce or success toast; multiple quick edits send multiple PATCHes. Low priority UX.",
+    "AdvisorClients NudgeModal: `onApply` triggers nudgeMut.mutate(nudge.clientId); the mutation's onSuccess invalidates ['clients'] but NOT ['opps-views']/['tasks']. Opp rows still rely on clients.alerts so this is fine, but task-count badges on the opp row won't refresh if the nudge created an audit entry — currently it doesn't, so acceptable.",
+    "nudge-preview and nudge-goals both recompute _household_goal_nudges from scratch — this is correct for idempotency but means if the data mutates between preview GET and apply POST the user's previewed numbers may not match what gets written. Not a bug but worth a note in the UI (e.g. 'computed just now').",
+    "MyPlan.jsx welcomeKey uses `user?.id || ''` fallback — if user is briefly null during hydration the key becomes 'compass_welcome_seen_' (shared across users). Add `if (!user) return null;` guard before computing welcomeKey.",
+    "_required_monthly uses whole-year math (yr-currentYear)*12; a goal with target_year == currentYear yields months=1 and huge monthly req. Edge case already flagged in iter17 — unresolved."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter18.py"],
+  "success_rate": {"backend": "100% (7/7 pytest)", "frontend": "100% (3/3 iter18 flows)"},
+  "test_credentials": "advisor@compass.ca / Compass2026! (MFA pre-reset to unenrolled; security answer 'toronto'). Invited client delivered+iter18ui<ts>@resend.dev / ActivatedAbc9! — deleted post-test. solo@compass.ca untouched.",
+  "seed_data_creation": "Created 1 TEST household (TEST ZZ18 Primary <ts>, cid=client_576dead9), 1 underfunded retirement goal (10k/1M by currentYear+3), 1 overdue task (due 2024-01-01), 1 invited client user — all removed on teardown. Advisor MFA + opps_views reset.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter18 all green. Token-injection + REST login pattern unchanged from iter16/17. Backend endpoints exercised: GET /advisor/households/{cid}/nudge-preview (returns {changes:[{id,title,action,old_monthly,new_monthly,old_year,new_year}]}), POST /advisor/households/{cid}/nudge-goals (returns {nudged:N}), POST /advisor/tasks (accepts optional due_date), PATCH /advisor/tasks/{id} (accepts done and/or due_date, non-null patch only). TaskBoard isOverdue uses JS Date compare on t.due_date vs today midnight. Welcome banner uses localStorage key `compass_welcome_seen_<user.id>`. Pymongo not available inside Playwright script runner — do cleanup from a separate bash call after automation.",
+  "rca of the issue": "N/A — no bugs found."
+}

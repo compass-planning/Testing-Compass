@@ -185,3 +185,10 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - **Invite Expiry UI** (`server.py` stores `invite_expires_at` on invite/resend; `pages/AdvisorClients.jsx`): pending cards show 'Link expires in Nd' (muted) or 'Link expired' (red).
 - **Nudge From Row** (`POST /advisor/households/{client_id}/nudge-goals` + `OpportunitiesList`): Goals/Retirement opportunity rows get a 'Nudge' button that sets underfunded goals' monthly contribution to the required catch-up (or extends the timeline 10y if unrealistic).
 - Testing: iter17 — backend 100% + frontend 4/4 flows pass. Report `/app/test_reports/iteration_17.json`.
+
+## Nudge Preview / Task Due Dates / Client Welcome (added 2026-06, iter18)
+- **Nudge Preview** (`server.py` GET `/advisor/households/{id}/nudge-preview` + `OpportunitiesList` NudgeModal): clicking Nudge now previews each goal's old→new monthly/target (catch-up or extend) before applying; Apply commits via the existing POST. Shared `_plan_nudge` helper keeps preview and apply in sync.
+- **Task Due Dates** (`TaskInput.due_date`, `TaskPatch` on PATCH `/advisor/tasks/{id}` + `TaskBoard.jsx`): open tasks have an optional native date input; past-due incomplete tasks show an 'Overdue' badge and a red ring.
+- **Client Welcome** (`MyPlan.jsx`): a one-time dismissible welcome banner on `/my-plan` (localStorage `compass_welcome_seen_<userId>`).
+- **DEFERRED**: the `server.py` router split (~1300 lines) was intentionally not attempted this session — it's a large mechanical refactor best done in its own focused session to avoid regressions.
+- Testing: iter18 — backend 7/7 pytest + frontend 3/3 flows pass. Report `/app/test_reports/iteration_18.json`.
