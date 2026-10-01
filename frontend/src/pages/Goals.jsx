@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Target, Trash2, Pencil, Link2, CalendarCheck } from "lucide-react";
+import { Plus, Target, Trash2, Pencil, Link2, CalendarCheck, AlertTriangle } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { planApi } from "@/lib/planning";
 import { Card, Button, Input, Field, Select, Badge, Progress, Modal, Empty } from "@/components/ui-kit";
@@ -33,6 +33,15 @@ function requiredMonthly(current, target, annualGrowth, targetYear) {
   return Math.max(0, (target - fvCurrent) / factor);
 }
 
+// Earliest target year at which the required monthly contribution falls within `cap`.
+function realisticYear(current, target, annualGrowth, cap, fromYear) {
+  const base = new Date().getFullYear();
+  for (let y = Math.max(fromYear, base) + 1; y <= base + 50; y++) {
+    if (requiredMonthly(current, target, annualGrowth, y) <= cap) return y;
+  }
+  return null;
+}
+
 export default function Goals() {
   const qc = useQueryClient();
   const [modal, setModal] = useState(null);
@@ -49,6 +58,7 @@ export default function Goals() {
   }, [networth.data, accounts.data]);
   const itemsById = useMemo(() => Object.fromEntries(linkItems.map((i) => [i.id, i])), [linkItems]);
   const linkedTotal = (ids) => (ids || []).reduce((s, id) => s + (itemsById[id]?.value || 0), 0);
+  const monthlyIncome = useMemo(() => (owners.data || []).reduce((s, o) => s + Number(o.annual_income || 0), 0) / 12, [owners.data]);
 
   const invalidate = () => { qc.invalidateQueries({ queryKey: ["goals"] }); qc.invalidateQueries({ queryKey: ["dashboard"] }); };
   const save = useMutation({
@@ -63,6 +73,15 @@ export default function Goals() {
     current_amount: Number(current || 0), target_year: Number(g.target_year), owner_id: g.owner_id || null,
     linked_asset_ids: g.linked_asset_ids || [], monthly_contribution: Math.round(req), growth_rate: Number(g.growth_rate || 0),
   });
+
+  const applyExtend = (g, current, year) => {
+    const req = requiredMonthly(current, Number(g.target_amount || 0), Number(g.growth_rate || 0), year);
+    save.mutate({
+      id: g.id, title: g.title, category: g.category, target_amount: Number(g.target_amount || 0),
+      current_amount: Number(current || 0), target_year: year, owner_id: g.owner_id || null,
+      linked_asset_ids: g.linked_asset_ids || [], monthly_contribution: Math.round(req), growth_rate: Number(g.growth_rate || 0),
+    });
+  };
 
   return (
     <div>
@@ -111,15 +130,29 @@ export default function Goals() {
                   {current < Number(g.target_amount || 0) && (!proj || !onTime) && (() => {
                     const overdue = Number(g.target_year || 0) < new Date().getFullYear();
                     const req = requiredMonthly(current, Number(g.target_amount || 0), Number(g.growth_rate || 0), Number(g.target_year || new Date().getFullYear()));
+                    const cap = monthlyIncome > 0 ? 0.2 * monthlyIncome : 3000;
+                    const unrealistic = !overdue && req > cap;
+                    const extYear = unrealistic ? realisticYear(current, Number(g.target_amount || 0), Number(g.growth_rate || 0), cap, Number(g.target_year || new Date().getFullYear())) : null;
                     return (
-                      <div className="mt-2.5 rounded-lg bg-compass-amber/10 px-3 py-2 text-xs flex items-center justify-between gap-2" data-testid={`goal-fix-${g.id}`}>
+                      <div className={`mt-2.5 rounded-lg px-3 py-2 text-xs ${unrealistic ? "bg-compass-red/10" : "bg-compass-amber/10"}`} data-testid={`goal-fix-${g.id}`}>
                         {overdue ? (
                           <span className="text-compass-amber font-semibold">Target year passed — review the goal timeline.</span>
                         ) : (
-                          <>
+                          <div className="flex flex-col gap-1.5">
                             <span className="text-compass-navy"><span className="font-semibold">Catch up:</span> contribute <span className="font-bold">{money(req)}/mo</span> to hit {g.target_year}</span>
-                            <button onClick={() => applyFix(g, current, req)} className="text-compass-blue font-bold shrink-0 hover:underline" data-testid={`apply-fix-${g.id}`}>Apply</button>
-                          </>
+                            {unrealistic && (
+                              <span className="flex items-start gap-1.5 text-compass-red font-semibold" data-testid={`goal-unrealistic-${g.id}`}>
+                                <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                                That's over 20% of monthly income{extYear ? ` — extending the timeline to ${extYear} makes it realistic.` : " — consider extending the timeline."}
+                              </span>
+                            )}
+                            <div className="flex items-center gap-4 pt-0.5">
+                              <button onClick={() => applyFix(g, current, req)} className="text-compass-blue font-bold hover:underline" data-testid={`apply-fix-${g.id}`}>Apply {money(req)}/mo</button>
+                              {unrealistic && extYear && (
+                                <button onClick={() => applyExtend(g, current, extYear)} className="text-compass-navy font-bold hover:underline" data-testid={`extend-timeline-${g.id}`}>Extend to {extYear}</button>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
                     );

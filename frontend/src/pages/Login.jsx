@@ -27,6 +27,11 @@ export default function Login() {
 
   const finish = (data) => { applySession(data.token, data.user); toast.success("Signed in"); nav("/dashboard", { replace: true }); };
 
+  const handleAuth = (d) => {
+    if (d.status === "password_change_required") { setCtx((c) => ({ ...c, change_token: d.change_token })); setStep("change"); return; }
+    finish(d);
+  };
+
   const submitPassword = async (e) => {
     e.preventDefault(); setLoading(true);
     try {
@@ -41,8 +46,8 @@ export default function Login() {
     e.preventDefault(); setLoading(true);
     try {
       const { data: d } = await api.post("/auth/mfa/verify", { challenge: ctx.challenge, code });
-      if (d.status === "authenticated") finish(d);
-      else if (d.status === "security_required") { setCtx((c) => ({ ...c, setup_token: d.setup_token, questions: d.questions })); setStep("security"); }
+      if (d.status === "security_required") { setCtx((c) => ({ ...c, setup_token: d.setup_token, questions: d.questions })); setStep("security"); }
+      else handleAuth(d);
     } catch (e) { err(e, "Invalid code"); } finally { setLoading(false); }
   };
 
@@ -111,7 +116,11 @@ export default function Login() {
           )}
 
           {step === "security" && (
-            <SecurityStep questions={ctx.questions} setupToken={ctx.setup_token} onDone={finish} />
+            <SecurityStep questions={ctx.questions} setupToken={ctx.setup_token} onDone={handleAuth} />
+          )}
+
+          {step === "change" && (
+            <ChangeStep changeToken={ctx.change_token} onDone={finish} />
           )}
 
           {step === "forgot" && (
@@ -124,6 +133,34 @@ export default function Login() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ChangeStep({ changeToken, onDone }) {
+  const [pw, setPw] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const submit = async (e) => {
+    e.preventDefault();
+    if (pw !== confirm) { toast.error("Passwords do not match"); return; }
+    setLoading(true);
+    try {
+      const { data: d } = await api.post("/auth/change-password", { change_token: changeToken, new_password: pw });
+      toast.success("Password updated");
+      onDone(d);
+    } catch (e) { err(e, "Could not update password"); } finally { setLoading(false); }
+  };
+  return (
+    <>
+      <div className="h-11 w-11 rounded-xl gradient-bg flex items-center justify-center text-white mb-4"><KeyRound size={22} /></div>
+      <h1 className="font-heading text-2xl font-extrabold text-compass-navy">Set a new password</h1>
+      <p className="text-sm text-compass-muted mt-1 mb-4">For your security, please choose a new password before continuing.</p>
+      <form onSubmit={submit} className="space-y-4" data-testid="change-password-form">
+        <Field label="New password"><Input type="password" required minLength={8} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="At least 8 characters" data-testid="change-new-password" /></Field>
+        <Field label="Confirm new password"><Input type="password" required minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Re-enter password" data-testid="change-confirm-password" /></Field>
+        <Button type="submit" className="w-full" disabled={loading || pw.length < 8} data-testid="change-submit">{loading ? "Updating…" : "Update & continue"} <ArrowRight size={16} /></Button>
+      </form>
+    </>
   );
 }
 

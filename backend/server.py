@@ -29,7 +29,7 @@ from models import (
     MFAVerifyInput, SecurityQuestionInput, ForgotInput, ResetInput,
 )
 import seed
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from email_service import send_email, render_report_html, rate_ok
 
 
@@ -170,6 +170,9 @@ async def register(body: RegisterInput):
 
 
 def _issue_session(user: dict):
+    if user.get("must_change_password"):
+        change_token = create_scoped_token({"sub": user["id"]}, 10, "password_change")
+        return {"status": "password_change_required", "change_token": change_token}
     token = create_access_token(user["id"], user["email"])
     audit(user, "auth.login", "session", f"{user['tier']} sign-in (MFA verified)")
     return {"status": "authenticated", "token": token, "user": _public(user)}
@@ -255,6 +258,30 @@ async def reset_password(body: ResetInput):
     repo.update_user(user["id"], {"password_hash": hash_password(body.new_password)})
     audit(user, "auth.reset", "account", "Password reset via security question + TOTP")
     return {"ok": True}
+
+
+class ChangePasswordInput(BaseModel):
+    change_token: str
+    new_password: str = Field(min_length=8)
+
+
+@api.post("/auth/change-password")
+async def change_password(body: ChangePasswordInput):
+    try:
+        p = decode_token(body.change_token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Session expired — please sign in again")
+    if p.get("type") != "password_change":
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user = repo.find_user_by_id(p["sub"])
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    if verify_password(body.new_password, user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Choose a password different from your current one")
+    repo.update_user(user["id"], {"password_hash": hash_password(body.new_password),
+                                  "must_change_password": False})
+    audit(user, "auth.password_change", "account", "First-login forced password change")
+    return _issue_session(repo.find_user_by_id(user["id"]))
 
 
 @api.get("/auth/me")

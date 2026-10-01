@@ -22,6 +22,7 @@ export default function AdvisorClients() {
   const { setActive } = useHousehold();
   const navigate = useNavigate();
   const clients = useQuery({ queryKey: ["clients"], queryFn: async () => (await api.get("/advisor/clients")).data });
+  const branding = useQuery({ queryKey: ["branding"], queryFn: async () => (await api.get("/advisor/branding")).data });
 
   const openClient = (c) => {
     setActive(c.client_id, c.primary || c.client_id);
@@ -35,13 +36,17 @@ export default function AdvisorClients() {
   const needAttention = list.filter((c) => (c.status || "") !== "On Track").length;
 
   const buildBookPdf = () => {
+    const b = branding.data || {};
+    const firm = b.firm_name || "Compass Planning";
     const doc = new jsPDF(); const W = 210; let y = 0;
-    doc.setFillColor(0, 82, 255); doc.rect(0, 0, W, 26, "F");
-    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("Book Review", 14, 13);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.text(new Date().toLocaleDateString("en-CA", { dateStyle: "long" }), W - 14, 13, { align: "right" });
-    doc.setFontSize(10); doc.setTextColor(219, 230, 255);
-    doc.text(`${list.length} households · avg score ${avgScore} · ${needAttention} need attention`, 14, 20);
-    y = 38;
+    doc.setFillColor(0, 82, 255); doc.rect(0, 0, W, 28, "F");
+    if (b.logo) { try { doc.addImage(b.logo, b.logo.includes("image/png") ? "PNG" : "JPEG", W - 30, 5, 18, 16); } catch { /* ignore */ } }
+    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.text(firm, 14, 12);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("Book Review", 14, 18);
+    doc.setFontSize(9); doc.setTextColor(219, 230, 255);
+    doc.text(`${list.length} households · avg score ${avgScore} · ${needAttention} need attention`, 14, 24);
+    doc.setTextColor(255, 255, 255); doc.text(new Date().toLocaleDateString("en-CA", { dateStyle: "long" }), W - 14, 24, { align: "right" });
+    y = 40;
     [...list].sort((a, b) => (a.score || 0) - (b.score || 0)).forEach((c) => {
       if (y > 268) { doc.addPage(); y = 20; }
       doc.setTextColor(11, 20, 55); doc.setFont("helvetica", "bold"); doc.setFontSize(12);

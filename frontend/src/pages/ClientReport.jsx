@@ -24,6 +24,7 @@ export default function ClientReport() {
   const [brand, setBrand] = useState({ firm_name: "Compass Planning", cover_note: "", logo: "" });
   const [recipient, setRecipient] = useState("");
   const [historyModal, setHistoryModal] = useState(null);
+  const [historyVisible, setHistoryVisible] = useState(5);
 
   const brandingQ = useQuery({ queryKey: ["branding"], queryFn: async () => (await api.get("/advisor/branding")).data });
   useEffect(() => {
@@ -32,7 +33,13 @@ export default function ClientReport() {
   }, [brandingQ.data, brandKey]);
 
   const saveBrand = useMutation({ mutationFn: (b) => api.put("/advisor/branding", b) });
-  const persist = (next) => { setBrand(next); localStorage.setItem(brandKey, JSON.stringify(next)); saveBrand.mutate(next); };
+  const saveTimer = React.useRef();
+  const persist = (next) => {
+    setBrand(next);
+    localStorage.setItem(brandKey, JSON.stringify(next));
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => saveBrand.mutate(next), 600);
+  };
 
   const overview = useQuery({ queryKey: ["plan", "overview"], queryFn: planApi.overview });
   const owners = useQuery({ queryKey: ["owners"], queryFn: async () => (await api.get("/owners")).data });
@@ -239,12 +246,17 @@ export default function ClientReport() {
               <Empty icon={History} title="Nothing sent yet">Emailed summaries will be logged here.</Empty>
             ) : (
               <div className="space-y-2.5">
-                {history.data.map((h, i) => (
+                {history.data.slice(0, historyVisible).map((h, i) => (
                   <button key={i} onClick={() => setHistoryModal(h)} className="w-full flex items-center justify-between text-sm hover:bg-compass-bg rounded-lg px-2 py-1.5 -mx-2 transition-colors" data-testid={`history-row-${i}`}>
                     <span className="text-compass-navy truncate">{h.recipient}</span>
                     <span className="text-xs text-compass-muted shrink-0 ml-2">{new Date(h.sent_at).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}</span>
                   </button>
                 ))}
+                {history.data.length > historyVisible && (
+                  <button onClick={() => setHistoryVisible((v) => v + 5)} className="w-full text-xs font-semibold text-compass-blue hover:underline pt-1" data-testid="history-load-more">
+                    Load more ({history.data.length - historyVisible} older)
+                  </button>
+                )}
               </div>
             )}
           </Card>

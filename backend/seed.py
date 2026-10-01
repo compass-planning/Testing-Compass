@@ -67,7 +67,8 @@ def seed():
         {"email": "advisor@compass.ca", "name": "Lena Tremblay", "tier": "advisor",
          "role": "advisor", "scope": {"org_id": ORG_MAPLE, "advisor_id": ADV_LENA}, "mfa_enabled": True},
         {"email": "solo@compass.ca", "name": "Jordan Blake", "tier": "solo",
-         "role": "solo_user", "scope": {"client_id": CLIENT_SOLO}, "mfa_enabled": False},
+         "role": "solo_user", "scope": {"client_id": CLIENT_SOLO}, "mfa_enabled": False,
+         "must_change": True},
     ]
     for u in users:
         repo.insert_user({
@@ -75,6 +76,7 @@ def seed():
             "name": u["name"], "tier": u["tier"], "role": u["role"],
             "scope": {"corp_id": None, "org_id": None, "advisor_id": None, "client_id": None, **u["scope"]},
             "mfa_enabled": False, "mfa_secret": None,
+            "must_change_password": u.get("must_change", False),
             "security_question": "What city were you born in?", "security_answer_hash": answer_hash,
             "consent": {"marketing": False, "data_processing": True,
                         "crm_sharing": u["tier"] == "enterprise", "updated_at": _now()},
