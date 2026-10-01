@@ -61,9 +61,9 @@ export default function MyPlan() {
   const goalsQ = useQuery({ queryKey: ["goals"], queryFn: async () => (await api.get("/goals")).data });
   const o = overview.data || {};
   const goals = goalsQ.data || [];
-  const welcomeKey = `compass_welcome_seen_${user?.id || ""}`;
-  const [showWelcome, setShowWelcome] = React.useState(() => !localStorage.getItem(welcomeKey));
-  const dismissWelcome = () => { localStorage.setItem(welcomeKey, "1"); setShowWelcome(false); };
+  const welcomeKey = user?.id ? `compass_welcome_seen_${user.id}` : null;
+  const [showWelcome, setShowWelcome] = React.useState(() => !!user?.id && !localStorage.getItem(`compass_welcome_seen_${user.id}`));
+  const dismissWelcome = () => { if (welcomeKey) localStorage.setItem(welcomeKey, "1"); setShowWelcome(false); };
 
   return (
     <div data-testid="my-plan-page">
