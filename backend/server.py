@@ -224,6 +224,14 @@ def _eff_hh(user: dict, household_id: str = None):
     return household_id
 
 
+_RESERVED = {"id", "scope", "store", "household_id", "created_at", "crm_record_id", "source"}
+
+
+def _clean(body_dict: dict) -> dict:
+    """Strip server-controlled keys so clients can't override scope/identity."""
+    return {k: v for k, v in body_dict.items() if k not in _RESERVED}
+
+
 @api.get("/owners")
 async def list_owners(user: dict = Depends(get_current_user), household_id: str = None):
     store, flt = scope_context(user)
@@ -239,7 +247,7 @@ async def create_owner(body: OwnerInput, user: dict = Depends(get_current_user),
     _block_enterprise_write(user)
     store, _ = scope_context(user)
     hid = _eff_hh(user, household_id)
-    owner = PensionOwner(store=store, scope=write_scope(user, client_id=hid), **body.model_dump()).model_dump()
+    owner = PensionOwner(store=store, scope=write_scope(user, client_id=hid), **_clean(body.model_dump())).model_dump()
     repo.create(store, "owners", owner)
     audit(user, "owner.create", "owners", f"Added {body.full_name}")
     return owner
@@ -249,7 +257,7 @@ async def create_owner(body: OwnerInput, user: dict = Depends(get_current_user),
 async def update_owner(oid: str, body: OwnerInput, user: dict = Depends(get_current_user)):
     _block_enterprise_write(user)
     store, flt = scope_context(user)
-    updated = repo.update(store, "owners", oid, body.model_dump(), flt)
+    updated = repo.update(store, "owners", oid, _clean(body.model_dump()), flt)
     if not updated:
         raise HTTPException(status_code=404, detail="Owner not found")
     audit(user, "owner.update", "owners", oid)
@@ -668,7 +676,7 @@ async def plan_profile_save(body: ProfileInput, user: dict = Depends(get_current
     self_o = next((o for o in owners if o.get("relationship") == "self"), owners[0] if owners else None)
     if not self_o:
         raise HTTPException(status_code=404, detail="No household profile")
-    updated = repo.update(store, "owners", self_o["id"], body.model_dump(), read)
+    updated = repo.update(store, "owners", self_o["id"], _clean(body.model_dump()), read)
     audit(user, "profile.update", "owners", self_o["id"])
     return updated
 
@@ -691,7 +699,7 @@ async def plan_create(collection: str, body: PlanningItemInput, user: dict = Dep
     _block_enterprise_write(user)
     store, read, ws, hid = planner_scope(user, household_id)
     rec = {"id": _id(), "store": store, "scope": ws, "household_id": hid,
-           "created_at": datetime.now(timezone.utc).isoformat(), **body.model_dump()}
+           "created_at": datetime.now(timezone.utc).isoformat(), **_clean(body.model_dump())}
     repo.create(store, f"plan_{collection}", rec)
     audit(user, f"{collection}.create", collection, str(rec.get("name", "")))
     return rec
@@ -703,7 +711,7 @@ async def plan_update(collection: str, rid: str, body: PlanningItemInput, user: 
         raise HTTPException(status_code=404, detail="Unknown collection")
     _block_enterprise_write(user)
     store, read, _, hid = planner_scope(user, household_id)
-    updated = repo.update(store, f"plan_{collection}", rid, body.model_dump(), read)
+    updated = repo.update(store, f"plan_{collection}", rid, _clean(body.model_dump()), read)
     if not updated:
         raise HTTPException(status_code=404, detail="Not found")
     audit(user, f"{collection}.update", collection, rid)

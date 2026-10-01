@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import api, { setToken } from "@/lib/api";
 
 const AuthCtx = createContext(null);
@@ -6,6 +7,7 @@ export const useAuth = () => useContext(AuthCtx);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(undefined); // undefined=loading, null=unauth
+  const qc = useQueryClient();
 
   useEffect(() => {
     (async () => {
@@ -20,6 +22,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
+    qc.clear();
     const { data } = await api.post("/auth/login", { email, password });
     setToken(data.token);
     localStorage.setItem("compass_tier", data.user.tier);
@@ -28,6 +31,7 @@ export function AuthProvider({ children }) {
   };
 
   const register = async (payload) => {
+    qc.clear();
     const { data } = await api.post("/auth/register", payload);
     setToken(data.token);
     localStorage.setItem("compass_tier", data.user.tier);
@@ -40,6 +44,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("compass_tier");
     localStorage.removeItem("compass_active_household");
     localStorage.removeItem("compass_active_household_name");
+    qc.clear();
     setUser(null);
   };
 

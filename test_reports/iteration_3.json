@@ -1,0 +1,54 @@
+{
+  "summary": "Iteration 3 (household-centric) backend+frontend. Backend: 68/68 pytest passing (added /app/backend/tests/test_household_centric.py with 15 new cases covering advisor roster, household_id scoping of /api/owners and /api/plan/* for client_a1 Nguyen, Anh profile enrichment, tenant isolation on client_a2 and solo, enterprise read-only, dependant create/delete; fixed 1 outdated iter-2 test). Frontend (Playwright): advisor open-client flow verified end-to-end — Open on client_a1 sets active household and routes to /profile, active-client-banner shows 'Anh Nguyen', household-scoped Overview+Planning+Reports+Governance nav visible, Net Worth shows Family home+Home mortgage, Debt shows Scotiabank Mortgage, Insurance shows Sun Life, Cash Flow shows Groceries, change-client clears and routes to /clients, RequireHousehold wrapper redirects /networth back to /clients when no household active. Enterprise redirect from /networth//profile/retirement to /owners confirmed. Solo /networth and /profile load without household pick. HOWEVER one HIGH-severity cross-tenant cache leak found: after logout+login as different tenant, React Query cache from the previous session renders stale data (enterprise owners Eleanor/Raymond/Dev/Sophie with CRM SF-xxxx shown to a freshly-logged-in Solo user). Backend returns correct Jordan+Sam owners (verified via direct fetch), but UI never refetches/invalidates because queryClient.clear() is not called in AuthContext.logout().",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "logout -> login as different tenant",
+        "issue": "React Query cache is NOT cleared on logout. After enterprise logs out and solo logs in, Solo sees prior tenant's Owners data (Eleanor Whitfield + CRM SF-0012/0013/0021/0033) even though backend correctly returns only Jordan Blake + Sam Blake for solo scope. Verified via browser fetch of /api/owners post-login returns correct 2 solo rows while the UI still displays 4 enterprise rows. This is a cross-tenant PII leak at the UI layer.",
+        "affected_selectors": ["useQuery(['owners'])", "useQuery(['plan',*])", "useQuery(['clients'])", "useQuery(['dashboard'])"]
+      },
+      {
+        "flow": "post-login redirect",
+        "issue": "Login navigates to loc.state?.from?.pathname, so if the previous session was redirected (e.g. enterprise bounced to /owners by RequireHousehold), the next user lands on /owners instead of /dashboard. Secondary — root cause of the cache leak visibility, but still unexpected UX.",
+        "affected_selectors": ["Login.jsx submit()"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_household_centric.py",
+    "/app/backend/tests/test_compass_backend.py",
+    "/app/test_reports/pytest/iter3_results.xml"
+  ],
+  "action_items": [
+    "In /app/frontend/src/context/AuthContext.jsx logout(): import useQueryClient and call queryClient.clear() (or at minimum queryClient.removeQueries()) before setUser(null). Also recommend clearing in login() to flush any residue. This prevents cross-tenant data flashing in the UI.",
+    "Consider making Login.jsx navigate to '/dashboard' unconditionally after a successful login (ignore loc.state.from) OR scrub loc.state when the AuthContext detects a tenant change.",
+    "Hardening: in /app/frontend/src/lib/api.js axios response interceptor, treat 401 as a trigger to call queryClient.clear() so expired tokens never show stale cached data from another session."
+  ],
+  "critical_code_review_comments": [
+    "AuthContext.logout() never clears react-query cache -> cross-tenant UI leak (above).",
+    "server.py planner_scope() for advisor without household_id returns all org_maple plan_* rows. Benign because the axios interceptor always appends household_id for non-solo users and RequireHousehold enforces an active household before mounting planner pages — but a server-side guard (reject planner GETs for advisor when household_id missing) would be defense-in-depth and matches the household-centric design.",
+    "list_owners/list_accounts/list_goals do org-wide repo.list then Python-filter by scope.client_id when household_id is set. For large advisor books this is O(all_org_rows). Push the predicate into repo.list() when the mock is swapped for Mongo.",
+    "OwnerInput extra='allow' means advisor PUT /owners/{id} could inject arbitrary fields (e.g. scope override). repo.update merges, but a hostile 'scope' key in body.model_dump() could overwrite the server-set scope. Add an explicit disallow list or strip reserved keys before repo.update.",
+    "ClientProfile.jsx AddModal sends only {full_name, relationship, date_of_birth, province} — profile enrichment fields (email/income/pension) can only be added via the Edit step after creation. Consider showing them in the Add flow too so advisors capture them during onboarding.",
+    "HouseholdContext does not react to the logout event — if the user logs out from a page outside Shell (e.g. a different component ever triggers logout), active household in state would persist. Currently fine because Shell.doLogout() calls clear() first; add a useEffect in HouseholdProvider listening to AuthContext.user becoming null for safety."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_household_centric.py (new, 15 cases)",
+    "/app/backend/tests/test_compass_backend.py (fixed test_advisor_overview_isolated to assert isolation via unseeded household_id=client_a2, matching new seed)"
+  ],
+  "success_rate": { "backend": "100% (68/68 pytest)", "frontend": "95% — core advisor/enterprise/solo flows pass; 1 HIGH cross-tenant UI cache leak" },
+  "test_credentials": "Compass2026! for advisor@compass.ca, scott@sweston.ca, solo@compass.ca, firmadmin@compass.ca, planner@sweston.ca.",
+  "seed_data_creation": "test_update_anh_phone mutated Anh Nguyen's phone to 416-555-9999 and annual_income to 135000 (both in-memory; reset on backend restart). test_add_dependant_and_delete created+deleted a TEST_Dep row (clean). No other persistent mutations.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Regression suites: /app/backend/tests/test_compass_backend.py (iter-2) + /app/backend/tests/test_household_centric.py (iter-3). Run: `pytest /app/backend/tests/ -v --junitxml=/app/test_reports/pytest/pytest_results.xml`. The Nguyen household is client_a1 for advisor@compass.ca. Advisor flow testids: open-client-<client_id>, active-client-banner, change-client, nav-<route>, edit-person-<id>, add-dependant, add-spouse, add-member-save, profile-save. Axios interceptor appends household_id ONLY when tier!=solo AND localStorage.compass_active_household set. After fixing the queryClient.clear() bug, retest the logout -> login cross-tenant flow (reproduce: login enterprise -> /owners -> logout -> login solo -> verify /owners shows Jordan Blake + Sam Blake, NOT Eleanor Whitfield).",
+  "rca_of_the_issue": {
+    "bug": "Cross-tenant data flash on UI after logout -> login as different user",
+    "reproduction": "1) Login scott@sweston.ca, visit /owners (loads Eleanor/Raymond/Dev/Sophie into react-query cache under queryKey ['owners']). 2) Logout. 3) Login solo@compass.ca. Login.jsx navigates to loc.state.from.pathname = '/owners'. 4) Owners.jsx mounts, useQuery(['owners']) returns the still-in-memory enterprise rows before any refetch. Backend returned correct 2 solo rows (verified via direct fetch).",
+    "root_cause": "AuthContext.logout() clears token + localStorage keys + user state, but does NOT touch the react-query QueryClient. QueryClient instance lives for the app lifetime, so all cached queryKeys (owners, accounts, goals, plan, overview, clients, dashboard, etc.) survive the logout and are served to the next logged-in user.",
+    "mitigation": "Add `queryClient.clear()` (or `queryClient.removeQueries()`) inside AuthContext.logout(). Import useQueryClient from @tanstack/react-query at the top of AuthContext.jsx and call it inside the provider. Also recommend clearing on successful login to be extra safe. Optionally add a 401 response interceptor in api.js that triggers logout+clear."
+  }
+}

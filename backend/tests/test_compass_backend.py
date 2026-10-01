@@ -510,10 +510,11 @@ class TestPlanningTenantIsolation:
         assert all(r.get("household_id") != "client_solo1" for r in rows)
 
     def test_advisor_overview_isolated(self, tokens):
-        r = requests.get(f"{API}/plan/overview", headers=auth(tokens["advisor"]))
+        # With a non-seeded household_id, counts must be zero (true tenant isolation)
+        r = requests.get(f"{API}/plan/overview", headers=auth(tokens["advisor"]),
+                         params={"household_id": "client_a2"})
         assert r.status_code == 200
         d = r.json()
-        # Advisor has no plan_* seed in solo household -> no debts/insurance/retirement rows
         assert d["debtCount"] == 0
         assert d["insuranceAnalyses"] == 0
         assert d["retirementProjections"] == 0

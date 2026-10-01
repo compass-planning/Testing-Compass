@@ -48,6 +48,24 @@ Solo tier now has the full original sidebar: **Home** (My Dashboard, Insights, M
 - 51/51 backend pytest pass.
 - STILL SOLO-ONLY: advisor/enterprise planner integration (drill into a client household and use the same tabs) is the next step; backend scoping already supports `household_id`.
 
+## Household-Centric Planner (added 2026-06) — matches live BrokersEdge app
+Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It is **household-centric** — an advisor opens a client household and every tab edits that household.
+- Advisor flow: Clients roster → **Open** sets active household (persisted) → routes to Client Profile; sidebar switches to planner groups (Overview: Dashboard, Client Profile · Financial Planning Suite: Net Worth, Goals, Debt, Retirement, Insurance, Cash Flow, Tax · Reports · Governance). "Active client" banner + **Change client**.
+- Backend: `/api/owners|accounts|goals` + `/api/plan/*` accept `household_id`; `_eff_hh()` resolves it (solo = own client_id). Axios interceptor auto-appends `household_id` for advisor/enterprise when active. Server-side `_clean()` strips reserved keys (scope/store/household_id) to block injection. 68/68 pytest pass.
+- New faithful **Client Profile**: Primary + Spouse/Partner cards (email, phone, DOB, province, occupation, income, pension, retirement age, desired income) + Children & Dependants; add/edit members. Seeded Nguyen household (client_a1) with spouse Mai + dependant Linh + plan rows.
+- Fixed cross-tenant React Query cache leak: `queryClient.clear()` on login/logout; login always routes to /dashboard.
+- Enterprise planner integration still pending (planner routes redirect enterprise to /owners until an open-household flow is added). Solo unchanged (own household, no picker).
+
+## Gap vs live app (catalogued, remaining to build later, per user priorities 2a faithful / 3a Canada-only / 4 defer recorder+voice+i18n)
+- Clients: scored Household Queue (0–100 score/status, alerts, next action), Book Summary, Opportunities, Score Distribution, New Household.
+- Net Worth: Assets/Liabilities/Education tabs, typed accounts (RRSP/TFSA/Non-Reg/Business/Stock Options…), ownership (Joint), allocation donut.
+- Debt: weighted avg rate, lifetime interest, payoff timeline, avalanche/snowball.
+- Retirement: Pension plans (DBPP/DCPP/Group RRSP/DPSP/Life Annuity), AI Strategist, Monte Carlo projection to age 95.
+- Insurance: Coverage/Gap Analysis/LTC/DI tabs, Protection Score, Coverage Adequacy %, Advisor Intelligence, Excel import.
+- Cash Flow: income vs expenses. Tax: full CA engine + Estate tab (US deferred).
+- Per-person toggle (Primary/Spouse/Combined) across Goals/Retirement/Insurance/Tax.
+- Deferred by user: Meeting Recorder, Voice input, EN/FR i18n, ⌘K palette.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.
