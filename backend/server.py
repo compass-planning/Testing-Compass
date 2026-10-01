@@ -799,6 +799,8 @@ async def plan_profile(user: dict = Depends(get_current_user), household_id: str
 async def plan_profile_save(body: ProfileInput, user: dict = Depends(get_current_user), household_id: str = None):
     _block_enterprise_write(user)
     store, read, _, hid = planner_scope(user, household_id)
+    if user["tier"] == "advisor" and not hid:
+        raise HTTPException(status_code=400, detail="Open a household before saving its profile")
     owners = repo.list(store, "owners", read)
     self_o = next((o for o in owners if o.get("relationship") == "self"), owners[0] if owners else None)
     if not self_o:

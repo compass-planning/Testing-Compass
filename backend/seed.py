@@ -137,6 +137,13 @@ def seed():
             "annual_income": 132000, "pension_type": "DCPP", "retirement_age": 63, "desired_income": 6000,
         }, {"client_id": "client_a1"})
         repo.create("shared", "owners", _owner("shared", a1, "Mai Nguyen", "spouse", "1977-05-10", "ON"))
+        mai = repo.list("shared", "owners", {"client_id": "client_a1"})
+        mai_o = next((o for o in mai if o.get("relationship") == "spouse"), None)
+        if mai_o:
+            repo.update("shared", "owners", mai_o["id"], {
+                "occupation": "Teacher", "annual_income": 78000, "pension_type": "DBPP",
+                "retirement_age": 61, "desired_income": 3500,
+            }, {"client_id": "client_a1"})
         repo.create("shared", "owners", _owner("shared", a1, "Linh Nguyen", "dependent", "2010-09-01", "ON"))
 
         def PA(coll, data):

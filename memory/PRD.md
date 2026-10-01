@@ -94,6 +94,14 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - Server-side guard: advisor tier plan writes (POST/PUT/DELETE `/api/plan/*`) now require `household_id` (400 otherwise) — prevents unscoped writes.
 - Testing: iter5 — backend 14/14 new pytest pass; frontend 100% (Net Worth adaptive fields, Debt savings, Retirement MC + DBPP/DCPP branching, Cash Flow holdco exclusion). Report `/app/test_reports/iteration_5.json`.
 
+## Insurance / Tax / Household Queue / Person Toggle (added 2026-06)
+- **Insurance Gap Analysis** (`pages/Insurance.jsx`): **Protection Score (0–100)** + Life / LTC / Disability tabs. Recommended coverage = Life (10× income + total debt + $100k/dependant), DI (65% income replacement, monthly), LTC ($100k/yr × 3 yrs). Each tab shows recommended vs current, gap, adequacy % bar, and the policies in that bucket; adding a policy lifts the score live. Score = 0.5·Life + 0.3·DI + 0.2·LTC adequacy.
+- **Canadian Tax Engine** (`lib/tax.js` + `pages/Tax.jsx`, 2025 rules): **Tax Projection** (federal + ON/BC/AB/QC brackets → federal/provincial/total, average & marginal rate, after-tax), **RRSP room** (18% of earned income capped at $32,490 + carry-forward − contributions), **TFSA room** (cumulative 2009–2025 limit − contributions), **Capital gains** (50% inclusion at marginal rate), **Income splitting** (separate vs even-split savings). Province defaults from the client profile; others fall back to ON.
+- **Advisor Household Queue** (`server.py` `_household_score()` + `pages/AdvisorClients.jsx`): roster of scored cards — **0–100 health score**, **status** (On Track / Needs Review / At Risk), **alerts** (no retirement plan, no insurance, high-rate debt >10%, goals off track, negative net worth) and a **next-best-action**, plus book stat cards (households, book assets, avg score, need-attention). Backend computes from each household's plan collections.
+- **Spouse / Combined Toggle** (`components/PersonToggle.jsx`): Primary / Spouse / Combined switch on **Retirement, Debt, Cash Flow**. Debt & expense entries carry an owner tag (Primary/Spouse/Joint; default Joint) — Primary view = Primary+Joint, Spouse = Spouse+Joint, Combined = all — recomputing totals/analytics. Retirement prefills retire age / income goal / pension type from the selected owner's profile. Seeded spouse Mai Nguyen with profile fields for the demo.
+- Server guard extended: advisor `PUT /plan/profile` now also requires an open household.
+- Testing: iter6 — backend 12/12 pass; frontend 100% (Household Queue scoring, Insurance score + 3 tabs + add-policy, Tax 5 tabs reactive incl. RRSP cap, person toggles present/working). Report `/app/test_reports/iteration_6.json`.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.
