@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Users, ArrowLeft, Landmark, Target, AlertTriangle, ArrowRight, Download, Plus, Zap, ArrowUpDown, UserPlus, Copy, Bookmark, X } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
@@ -135,6 +135,7 @@ export default function AdvisorClients() {
                     <div className="text-right">
                       <div className="font-heading text-2xl font-extrabold" style={{ color: scoreColor(c.score || 0) }} data-testid={`client-score-${c.client_id}`}>{c.score ?? "—"}</div>
                       <Badge color={meta.color} bg={meta.bg} data-testid={`client-status-${c.client_id}`}>{c.status || "—"}</Badge>
+                      {c.invite_pending && <div className="mt-1 text-[10px] font-semibold text-compass-amber" data-testid={`invite-pending-${c.client_id}`}>Invited · not activated</div>}
                     </div>
                   </div>
                   <Progress value={c.score || 0} color={scoreColor(c.score || 0)} />
@@ -193,8 +194,11 @@ function alertType(a) {
 }
 
 function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, statusFilter, setStatusFilter, onOpen }) {
-  const [views, setViews] = useState(() => { try { return JSON.parse(localStorage.getItem("compass_opps_views") || "[]"); } catch { return []; } });
-  const saveViews = (next) => { setViews(next); localStorage.setItem("compass_opps_views", JSON.stringify(next)); };
+  const qc = useQueryClient();
+  const viewsQ = useQuery({ queryKey: ["opps-views"], queryFn: async () => (await api.get("/advisor/opps-views")).data });
+  const views = viewsQ.data || [];
+  const saveMut = useMutation({ mutationFn: (next) => api.put("/advisor/opps-views", { views: next }), onSuccess: () => qc.invalidateQueries({ queryKey: ["opps-views"] }) });
+  const saveViews = (next) => saveMut.mutate(next);
   const saveCurrentView = () => { const name = window.prompt("Name this view"); if (name && name.trim()) saveViews([...views, { name: name.trim(), type: typeFilter, status: statusFilter, sort }]); };
   const applyView = (v) => { setTypeFilter(v.type); setStatusFilter(v.status); setSort(v.sort); };
   const deleteView = (i) => saveViews(views.filter((_, j) => j !== i));

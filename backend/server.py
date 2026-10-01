@@ -633,7 +633,8 @@ async def advisor_clients(user: dict = Depends(get_current_user)):
         if not cid:
             continue
         c = clients.setdefault(cid, {"client_id": cid, "advisor_id": o["scope"].get("advisor_id"),
-                                     "members": [], "primary": None, "assets": 0.0, "goals": 0})
+                                     "members": [], "primary": None, "assets": 0.0, "goals": 0,
+                                     "invite_pending": False, "has_login": False})
         c["members"].append(o["full_name"])
         if o["relationship"] == "self":
             c["primary"] = o["full_name"]
@@ -657,7 +658,44 @@ async def advisor_clients(user: dict = Depends(get_current_user)):
             hh_goals,
             repo.list(store, "plan_estate", cflt),
         ))
+    for u in repo.all_users():
+        if not u.get("invited_by"):
+            continue
+        cid = u.get("scope", {}).get("client_id")
+        if cid not in clients:
+            continue
+        if u.get("must_change_password"):
+            clients[cid]["invite_pending"] = True
+        else:
+            clients[cid]["has_login"] = True
     return list(clients.values())
+
+
+class OppsView(BaseModel):
+    name: str
+    type: str = "all"
+    status: str = "all"
+    sort: str = "score-asc"
+
+
+class ViewsInput(BaseModel):
+    views: list[OppsView]
+
+
+@api.get("/advisor/opps-views")
+async def get_opps_views(user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    return user.get("opps_views") or []
+
+
+@api.put("/advisor/opps-views")
+async def put_opps_views(body: ViewsInput, user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    views = [v.model_dump() for v in body.views]
+    repo.update_user(user["id"], {"opps_views": views})
+    return views
 
 
 @api.get("/advisor/clients/{client_id}")
