@@ -25,7 +25,7 @@ export default function Login() {
   const [code, setCode] = useState("");
   const [ctx, setCtx] = useState({}); // challenge, setup_token, qr, secret, questions, resetQuestion
 
-  const finish = (data) => { applySession(data.token, data.user); toast.success("Signed in"); nav("/dashboard", { replace: true }); };
+  const finish = (data) => { applySession(data.token, data.user); toast.success("Signed in"); nav(data.user?.is_client ? "/my-plan" : "/dashboard", { replace: true }); };
 
   const handleAuth = (d) => {
     if (d.status === "password_change_required") { setCtx((c) => ({ ...c, change_token: d.change_token })); setStep("change"); return; }

@@ -667,6 +667,7 @@ async def advisor_clients(user: dict = Depends(get_current_user)):
             continue
         if u.get("must_change_password"):
             clients[cid]["invite_pending"] = True
+            clients[cid]["invite_expires_at"] = u.get("invite_expires_at")
         else:
             clients[cid]["has_login"] = True
     return list(clients.values())
@@ -1137,6 +1138,7 @@ async def invite_client(body: InviteClientInput, user: dict = Depends(get_curren
         "scope": {"corp_id": None, "org_id": sc.get("org_id"), "advisor_id": sc.get("advisor_id"), "client_id": body.client_id},
         "mfa_enabled": False, "mfa_secret": None, "must_change_password": True,
         "invited_by": user["id"],
+        "invite_expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
         "consent": {"marketing": False, "data_processing": True, "crm_sharing": True,
                     "updated_at": datetime.now(timezone.utc).isoformat()},
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -1165,7 +1167,8 @@ async def resend_invite(body: ResendInviteInput, user: dict = Depends(get_curren
     if not pending:
         raise HTTPException(status_code=404, detail="No pending invite for this household")
     repo.update_user(pending["id"], {"password_hash": hash_password("Cmps-" + secrets.token_urlsafe(10)),
-                                     "must_change_password": True})
+                                     "must_change_password": True,
+                                     "invite_expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()})
     token = create_scoped_token({"sub": pending["id"]}, 60 * 24 * 7, "activate")
     link = _activation_link(body.base_url, token)
     firm = (user.get("branding") or {}).get("firm_name")
@@ -1230,6 +1233,52 @@ async def complete_task(tid: str, user: dict = Depends(get_current_user)):
     if not updated:
         raise HTTPException(status_code=404, detail="Task not found")
     return updated
+
+
+@api.delete("/advisor/tasks/{tid}")
+async def delete_task(tid: str, user: dict = Depends(get_current_user)):
+    store, flt = scope_context(user)
+    ok = repo.delete(store, "tasks", tid, flt)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return {"ok": True}
+
+
+def _required_monthly(current, target, annual_growth, target_year):
+    months = max(1, (int(target_year) - datetime.now(timezone.utc).year) * 12)
+    r = (annual_growth or 0) / 100 / 12
+    remaining = target - current * ((1 + r) ** months)
+    if remaining <= 0:
+        return 0.0
+    if r > 0:
+        return remaining * r / (((1 + r) ** months) - 1)
+    return remaining / months
+
+
+@api.post("/advisor/households/{client_id}/nudge-goals")
+async def nudge_goals(client_id: str, user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    store, flt = scope_context(user)
+    goals = [g for g in repo.list(store, "goals", flt) if g.get("scope", {}).get("client_id") == client_id]
+    nudged = 0
+    for g in goals:
+        cur, tgt = float(g.get("current_amount", 0)), float(g.get("target_amount", 0))
+        if tgt <= 0 or cur >= tgt:
+            continue
+        yr = int(g.get("target_year") or datetime.now(timezone.utc).year)
+        growth = float(g.get("growth_rate", 0))
+        req = _required_monthly(cur, tgt, growth, yr)
+        if req > 50000:  # unrealistic monthly — extend the timeline instead
+            yr += 10
+            req = _required_monthly(cur, tgt, growth, yr)
+            repo.update(store, "goals", g["id"], {"target_year": yr, "monthly_contribution": round(req)}, flt)
+        else:
+            repo.update(store, "goals", g["id"], {"monthly_contribution": round(req)}, flt)
+        nudged += 1
+    if nudged:
+        audit(user, "goal.nudge", "goals", f"Nudged {nudged} goal(s) for {client_id}")
+    return {"nudged": nudged}
 
 
 @api.get("/report/history")

@@ -145,6 +145,7 @@ export default function AdvisorClients() {
                       <Badge color={meta.color} bg={meta.bg} data-testid={`client-status-${c.client_id}`}>{c.status || "—"}</Badge>
                       {c.invite_pending && <div className="mt-1 text-[10px] font-semibold text-compass-amber" data-testid={`invite-pending-${c.client_id}`}>Invited · not activated</div>}
                       {c.invite_pending && <button onClick={() => resendInvite(c.client_id)} className="mt-0.5 text-[10px] font-semibold text-compass-blue hover:underline" data-testid={`resend-invite-${c.client_id}`}>Resend invite</button>}
+                      {c.invite_pending && c.invite_expires_at && (() => { const d = Math.ceil((new Date(c.invite_expires_at) - Date.now()) / 86400000); return <div className={`text-[10px] font-semibold ${d <= 0 ? "text-compass-red" : "text-compass-muted"}`} data-testid={`invite-expiry-${c.client_id}`}>{d > 0 ? `Link expires in ${d}d` : "Link expired"}</div>; })()}
                     </div>
                   </div>
                   <Progress value={c.score || 0} color={scoreColor(c.score || 0)} />
@@ -212,6 +213,7 @@ function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, sta
   const taskMut = useMutation({ mutationFn: (b) => api.post("/advisor/tasks", b), onSuccess: () => { qc.invalidateQueries({ queryKey: ["tasks"] }); toast.success("Task logged"); }, onError: () => toast.error("Could not log task") });
   const logTask = (o) => { const t = window.prompt("Log a follow-up task", o.alert); if (t && t.trim()) taskMut.mutate({ client_id: o.c.client_id, title: t.trim() }); };
   const taskCount = (cid) => tasks.filter((t) => t.scope?.client_id === cid && !t.done).length;
+  const nudgeMut = useMutation({ mutationFn: (cid) => api.post(`/advisor/households/${cid}/nudge-goals`), onSuccess: (res) => { qc.invalidateQueries({ queryKey: ["clients"] }); const n = res.data.nudged; toast.success(n ? `Nudged ${n} goal${n === 1 ? "" : "s"}` : "No underfunded goals to nudge"); }, onError: () => toast.error("Could not nudge goals") });
   const saveViews = (next) => saveMut.mutate(next);
   const saveCurrentView = () => { const name = window.prompt("Name this view"); if (name && name.trim()) saveViews([...views, { name: name.trim(), type: typeFilter, status: statusFilter, sort }]); };
   const applyView = (v) => { setTypeFilter(v.type); setStatusFilter(v.status); setSort(v.sort); };
@@ -269,6 +271,7 @@ function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, sta
                   {taskCount(o.c.client_id) > 0 && <div className="text-[10px] font-semibold text-compass-blue" data-testid={`task-count-${o.c.client_id}`}>{taskCount(o.c.client_id)} task{taskCount(o.c.client_id) > 1 ? "s" : ""}</div>}
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => logTask(o)} data-testid={`log-task-${i}`}>Log task</Button>
+                {(o.type === "Goals" || o.type === "Retirement") && <Button size="sm" variant="ghost" onClick={() => nudgeMut.mutate(o.c.client_id)} data-testid={`nudge-goals-${i}`}>Nudge</Button>}
                 <Button size="sm" variant="outline" onClick={() => onOpen(o.c)} data-testid={`opp-open-${i}`}>Open <ArrowRight size={14} /></Button>
               </Card>
             );

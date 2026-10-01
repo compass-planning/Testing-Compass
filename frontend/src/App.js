@@ -29,6 +29,8 @@ import Debt from "@/pages/Debt";
 import CashFlow from "@/pages/CashFlow";
 import Insurance from "@/pages/Insurance";
 import Tax from "@/pages/Tax";
+import MyPlan from "@/pages/MyPlan";
+import TaskBoard from "@/pages/TaskBoard";
 
 function TierRoute({ tiers, children }) {
   const { user } = useAuth();
@@ -61,6 +63,8 @@ function App() {
               }
             >
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/my-plan" element={<MyPlan />} />
+              <Route path="/tasks" element={<TierRoute tiers={["advisor"]}><TaskBoard /></TierRoute>} />
               <Route path="/owners" element={<TierRoute tiers={["enterprise", "solo"]}><Owners /></TierRoute>} />
               <Route path="/clients" element={<TierRoute tiers={["advisor"]}><AdvisorClients /></TierRoute>} />
               <Route path="/crm" element={<TierRoute tiers={["enterprise"]}><CrmSync /></TierRoute>} />

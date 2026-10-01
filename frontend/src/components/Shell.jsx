@@ -34,7 +34,7 @@ function getNav(tier, active, isClient) {
   if (tier === "solo" && isClient) {
     return [
       { label: null, tabs: [
-        { to: "/dashboard", label: "My Plan", icon: Home },
+        { to: "/my-plan", label: "My Plan", icon: Home },
         { to: "/insights", label: "Insights", icon: TrendingUp },
         { to: "/goals", label: "My Goals", icon: Target },
         { to: "/profile", label: "My Profile", icon: UserCog },
@@ -64,7 +64,7 @@ function getNav(tier, active, isClient) {
   }
   const top = tier === "enterprise"
     ? [{ to: "/owners", label: "Households", icon: Users }, { to: "/crm", label: "CRM Sync", icon: RefreshCw }]
-    : [{ to: "/clients", label: "Clients", icon: Users }];
+    : [{ to: "/clients", label: "Clients", icon: Users }, { to: "/tasks", label: "Tasks", icon: ScrollText }];
   return [
     { label: null, tabs: [{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }, ...top] },
     gov,
