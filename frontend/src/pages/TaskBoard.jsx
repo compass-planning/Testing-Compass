@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Trash2, ClipboardList, Bell, CalendarIcon, Send } from "lucide-react";
+import { CheckCircle2, Trash2, ClipboardList, Bell, CalendarIcon, Send, X } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import api, { formatApiError } from "@/lib/api";
@@ -16,34 +16,42 @@ function DueDatePicker({ value, onChange, testid }) {
   const [open, setOpen] = React.useState(false);
   const selected = fromISO(value);
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button className="inline-flex items-center gap-1.5 text-xs border border-compass-border rounded px-2.5 py-1.5 text-compass-navy hover:border-compass-blue transition-colors" data-testid={testid}>
-          <CalendarIcon size={13} className="text-compass-muted" />
-          {selected ? format(selected, "dd MMM yyyy") : "Set due date"}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="end">
-        <Calendar mode="single" selected={selected} onSelect={(d) => { if (d) { onChange(toISO(d)); setOpen(false); } }} initialFocus />
-        {value && <div className="border-t p-2"><button onClick={() => { onChange(""); setOpen(false); }} className="w-full text-xs text-compass-red font-semibold py-1" data-testid={`${testid}-clear`}>Clear date</button></div>}
-      </PopoverContent>
-    </Popover>
+    <div className="inline-flex items-center border border-compass-border rounded overflow-hidden">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 text-compass-navy hover:bg-compass-bg/60 transition-colors" data-testid={testid}>
+            <CalendarIcon size={13} className="text-compass-muted" />
+            {selected ? format(selected, "dd MMM yyyy") : "Set due date"}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="end">
+          <Calendar mode="single" selected={selected} onSelect={(d) => { if (d) { onChange(toISO(d)); setOpen(false); } }} initialFocus />
+        </PopoverContent>
+      </Popover>
+      {value && <button onClick={() => onChange("")} title="Clear due date" className="px-1.5 py-1.5 text-compass-muted hover:text-compass-red border-l border-compass-border transition-colors" data-testid={`${testid}-clear`}><X size={13} /></button>}
+    </div>
   );
 }
 
 function DigestSettings() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["digest-settings"], queryFn: async () => (await api.get("/advisor/digest-settings")).data });
-  const s = q.data || { enabled: true, hour: 8 };
+  const s = q.data || { enabled: true, weekly_enabled: true, hour: 8 };
   const save = useMutation({
     mutationFn: (next) => api.put("/advisor/digest-settings", next),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["digest-settings"] }); toast.success("Digest settings saved"); },
     onError: () => toast.error("Could not save digest settings"),
   });
+  const patch = (delta) => save.mutate({ enabled: s.enabled, weekly_enabled: s.weekly_enabled, hour: s.hour, ...delta });
   const preview = useMutation({
     mutationFn: () => api.post("/advisor/digest-preview"),
     onSuccess: (res) => res.data.sent ? toast.success(`Test digest sent to ${res.data.to}`) : toast.info("Preview built, but email delivery is unavailable in this environment"),
     onError: () => toast.error("Could not send test digest"),
+  });
+  const weeklyPreview = useMutation({
+    mutationFn: () => api.post("/advisor/book-digest/preview"),
+    onSuccess: (res) => res.data.sent ? toast.success(`Weekly summary sent to ${res.data.to}`) : toast.info("Preview built, but email delivery is unavailable in this environment"),
+    onError: () => toast.error("Could not send weekly summary"),
   });
   const fmtHour = (h) => { const am = h < 12; const base = h % 12 === 0 ? 12 : h % 12; return `${base}:00 ${am ? "AM" : "PM"}`; };
   if (q.isLoading) return <Card className="p-5 mb-6 h-24 animate-pulse" data-testid="digest-settings-card" />;
@@ -52,23 +60,38 @@ function DigestSettings() {
       <div className="flex items-start gap-3">
         <div className="h-10 w-10 rounded-xl bg-compass-blue/10 flex items-center justify-center shrink-0"><Bell size={18} className="text-compass-blue" /></div>
         <div className="flex-1">
-          <div className="font-heading font-bold text-compass-navy">Morning task digest</div>
-          <p className="text-sm text-compass-muted mt-0.5 mb-3">Get a daily email of tasks due today or overdue. We only email you on days you actually have tasks.</p>
-          <div className="flex flex-wrap items-center gap-5">
-            <label className="flex items-center gap-2 text-sm font-semibold text-compass-navy">
-              <Toggle checked={s.enabled} onChange={(v) => save.mutate({ enabled: v, hour: s.hour })} testid="digest-enabled-toggle" />
-              {s.enabled ? "On" : "Off"}
-            </label>
-            <div className="flex items-center gap-2">
+          <div className="font-heading font-bold text-compass-navy">Email digests</div>
+          <p className="text-sm text-compass-muted mt-0.5 mb-3">We only email you when there's something to see, and never ask for passwords or card details.</p>
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3 justify-between rounded-lg bg-compass-bg/50 px-3 py-2.5">
+              <div>
+                <div className="text-sm font-semibold text-compass-navy">Daily task digest</div>
+                <div className="text-xs text-compass-muted">Tasks due today or overdue.</div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Toggle checked={s.enabled} onChange={(v) => patch({ enabled: v })} testid="digest-enabled-toggle" />
+                <Button size="sm" variant="outline" onClick={() => preview.mutate()} disabled={preview.isPending} data-testid="digest-preview-button"><Send size={13} /> {preview.isPending ? "Sending…" : "Send test"}</Button>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 justify-between rounded-lg bg-compass-bg/50 px-3 py-2.5">
+              <div>
+                <div className="text-sm font-semibold text-compass-navy">Weekly book-health summary</div>
+                <div className="text-xs text-compass-muted">Mondays — avg score & households needing attention.</div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Toggle checked={s.weekly_enabled} onChange={(v) => patch({ weekly_enabled: v })} testid="digest-weekly-toggle" />
+                <Button size="sm" variant="outline" onClick={() => weeklyPreview.mutate()} disabled={weeklyPreview.isPending} data-testid="weekly-preview-button"><Send size={13} /> {weeklyPreview.isPending ? "Sending…" : "Send weekly summary test"}</Button>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
               <span className="text-sm text-compass-muted">Send at</span>
               <div className="w-32">
-                <Select value={String(s.hour)} disabled={!s.enabled} onChange={(e) => save.mutate({ enabled: s.enabled, hour: Number(e.target.value) })} data-testid="digest-hour-select">
+                <Select value={String(s.hour)} disabled={!s.enabled && !s.weekly_enabled} onChange={(e) => patch({ hour: Number(e.target.value) })} data-testid="digest-hour-select">
                   {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{fmtHour(h)}</option>)}
                 </Select>
               </div>
-              <span className="text-xs text-compass-muted">ET</span>
+              <span className="text-xs text-compass-muted">ET · applies to both</span>
             </div>
-            <Button size="sm" variant="outline" onClick={() => preview.mutate()} disabled={preview.isPending} data-testid="digest-preview-button"><Send size={13} /> {preview.isPending ? "Sending…" : "Send test email"}</Button>
           </div>
         </div>
       </div>

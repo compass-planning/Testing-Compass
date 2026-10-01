@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Users, ArrowLeft, Landmark, Target, AlertTriangle, ArrowRight, Download, Plus, Zap, ArrowUpDown, UserPlus, Copy, Bookmark, X } from "lucide-react";
 import { jsPDF } from "jspdf";
@@ -29,6 +29,7 @@ export default function AdvisorClients() {
   const [newOpen, setNewOpen] = useState(false);
   const { setActive, clear } = useHousehold();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const qc = useQueryClient();
   const clients = useQuery({ queryKey: ["clients"], queryFn: async () => (await api.get("/advisor/clients")).data });
   const branding = useQuery({ queryKey: ["branding"], queryFn: async () => (await api.get("/advisor/branding")).data });
@@ -37,6 +38,16 @@ export default function AdvisorClients() {
     setActive(c.client_id, c.primary || c.client_id);
     navigate("/profile");
   };
+
+  useEffect(() => {
+    const openId = searchParams.get("open");
+    if (!openId || !clients.data) return;
+    const c = clients.data.find((x) => x.client_id === openId);
+    setSearchParams({}, { replace: true });
+    if (c) openClient(c);
+    else toast.error("That household link is no longer available");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, clients.data]);
 
   const createHousehold = async (form) => {
     clear(); // ensure the owner POST creates a NEW client_id (no active household appended)

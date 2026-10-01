@@ -473,6 +473,22 @@ async def nudge_goals(client_id: str, user: dict = Depends(get_current_user)):
 
 # ---------------- Weekly book-health digest ----------------
 
+from pathlib import Path
+
+
+def _app_base_url() -> str:
+    url = os.environ.get("APP_BASE_URL") or os.environ.get("REACT_APP_BACKEND_URL")
+    if not url:
+        try:
+            for line in (Path(__file__).resolve().parents[2] / "frontend" / ".env").read_text().splitlines():
+                if line.startswith("REACT_APP_BACKEND_URL"):
+                    url = line.split("=", 1)[1].strip().strip('"')
+                    break
+        except Exception:
+            url = ""
+    return (url or "").rstrip("/")
+
+
 def _book_stats(user: dict) -> dict:
     roster = _build_roster(user)
     scored = [c for c in roster if c.get("score") is not None]
@@ -485,25 +501,27 @@ def _book_stats(user: dict) -> dict:
         "households": len(roster),
         "avg_score": round(sum(c["score"] for c in scored) / len(scored)) if scored else None,
         "counts": counts,
-        "attention": [{"primary": c.get("primary") or c["client_id"], "status": c["status"],
-                       "score": c.get("score"), "next_action": c.get("next_action")} for c in attention[:8]],
+        "attention": [{"client_id": c["client_id"], "primary": c.get("primary") or c["client_id"],
+                       "status": c["status"], "score": c.get("score"), "next_action": c.get("next_action")}
+                      for c in attention[:8]],
     }
 
 
 async def _run_book_digest():
     now = datetime.now(ZoneInfo("America/Toronto"))
+    base = _app_base_url()
     sent = 0
     for u in repo.all_users():
         if u.get("tier") != "advisor":
             continue
         s = u.get("digest_settings") or {}
-        if not s.get("enabled", True) or int(s.get("hour", 8)) != now.hour:
+        if not s.get("weekly_enabled", True) or int(s.get("hour", 8)) != now.hour:
             continue
         stats = _book_stats(u)
         if not stats["households"]:
             continue
         firm = (u.get("branding") or {}).get("firm_name")
-        html = render_book_digest_html(u.get("name"), firm, stats)
+        html = render_book_digest_html(u.get("name"), firm, stats, base_url=base)
         try:
             await send_email(to=u["email"], subject="Your weekly book-health summary", html=html)
             sent += 1
@@ -529,7 +547,7 @@ async def book_digest_preview(user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Advisor tier only")
     stats = _book_stats(user)
     firm = (user.get("branding") or {}).get("firm_name")
-    html = render_book_digest_html(user.get("name"), firm, stats)
+    html = render_book_digest_html(user.get("name"), firm, stats, base_url=_app_base_url())
     try:
         await send_email(to=user["email"], subject="[Preview] Your weekly book-health summary", html=html)
         return {"sent": True, "to": user["email"]}

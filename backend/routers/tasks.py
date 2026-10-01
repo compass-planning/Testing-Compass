@@ -79,6 +79,7 @@ DEFAULT_DIGEST_HOUR = 8
 
 class DigestSettings(BaseModel):
     enabled: bool = True
+    weekly_enabled: bool = True
     hour: int = Field(default=DEFAULT_DIGEST_HOUR, ge=0, le=23)
 
 
@@ -87,14 +88,15 @@ async def get_digest_settings(user: dict = Depends(get_current_user)):
     if user["tier"] != "advisor":
         raise HTTPException(status_code=403, detail="Advisor tier only")
     s = user.get("digest_settings") or {}
-    return {"enabled": s.get("enabled", True), "hour": s.get("hour", DEFAULT_DIGEST_HOUR)}
+    return {"enabled": s.get("enabled", True), "weekly_enabled": s.get("weekly_enabled", True),
+            "hour": s.get("hour", DEFAULT_DIGEST_HOUR)}
 
 
 @router.put("/advisor/digest-settings")
 async def put_digest_settings(body: DigestSettings, user: dict = Depends(get_current_user)):
     if user["tier"] != "advisor":
         raise HTTPException(status_code=403, detail="Advisor tier only")
-    settings = {"enabled": body.enabled, "hour": body.hour}
+    settings = {"enabled": body.enabled, "weekly_enabled": body.weekly_enabled, "hour": body.hour}
     repo.update_user(user["id"], {"digest_settings": settings})
     return settings
 

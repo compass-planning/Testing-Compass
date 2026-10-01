@@ -248,12 +248,21 @@ def render_task_digest_html(advisor_name, firm, today_tasks, overdue_tasks) -> s
     )
 
 
-def render_book_digest_html(advisor_name, firm, stats) -> str:
+def render_book_digest_html(advisor_name, firm, stats, base_url=None) -> str:
     firm = escape(str(firm or EMAIL_FROM_NAME))
     name = escape(str(advisor_name or "there").split()[0])
     counts = stats.get("counts", {})
     avg = stats.get("avg_score")
     attention = stats.get("attention", [])
+    base = (base_url or "").rstrip("/")
+
+    def primary_cell(a):
+        label = escape(str(a.get("primary")))
+        cid = a.get("client_id")
+        if base.startswith("https://") and cid:
+            href = f'{base}/clients?open={escape(str(cid))}'
+            return f'<a href="{href}" style="color:#0052FF;text-decoration:none">{label} &rsaquo;</a>'
+        return label
 
     def stat_cell(label, value, color):
         return (f'<td style="padding:12px;background:#f6f8fc;border-radius:8px;text-align:center" width="25%">'
@@ -276,7 +285,7 @@ def render_book_digest_html(advisor_name, firm, stats) -> str:
     if attention:
         rows = "".join(
             f'<tr><td style="padding:9px 0;border-bottom:1px solid #eef1f6">'
-            f'<div style="color:#0B1437;font-size:14px;font-weight:600">{escape(str(a.get("primary")))}</div>'
+            f'<div style="color:#0B1437;font-size:14px;font-weight:600">{primary_cell(a)}</div>'
             f'<div style="color:#60708f;font-size:12px">{escape(str(a.get("next_action") or ""))}</div></td>'
             f'<td style="padding:9px 0;border-bottom:1px solid #eef1f6;text-align:right;white-space:nowrap">'
             f'<span style="color:{att_color(a.get("status"))};font-size:12px;font-weight:700">{escape(str(a.get("status")))}</span>'
