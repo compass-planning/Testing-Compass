@@ -524,6 +524,8 @@ def _goal_behind(g):
         return False
     monthly = float(g.get("monthly_contribution", 0) or 0); r = float(g.get("growth_rate", 0) or 0) / 100 / 12
     ty = int(g.get("target_year", 0) or 0)
+    if ty and ty < datetime.now(timezone.utc).year:
+        return True  # target year already passed and still under-funded
     if monthly <= 0 and r <= 0:
         return False  # no funding plan to judge against
     bal, m = cur, 0
@@ -937,7 +939,7 @@ async def email_report(body: ReportEmailInput, user: dict = Depends(get_current_
 
 @api.get("/advisor/branding")
 async def get_branding(user: dict = Depends(get_current_user)):
-    return user.get("branding") or {}
+    return user.get("branding") or {"firm_name": "Compass Planning", "cover_note": "", "logo": ""}
 
 
 @api.put("/advisor/branding")

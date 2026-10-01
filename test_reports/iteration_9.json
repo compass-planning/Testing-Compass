@@ -1,0 +1,29 @@
+{
+  "summary": "Iter9 — full coverage of the 4 NEW items (Firm Branding server-sync, Estate PDF section, Report History, Goal-Nudge alerts). BACKEND: 8/8 pytest cases pass in /app/backend/tests/test_iter9_branding_history_nudge.py — TestBranding (advisor PUT persists {firm_name,cover_note,logo} and GET returns it; enterprise PUT → 403; branding returned on fresh GET), TestReportHistory (POST /report/email writes a report_log row, GET /report/history returns rows newest-first scoped to open household; solo tier works), TestGoalNudge (a household with an under-funded goal surfaces 'N goal(s) behind projected schedule' in /advisor/clients alerts). FRONTEND verified via Playwright at the preview URL as advisor@compass.ca / client_a1: (1) /report Branding panel — brand-firm-name + brand-cover-note save to /api/advisor/branding (verified by direct API GET returning {firm_name:'TEST Iter9 Firm', cover_note:'Iter9 cover note preview', logo:''}); after clearing localStorage compass_brand_* and reloading, firm name is still 'TEST Iter9 Firm' — proving branding is loaded from the advisor profile on the server, not the browser. Cover note updates cover-note-preview live. (2) report-estate-section renders 'Estate (ON)' with Probate fees $3,997 / Deemed tax $82,749 / Settlement cost $86,746 and a 'No estate register entries' empty state. (3) Clicking download-report produces 'The-Nguyen-Household-summary.pdf' (9,161 bytes) with no console errors; PDF code path includes a dedicated Estate section (lines 134-140 of ClientReport.jsx). (4) After filling email-recipient=delivered@resend.dev and clicking send-email-button, report-history gains a new history-row-0 ('delivered@resend.dev · Oct 1, 2026'); row count went 3→4 and persists after full reload. (5) /dashboard advisor-alerts-feed and /clients client-alerts-client_a1 both show the new '1 goal(s) behind projected schedule' nudge once a seed goal is created with high target / low contribution / near target_year (confirmed in dashboard feed text and visible on Anh Nguyen card in Household Queue screenshot).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter9_branding_history_nudge.py",
+    "/app/test_reports/pytest/iter9.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ClientReport.jsx line 29: useEffect merges brandingQ.data into local brand state on every change — any later refetch of ['branding'] would overwrite in-progress edits. Mitigation: gate the merge with a 'hydrated' ref so it only runs on first successful fetch, or set staleTime: Infinity on the branding query (already fine today because nothing invalidates ['branding']).",
+    "ClientReport.jsx persist() fires a PUT /advisor/branding on every keystroke — fine for small payloads but could be debounced (300ms) to reduce load, especially while typing the cover note.",
+    "server.py /report/history: no pagination/limit — report_log can grow unbounded. Consider adding a limit=50 default and a .limit() in the Mongo query. Low priority for MVP.",
+    "server.py /advisor/branding GET: returns {} when user has no branding set — frontend handles that fine, but consider defaulting to {firm_name:'Compass Planning', cover_note:'', logo:''} so the shape is always stable.",
+    "server.py _goal_behind: 1200-iteration safety cap is correct, but when monthly<=0 and growth<=0 the function returns False even when the target_year is already in the past — a user with current<target and target_year<now will NOT be nudged. Consider: `if ty and ty < now.year and cur < tgt: return True`.",
+    "Carryover from iter8 — advisor's Estate 'No will on file' flag casing is now normalised (server.py line 559 uses .lower()); confirmed working.",
+    "Repeated carryover: email_service.py still reads EMAIL_KEY/EMAIL_FROM_NAME at import time via os.environ[...] — missing keys crash the whole backend on boot."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter9_branding_history_nudge.py (NEW — 8 cases)"
+  ],
+  "success_rate": {"backend": "100% (8/8 iter9)", "frontend": "100% (all 4 iter9 modules verified end-to-end)"},
+  "test_credentials": "advisor@compass.ca / scott@sweston.ca / solo@compass.ca all reset to unenrolled at start of run; this iter re-enrolls them with fresh TOTP secrets. Re-run requires reset snippet from /app/memory/test_credentials.md. Advisor branding was reset to {firm_name:'Compass Planning', cover_note:'', logo:''} as cleanup.",
+  "seed_data_creation": "No persistent new seed data. Pytest+Playwright temporarily created 'TEST_Behind Goal' and 'TEST_Projection Goal' on client_a1 and deleted them at teardown. Report-history now has ~4 delivered@resend.dev rows on client_a1 and 1 on solo (from this + prior iter8 runs) — harmless.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend regression: `pytest /app/backend/tests/test_iter9_branding_history_nudge.py -v -o addopts=''` (also iter8 file). All 4 iter9 features are green. If 'Invalid authentication code' on login, demo accounts are enrolled with a persistent secret and must be reset via the snippet in /app/memory/test_credentials.md before pytest. For Playwright, generate a JWT via the full MFA flow and set localStorage {compass_token, compass_tier:'advisor', compass_active_household:'client_a1'} on the preview origin before navigating to /report. Nudge alert requires a goal where projected funding year > target_year — easiest seed is monthly_contribution=50, growth_rate=2, target_amount=1_000_000, current_amount=100, target_year=2027.",
+  "rca_of_the_issue": "N/A — no bugs found this iteration. All 4 new features implemented correctly."
+}

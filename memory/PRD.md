@@ -117,6 +117,14 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - Cleaned up leftover "Promo Owner" test households from Mongo.
 - Testing: iter8 — backend 6/6 pass; frontend 100% (branding persists + PDF, email send toast, goal projection on card, estate flags in feed/queue). Report `/app/test_reports/iteration_8.json`.
 
+## Estate PDF / Branding Sync / Goal Nudges / Report History (added 2026-06)
+- **Estate PDF Section** (`pages/ClientReport.jsx`): the Client Report preview and downloadable PDF now include an Estate section — probate fees, deemed-disposition tax, total settlement cost (province-aware) plus beneficiary/will register entries.
+- **Firm Branding Sync** (`server.py` GET/PUT `/advisor/branding`): firm name, cover note and logo are stored on the advisor profile (Mongo) so branding follows the advisor across devices; localStorage is a cache/fallback. Enterprise tier blocked (403).
+- **Goal Nudges** (`server.py` `_goal_behind` + `_household_score`): goals whose projected funding year exceeds target_year (or whose target year has passed while under-funded) surface as "N goal(s) behind projected schedule" in the Household Queue and dashboard Action Feed.
+- **Report History** (`server.py` `report_log` + GET `/report/history`): every emailed summary is logged (recipient, date, metrics) scoped to the household and shown in a Sent-history card on the Client Report page.
+- Hardened: email_service boots safely if keys unset (503 instead of crash); branding GET returns a stable default shape.
+- Testing: iter9 — backend 8/8 pass; frontend 100% (estate in PDF, server branding sync across reload, nudge alerts, history logging). Report `/app/test_reports/iteration_9.json`.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.
