@@ -197,7 +197,7 @@ function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, sta
   const qc = useQueryClient();
   const viewsQ = useQuery({ queryKey: ["opps-views"], queryFn: async () => (await api.get("/advisor/opps-views")).data });
   const views = viewsQ.data || [];
-  const saveMut = useMutation({ mutationFn: (next) => api.put("/advisor/opps-views", { views: next }), onSuccess: () => qc.invalidateQueries({ queryKey: ["opps-views"] }) });
+  const saveMut = useMutation({ mutationFn: (next) => api.put("/advisor/opps-views", { views: next }), onSuccess: () => qc.invalidateQueries({ queryKey: ["opps-views"] }), onError: () => toast.error("Could not save view") });
   const saveViews = (next) => saveMut.mutate(next);
   const saveCurrentView = () => { const name = window.prompt("Name this view"); if (name && name.trim()) saveViews([...views, { name: name.trim(), type: typeFilter, status: statusFilter, sort }]); };
   const applyView = (v) => { setTypeFilter(v.type); setStatusFilter(v.status); setSort(v.sort); };
