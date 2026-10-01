@@ -1,0 +1,24 @@
+{
+  "summary": "Iter23 frontend-only review of 4 new advisor features + regression hooks. All 4 targets pass: (1) Per-Digest Hours persist independently (daily=10, weekly=15 survived reload) and each hour select is correctly disabled when its row's toggle is off; (2) Digest History 'RECENT SENDS' list is visible in the digest card and refreshes after each test send with correct kind/type/'not delivered'/timestamp (preview env — expected PASS); (3) Household Search on /clients Queue — search input visible, empty-state 'No households match \"xyz999notreal\".' renders for non-matches with testid household-search-empty, clearing input restores list, and typing 'Nguyen' does NOT trigger empty-state (filter matched); (4) advisor-today-panel renders on /dashboard with 'Today's tasks' (empty-state 'Nothing due today — you're all caught up.' when zero), 'Open Task Board' link navigates to /tasks, 4 today-attention-<client_id> items render with avg-score badges, and clicking an attention item navigates to /profile and sets active client as expected. Login via /api/auth/login + /api/auth/mfa/verify (shared TOTP JBSWY3DPEHPK3PXP) succeeded; token injection into localStorage worked.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard — advisor-today-panel 'Households needing attention'", "issues": ["Two of the top entries render primary name as 'Promo Owner · Needs Setup' with avg-score shown as '—'. These appear to be seed/promo households with no owner data filled in. Non-blocking but may look odd to end users; consider filtering out households missing a real primary name, or showing 'Unassigned household' label."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Queue household cards (/clients Queue view) have no stable data-testid on each card (only view-queue / new-household-button / household-search / household-search-empty exist). Automated regression counts must rely on empty-state presence as a proxy. Consider adding data-testid=\"queue-household-card-<id>\" to each card for cleaner selector coverage."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (frontend-only)", "frontend": "100%" },
+  "test_credentials": "advisor@compass.ca / Compass2026! + shared TOTP JBSWY3DPEHPK3PXP (pyotp)",
+  "seed_data_creation": "None. Two preview-env digest sends were triggered (daily test + weekly test), which added 2 new 'not delivered' entries to Recent sends — expected per task note. Cleanup restored advisor digest_settings to {enabled:true, weekly_enabled:true, daily_hour:8, weekly_hour:8}.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 4 iter23 features confirmed working. For Household Search regression, note that queue cards lack per-card testids; use the household-search-empty testid presence/absence as the filter signal, or add testids to cards if deeper assertions are needed. advisor-today-panel today-task-<id> list could not be exercised with click-through because advisor had 0 due-today tasks at test time — click flow was validated via today-attention-<client_id> items (navigates to /profile correctly) and today-open-tasks (navigates to /tasks). Final state verified clean: daily_hour=8, weekly_hour=8, both toggles ON.",
+  "rca of the issue": "N/A — no bugs found."
+}
