@@ -136,3 +136,11 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.
 3. Password reset endpoints + email delivery.
+
+## Book Branding / Debounced Save / Nudge Realism / History Pagination / Forced PW Change (added 2026-06, iter11)
+- **Book Report Branding** (`pages/AdvisorClients.jsx`): the multi-household `book-review.pdf` header now pulls the advisor's firm name (and logo if set) from `GET /advisor/branding` instead of a hardcoded title.
+- **Debounced Branding Save** (`pages/ClientReport.jsx`): `persist()` updates the preview + localStorage instantly but debounces the `PUT /advisor/branding` by ~600ms (saveTimer ref) so firm-name/cover-note no longer fire a write per keystroke.
+- **Nudge Realism Check** (`pages/Goals.jsx`): when a goal's required catch-up contribution exceeds 20% of household monthly income (cap = 0.2·monthlyIncome, fallback $3,000/mo if income unknown), the catch-up box turns red with an `AlertTriangle` warning and offers **Extend to {year}** (`realisticYear()` finds the earliest year the contribution fits the cap, falling back to +50y) alongside **Apply**. `applyExtend()` pushes `target_year` out and recomputes `monthly_contribution`.
+- **History Pagination** (`pages/ClientReport.jsx`): Sent-history shows 5 rows with a **Load more** button (+5 per click) as the log grows per household.
+- **First-login forced password change (P0)** (`server.py` + `seed.py` + `pages/Login.jsx`): users with `must_change_password=True` get `{status:"password_change_required", change_token}` after MFA instead of a session; new `POST /auth/change-password` validates (min 8, must differ from current), clears the flag, then issues the session. Frontend `ChangeStep` handles the new step. `solo@compass.ca` seeded with the flag (+ MFA unenrolled) to demo it; other demo accounts unaffected.
+- Testing: iter11 — backend 2/2 pytest pass; frontend 5/5 features pass. Report `/app/test_reports/iteration_11.json`.

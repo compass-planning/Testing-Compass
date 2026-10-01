@@ -34,12 +34,14 @@ function requiredMonthly(current, target, annualGrowth, targetYear) {
 }
 
 // Earliest target year at which the required monthly contribution falls within `cap`.
+// Falls back to the furthest horizon so an "extend" option is always offered.
 function realisticYear(current, target, annualGrowth, cap, fromYear) {
   const base = new Date().getFullYear();
-  for (let y = Math.max(fromYear, base) + 1; y <= base + 50; y++) {
+  const max = base + 50;
+  for (let y = Math.max(fromYear, base) + 1; y <= max; y++) {
     if (requiredMonthly(current, target, annualGrowth, y) <= cap) return y;
   }
-  return null;
+  return max;
 }
 
 export default function Goals() {
