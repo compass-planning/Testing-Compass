@@ -66,6 +66,24 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - Per-person toggle (Primary/Spouse/Combined) across Goals/Retirement/Insurance/Tax.
 - Deferred by user: Meeting Recorder, Voice input, EN/FR i18n, ⌘K palette.
 
+## TOTP MFA Security (added 2026-06) — all login/password flows
+- Every account requires TOTP. First login forces enrollment (QR + secret) then a recovery security question; subsequent logins require a 6-digit code. Password reset = security question + TOTP code.
+- Backend (security.py pyotp/qrcode): `/api/auth/login` returns `mfa_required` or `mfa_setup`; `/api/auth/mfa/verify`; `/api/auth/security-question`; `/api/auth/forgot-password`; `/api/auth/reset-password`; `/api/auth/security-questions`. `_public()` strips mfa_secret + security_answer_hash. Challenge/setup tokens are short-lived scoped JWTs.
+- Seeded demo: shared TOTP secret `JBSWY3DPEHPK3PXP`, security answer `toronto`. 82/82 pytest pass; frontend multi-step login verified.
+- Frontend: multi-step Login.jsx (password → TOTP verify/setup w/ QR → security question → forgot/reset). AuthContext.applySession().
+- Hardening noted (not yet done): challenge one-shot nonce, session invalidation on reset, server-side validation that security question ∈ list.
+
+## Net Worth (faithful rebuild, added 2026-06)
+- `/app/frontend/src/pages/NetWorth.jsx`: Assets / Liabilities / Education tabs; summary cards (Net Worth, Total Assets, Total Liabilities); typed Canadian quick-add (Principal Residence, Real Estate other, RRSP, TFSA, Non-Registered, Cash/Bank, Business, Employer Stock Options, Other; liabilities Mortgage/Loan/Credit Card/LOC/Student; education RESP); per-entry Owner, Category, Market Value, Mortgage + Cash Flow (real estate). Backed by generic `/api/plan/networth` (extra fields persisted). Household-scoped for advisor; solo on own household.
+
+## Gaps still remaining (next modules, per priorities 2a faithful / 3a CA-only / 4 defer)
+- First-login FORCED password change (live app forces it even for existing users) — we force MFA+security Q but not a mandatory password change.
+- Clients scored Household Queue, Book Summary, Opportunities, New Household.
+- Debt analytics (weighted rate, lifetime interest, payoff timeline, avalanche/snowball).
+- Retirement: pension plans (DBPP/DCPP/Group RRSP/DPSP/Life Annuity), AI Strategist, Monte Carlo to age 95, RRSP Meltdown.
+- Insurance: Coverage/Gap/LTC/DI sub-tabs, Protection Score, Coverage Adequacy %, Advisor Intelligence, Excel import.
+- Cash Flow income side; Tax CA engine (RRSP/TFSA Room, Tax Projection, Capital Gains, Income Splitting) + Estate; per-person Primary/Spouse/Combined toggle.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.

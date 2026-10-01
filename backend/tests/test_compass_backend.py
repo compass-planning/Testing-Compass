@@ -1,11 +1,13 @@
 """Compass Planning backend API tests (v1, in-memory data layer)."""
 import os
 import pytest
+import pyotp
 import requests
 
 BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/") if os.environ.get("REACT_APP_BACKEND_URL") else "https://compass-vault.preview.emergentagent.com"
 API = f"{BASE_URL}/api"
 PW = "Compass2026!"
+DEMO_TOTP = "JBSWY3DPEHPK3PXP"
 
 ACCOUNTS = {
     "enterprise": "scott@sweston.ca",
@@ -17,10 +19,22 @@ ACCOUNTS = {
 
 
 # ---------- helpers ----------
+def totp(secret=DEMO_TOTP):
+    return pyotp.TOTP(secret).now()
+
+
 def login(email, password=PW):
+    """Full MFA login for seeded users (mfa_required path)."""
     r = requests.post(f"{API}/auth/login", json={"email": email, "password": password})
     assert r.status_code == 200, f"login {email}: {r.status_code} {r.text}"
-    return r.json()["token"]
+    d = r.json()
+    assert d.get("status") == "mfa_required", f"expected mfa_required, got {d}"
+    challenge = d["challenge"]
+    r2 = requests.post(f"{API}/auth/mfa/verify", json={"challenge": challenge, "code": totp()})
+    assert r2.status_code == 200, f"mfa verify {email}: {r2.status_code} {r2.text}"
+    d2 = r2.json()
+    assert d2.get("status") == "authenticated"
+    return d2["token"]
 
 
 def auth(token):
@@ -62,7 +76,8 @@ class TestAuth:
         })
         assert r.status_code == 200, r.text
         d = r.json()
-        assert "token" in d and d["user"]["tier"] == "solo"
+        # Register no longer returns a session — MFA setup is required on first login
+        assert d.get("status") == "registered"
         # duplicate should conflict
         r2 = requests.post(f"{API}/auth/register", json={
             "email": email, "password": "Testpass123!",
@@ -341,10 +356,23 @@ class TestPromotion:
         # register a fresh solo user to avoid affecting seeded solo
         import uuid
         email = f"promo_{uuid.uuid4().hex[:8]}@example.com"
-        r = requests.post(f"{API}/auth/register", json={
+        reg = requests.post(f"{API}/auth/register", json={
             "email": email, "password": "Testpass123!",
             "name": "Promo Test", "consent_data_processing": True,
         })
+        assert reg.status_code == 200
+        # First login forces MFA setup
+        r = requests.post(f"{API}/auth/login", json={"email": email, "password": "Testpass123!"})
+        assert r.status_code == 200 and r.json()["status"] == "mfa_setup"
+        setup = r.json()
+        secret = setup["secret"]
+        r = requests.post(f"{API}/auth/mfa/verify", json={
+            "challenge": setup["challenge"], "code": pyotp.TOTP(secret).now()})
+        assert r.status_code == 200 and r.json()["status"] == "security_required"
+        sr = r.json()
+        r = requests.post(f"{API}/auth/security-question", json={
+            "setup_token": sr["setup_token"], "question": sr["questions"][0], "answer": "blue"})
+        assert r.status_code == 200 and r.json()["status"] == "authenticated"
         tok = r.json()["token"]
         h = auth(tok)
         # add an owner

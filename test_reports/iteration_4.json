@@ -1,0 +1,37 @@
+{
+  "summary": "Iteration 4 — TOTP MFA + security-question + password-reset end-to-end verification. Backend: 82/82 pytest passing (14 new MFA cases in /app/backend/tests/test_mfa_auth.py + 51 existing compass + 17 existing household-centric, all updated to flow through MFA). Frontend (Playwright): multi-step login verified for seeded advisor (mfa_required -> dashboard), wrong password stays on password step, wrong TOTP code stays on mfa step, forgot/reset flow renders security question and accepts answer=toronto+TOTP, newly-registered Solo user hits mfa_setup (QR + secret shown), scanning the on-page secret -> security-question step -> dashboard, and subsequent login uses mfa_required (no QR). /api/auth/me response verified to NOT contain mfa_secret or security_answer_hash. Previous iteration's react-query cross-tenant cache leak is CONFIRMED FIXED (AuthContext now calls qc.clear() in both login and logout).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_mfa_auth.py",
+    "/app/backend/tests/test_compass_backend.py",
+    "/app/backend/tests/test_household_centric.py",
+    "/app/test_reports/pytest/iter4b_results.xml",
+    "/app/test_reports/pytest/iter4_compass.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py reset-password: when user.mfa_enabled is False (e.g. a user who registered but has not yet enrolled TOTP) the code field is ignored. This is intentional per spec (`if user.get('mfa_enabled') and not verify_totp`) but worth noting — a user who registered but never logged in has no security question yet, so forgot-password returns {question:null,mfa:false} and reset-password will fail at the security-answer check anyway, which closes the hole.",
+    "login() returns status code 200 for 'mfa_required' / 'mfa_setup' intermediate states instead of a dedicated code (e.g. 202). Fine, but any legacy consumer that keyed off a bare {token} will silently break (updated our regression suite to handle both).",
+    "mfa/verify consumes the challenge token but does not blacklist it on success — the same challenge+code pair can be replayed inside the 10-min window. Low risk because codes rotate every 30s, but a one-shot nonce would be belt+braces.",
+    "reset-password does not invalidate/rotate any active sessions after a password reset. A compromised token would survive the owner's own reset. Consider bumping a `tokens_valid_after` timestamp per user and checking it in get_current_user.",
+    "security-question setup accepts any string for `question` from the client — no server-side validation that it matches one of SECURITY_QUESTIONS. Not exploitable (user is just hurting themselves) but adding `if body.question not in SECURITY_QUESTIONS: raise 400` would prevent typos locking users out.",
+    "DEMO_TOTP_SECRET is shared across all seeded users. Fine for a demo but must be removed before any production seed."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_compass_backend.py (login helper now does full MFA flow; register test asserts {status:'registered'}; promotion test registers+enrolls+sets security question via API before using session)",
+    "/app/backend/tests/test_household_centric.py (login helper now does full MFA flow)",
+    "/app/backend/tests/test_mfa_auth.py (NEW — 14 cases covering login/mfa_required, mfa/verify valid+invalid+bad-challenge, _public() secret stripping on /me, full forced-enrollment flow for a brand new user, security-questions list, forgot-password happy+unknown, reset-password wrong-answer/wrong-code/success/case-insensitive/restore, protected-routes 401 on missing/invalid/malformed bearer)"
+  ],
+  "success_rate": { "backend": "100% (82/82 pytest)", "frontend": "100% — multi-step login/MFA/forced-enrollment/forgot+reset flows all pass; no secrets leaked to client; previous cache-leak fix verified" },
+  "test_credentials": "Compass2026! for all seeded accounts; shared TOTP secret JBSWY3DPEHPK3PXP (compute: python -c 'import pyotp;print(pyotp.TOTP(\"JBSWY3DPEHPK3PXP\").now())'); security answer: toronto (case-insensitive).",
+  "seed_data_creation": "test_reset_full_flow temporarily mutates solo@compass.ca password to NewPass123! and restores to Compass2026! within the same test. Several TEST_* and uitest_* throwaway accounts are registered (in-memory, lost on backend restart).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Regression command: `REACT_APP_BACKEND_URL=<url> pytest /app/backend/tests/ -v --junitxml=/app/test_reports/pytest/pytest_results.xml`. The shared login() helpers in all three test files handle TOTP automatically. For UI test of forced-enrollment, register via `POST /api/auth/register` first (register no longer logs the user in), then drive the login form — mfa_setup renders a <span.font-mono> with the secret you can scrape to compute the TOTP. Previous iter-3 bug (react-query cache leak on logout) is now fixed via qc.clear() in AuthContext login AND logout.",
+  "rca_of_the_issue": null
+}

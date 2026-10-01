@@ -1,17 +1,24 @@
 """Iteration 3: Household-centric advisor flow tests."""
 import os
 import pytest
+import pyotp
 import requests
 
 BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/") if os.environ.get("REACT_APP_BACKEND_URL") else "https://compass-vault.preview.emergentagent.com"
 API = f"{BASE_URL}/api"
 PW = "Compass2026!"
+DEMO_TOTP = "JBSWY3DPEHPK3PXP"
 
 
 def login(email):
     r = requests.post(f"{API}/auth/login", json={"email": email, "password": PW})
     assert r.status_code == 200, r.text
-    return r.json()["token"]
+    d = r.json()
+    assert d.get("status") == "mfa_required", d
+    r2 = requests.post(f"{API}/auth/mfa/verify", json={
+        "challenge": d["challenge"], "code": pyotp.TOTP(DEMO_TOTP).now()})
+    assert r2.status_code == 200, r2.text
+    return r2.json()["token"]
 
 
 def auth(t):

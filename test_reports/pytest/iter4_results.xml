@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="17" failures="0" skipped="0" tests="82" time="147.195" timestamp="2026-10-01T02:40:44.754050+00:00" hostname="agent-env-f6579cf0-e04d-4210-91d9-914f9c6477e6"><testcase classname="tests.test_household_centric.TestAdvisorHouseholdCentric" name="test_advisor_roster_has_nguyen" time="0.542"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase><testcase classname="tests.test_household_centric.TestAdvisorHouseholdCentric" name="test_owners_scoped_to_client_a1" time="0.000"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase><testcase classname="tests.test_household_centric.TestAdvisorHouseholdCentric" name="test_anh_profile_fields" time="0.000"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase><testcase classname="tests.test_household_centric.TestAdvisorHouseholdCentric" name="test_plan_networth_scoped" time="0.000"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase><testcase classname="tests.test_household_centric.TestAdvisorHouseholdCentric" name="test_plan_debts_scoped" time="0.000"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase><testcase classname="tests.test_household_centric.TestAdvisorHouseholdCentric" name="test_plan_expenses_scoped" time="0.000"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase><testcase classname="tests.test_household_centric.TestAdvisorHouseholdCentric" name="test_plan_insurance_scoped" time="0.000"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase><testcase classname="tests.test_household_centric.TestAdvisorHouseholdCentric" name="test_plan_retirement_scoped" time="0.000"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase><testcase classname="tests.test_household_centric.TestAdvisorHouseholdCentric" name="test_isolation_client_a2_empty" time="0.000"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase><testcase classname="tests.test_household_centric.TestAdvisorHouseholdCentric" name="test_overview_scoped_to_a1" time="0.000"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase><testcase classname="tests.test_compass_backend.TestPlanningCRUD" name="test_crud_roundtrip[networth]" time="4.819" /><testcase classname="tests.test_compass_backend.TestPIPEDA" name="test_consent_toggle" time="3.579" /><testcase classname="tests.test_compass_backend.TestPIPEDA" name="test_export_bundle" time="0.170" /><testcase classname="tests.test_compass_backend.TestPIPEDA" name="test_erasure_solo_auto_purge" time="0.117" /><testcase classname="tests.test_compass_backend.TestPIPEDA" name="test_erasure_advisor_no_auto_purge" time="0.131" /><testcase classname="tests.test_compass_backend.TestPIPEDA" name="test_audit_log_newest_first" time="0.121" /><testcase classname="tests.test_compass_backend.TestPIPEDA" name="test_retention_solo" time="0.120" /><testcase classname="tests.test_compass_backend.TestPlanningCRUD" name="test_crud_roundtrip[debts]" time="1.310" /><testcase classname="tests.test_compass_backend.TestPIPEDA" name="test_retention_advisor" time="0.129" /><testcase classname="tests.test_compass_backend.TestAuth" name="test_login_all_seeded" time="0.000" /><testcase classname="tests.test_compass_backend.TestAuth" name="test_login_bad_creds" time="0.359" /><testcase classname="tests.test_compass_backend.TestAuth" name="test_me_returns_user" time="0.107" /><testcase classname="tests.test_compass_backend.TestAuth" name="test_me_unauth" time="0.119" /><testcase classname="tests.test_compass_backend.TestAuth" name="test_register_solo" time="0.457" /><testcase classname="tests.test_compass_backend.TestTenantIsolation" name="test_enterprise_sees_only_crm_owners" time="0.135" /><testcase classname="tests.test_compass_backend.TestPlanningCRUD" name="test_crud_roundtrip[expenses]" time="0.951" /><testcase classname="tests.test_compass_backend.TestTenantIsolation" name="test_advisor_sees_only_their_org" time="0.130" /><testcase classname="tests.test_compass_backend.TestTenantIsolation" name="test_solo_sees_only_own" time="0.125" /><testcase classname="tests.test_compass_backend.TestTenantIsolation" name="test_accounts_isolation" time="0.398" /><testcase classname="tests.test_compass_backend.TestTenantIsolation" name="test_goals_isolation" time="0.421" /><testcase classname="tests.test_compass_backend.TestPlanningCRUD" name="test_crud_roundtrip[insurance]" time="0.926" /><testcase classname="tests.test_mfa_auth.TestProtectedRoutes" name="test_me_missing_bearer" time="0.143" /><testcase classname="tests.test_mfa_auth.TestProtectedRoutes" name="test_me_invalid_bearer" time="0.115" /><testcase classname="tests.test_mfa_auth.TestProtectedRoutes" name="test_me_malformed_header" time="0.120" /><testcase classname="tests.test_mfa_auth.TestProtectedRoutes" name="test_other_protected_route_401" time="0.292" /><testcase classname="tests.test_mfa_auth.TestMfaVerify" name="test_valid_totp_returns_token" time="0.653" /><testcase classname="tests.test_compass_backend.TestPlanningCRUD" name="test_crud_roundtrip[documents]" time="1.232" /><testcase classname="tests.test_mfa_auth.TestMfaVerify" name="test_invalid_totp_code_401" time="0.465" /><testcase classname="tests.test_mfa_auth.TestMfaVerify" name="test_invalid_challenge_401" time="0.119" /><testcase classname="tests.test_mfa_auth.TestPasswordReset" name="test_forgot_returns_question" time="0.115" /><testcase classname="tests.test_compass_backend.TestPlanningCRUD" name="test_crud_roundtrip[tax_notes]" time="1.970" /><testcase classname="tests.test_mfa_auth.TestPasswordReset" name="test_forgot_unknown_email_returns_null" time="0.168" /><testcase classname="tests.test_mfa_auth.TestPasswordReset" name="test_reset_full_flow" time="2.707" /><testcase classname="tests.test_compass_backend.TestPlanningCRUD" name="test_crud_roundtrip[retirement]" time="1.584" /><testcase classname="tests.test_compass_backend.TestPlanningCRUD" name="test_unknown_collection_404" time="0.392" /><testcase classname="tests.test_compass_backend.TestEnterpriseWriteBlock" name="test_enterprise_cannot_create_owner" time="0.116" /><testcase classname="tests.test_compass_backend.TestEnterpriseWriteBlock" name="test_enterprise_cannot_create_account" time="0.374" /><testcase classname="tests.test_compass_backend.TestEnterpriseWriteBlock" name="test_enterprise_can_create_goal" time="36.430" /><testcase classname="tests.test_compass_backend.TestAdvisorRoster" name="test_clients_list" time="3.313" /><testcase classname="tests.test_compass_backend.TestAdvisorRoster" name="test_forbidden_for_solo" time="20.770" /><testcase classname="tests.test_compass_backend.TestAdvisorRoster" name="test_client_detail" time="0.297" /><testcase classname="tests.test_compass_backend.TestCRM" name="test_sync_state" time="0.137" /><testcase classname="tests.test_compass_backend.TestCRM" name="test_resync_updates" time="0.268" /><testcase classname="tests.test_compass_backend.TestCRM" name="test_advisor_forbidden" time="0.252" /><testcase classname="tests.test_compass_backend.TestPlanningTenantIsolation" name="test_advisor_cannot_see_solo_networth" time="0.138" /><testcase classname="tests.test_compass_backend.TestPlanningTenantIsolation" name="test_enterprise_cannot_see_solo_networth" time="0.160" /><testcase classname="tests.test_compass_backend.TestPlanningTenantIsolation" name="test_advisor_overview_isolated" time="36.086" /><testcase classname="tests.test_compass_backend.TestDashboard" name="test_enterprise_dashboard_has_crm" time="70.720" /><testcase classname="tests.test_compass_backend.TestDashboard" name="test_solo_dashboard_has_retention" time="0.138" /><testcase classname="tests.test_compass_backend.TestDashboard" name="test_advisor_dashboard" time="0.126" /><testcase classname="tests.test_household_centric.TestEnterpriseOwnersReadOnly" name="test_enterprise_owners_read_ok" time="0.346"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase><testcase classname="tests.test_household_centric.TestEnterpriseOwnersReadOnly" name="test_enterprise_cannot_write_plan" time="0.000"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase><testcase classname="tests.test_household_centric.TestEnterpriseOwnersReadOnly" name="test_enterprise_cannot_write_owner" time="0.000"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase><testcase classname="tests.test_mfa_auth.TestLoginStep" name="test_login_returns_mfa_required_for_enrolled" time="0.341" /><testcase classname="tests.test_mfa_auth.TestLoginStep" name="test_login_wrong_password_401" time="0.351" /><testcase classname="tests.test_compass_backend.TestAdvisorCRUD" name="test_full_owner_account_goal_flow" time="23.277" /><testcase classname="tests.test_compass_backend.TestAdvisorCRUD" name="test_advisor_cannot_create_account_for_out_of_scope_owner" time="0.242" /><testcase classname="tests.test_compass_backend.TestPromotion" name="test_requires_consent" time="1.743" /><testcase classname="tests.test_compass_backend.TestPromotion" name="test_forbidden_for_non_solo" time="0.148" /><testcase classname="tests.test_compass_backend.TestPlanningProfile" name="test_get_profile_returns_self_owner" time="0.123" /><testcase classname="tests.test_compass_backend.TestPlanningProfile" name="test_put_profile_persists_extra_fields" time="36.452" /><testcase classname="tests.test_compass_backend.TestPlanningEnterpriseWriteBlock" name="test_enterprise_cannot_create_plan_row" time="0.177" /><testcase classname="tests.test_compass_backend.TestPlanningEnterpriseWriteBlock" name="test_enterprise_cannot_update_profile" time="0.128" /><testcase classname="tests.test_compass_backend.TestPlanningEnterpriseWriteBlock" name="test_enterprise_cannot_delete_plan_row" time="0.136" /><testcase classname="tests.test_household_centric.TestOwnerEditPersistsProfile" name="test_update_anh_phone" time="0.337"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase><testcase classname="tests.test_household_centric.TestOwnerEditPersistsProfile" name="test_add_dependant_and_delete" time="0.000"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase><testcase classname="tests.test_mfa_auth.TestForcedEnrollment" name="test_new_user_full_setup_flow" time="2.231" /><testcase classname="tests.test_mfa_auth.TestSecurityQuestionsList" name="test_list" time="0.156" /><testcase classname="tests.test_compass_backend.TestPlanningOverview" name="test_solo_overview_seeded_totals" time="2.732" /><testcase classname="tests.test_compass_backend.TestPlanningAuth" name="test_requires_auth" time="1.175" /><testcase classname="tests.test_household_centric.TestSoloUnaffected" name="test_solo_owners_no_household_needed" time="0.337"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase><testcase classname="tests.test_household_centric.TestSoloUnaffected" name="test_solo_plan_networth" time="0.000"><error message="failed on setup with &quot;KeyError: 'token'&quot;">backend/tests/test_household_centric.py:24: in tokens
+    "advisor": login("advisor@compass.ca"),
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_household_centric.py:14: in login
+    return r.json()["token"]
+           ^^^^^^^^^^^^^^^^^
+E   KeyError: 'token'</error></testcase></testsuite></testsuites>
