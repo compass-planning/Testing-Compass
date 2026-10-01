@@ -21,7 +21,7 @@ export default function ClientReport() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const brandKey = `compass_brand_${user.id}`;
-  const [brand, setBrand] = useState({ firm_name: "Compass Planning", cover_note: "", logo: "" });
+  const [brand, setBrand] = useState({ firm_name: "Compass Planning", cover_note: "", logo: "", logo_url: "" });
   const [recipient, setRecipient] = useState("");
   const [historyModal, setHistoryModal] = useState(null);
   const [historyVisible, setHistoryVisible] = useState(5);
@@ -82,7 +82,16 @@ export default function ClientReport() {
     const file = e.target.files?.[0]; if (!file) return;
     if (file.size > 400000) { toast.error("Logo too large (max 400KB)"); return; }
     const reader = new FileReader();
-    reader.onload = () => persist({ ...brand, logo: reader.result });
+    reader.onload = async () => {
+      const next = { ...brand, logo: reader.result };
+      persist(next); // data URI drives the on-screen preview + in-browser PDF
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        const { data } = await api.post("/advisor/branding/logo", fd, { headers: { "Content-Type": "multipart/form-data" } });
+        if (data?.logo_path) persist({ ...next, logo_url: `${process.env.REACT_APP_BACKEND_URL}/api/public/logo/${user.id}` }); // hosted URL used in emails
+      } catch (err) { toast.error(formatApiError(err.response?.data?.detail)); }
+    };
     reader.readAsDataURL(file);
   };
 
@@ -226,7 +235,7 @@ export default function ClientReport() {
                   <Upload size={15} /> {brand.logo ? "Replace logo" : "Upload logo"}
                   <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={onLogo} />
                 </label>
-                {brand.logo && <button className="ml-3 text-xs text-compass-red font-semibold" onClick={() => persist({ ...brand, logo: "" })} data-testid="brand-logo-remove">Remove</button>}
+                {brand.logo && <button className="ml-3 text-xs text-compass-red font-semibold" onClick={() => persist({ ...brand, logo: "", logo_url: "" })} data-testid="brand-logo-remove">Remove</button>}
               </div>
               <p className="text-xs text-compass-muted">Branding is saved to your advisor profile and follows you across devices.</p>
             </div>

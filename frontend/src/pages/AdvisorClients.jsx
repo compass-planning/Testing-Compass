@@ -16,6 +16,7 @@ const SCORE_META = {
   "On Track": { color: "#00DF89", bg: "rgba(0,223,137,0.12)" },
   "Needs Review": { color: "#FFB800", bg: "rgba(255,184,0,0.14)" },
   "At Risk": { color: "#EE5D50", bg: "rgba(238,93,80,0.12)" },
+  "Needs Setup": { color: "#60708f", bg: "rgba(96,112,143,0.14)" },
 };
 const scoreColor = (s) => (s >= 75 ? "#00DF89" : s >= 50 ? "#FFB800" : "#EE5D50");
 
@@ -23,6 +24,8 @@ export default function AdvisorClients() {
   const [selected, setSelected] = useState(null);
   const [view, setView] = useState("queue");
   const [sort, setSort] = useState("score-asc");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [newOpen, setNewOpen] = useState(false);
   const { setActive, clear } = useHousehold();
   const navigate = useNavigate();
@@ -37,8 +40,11 @@ export default function AdvisorClients() {
 
   const createHousehold = async (form) => {
     clear(); // ensure the owner POST creates a NEW client_id (no active household appended)
-    const { data } = await api.post("/owners", { full_name: form.full_name, relationship: "self", province: form.province });
+    const { data } = await api.post("/owners", { full_name: form.full_name, relationship: "self", province: form.province, annual_income: Number(form.income || 0) });
     const cid = data?.scope?.client_id;
+    if (form.spouse_name && form.spouse_name.trim()) {
+      await api.post("/owners", { full_name: form.spouse_name.trim(), relationship: "spouse", province: form.province, annual_income: Number(form.spouse_income || 0) }, { params: { household_id: cid } });
+    }
     qc.invalidateQueries({ queryKey: ["clients"] });
     setActive(cid, form.full_name);
     toast.success(`Created ${form.full_name}'s household`);
@@ -48,7 +54,8 @@ export default function AdvisorClients() {
   if (selected) return <ClientDetail clientId={selected} onBack={() => setSelected(null)} />;
 
   const list = clients.data || [];
-  const avgScore = list.length ? Math.round(list.reduce((s, c) => s + (c.score || 0), 0) / list.length) : 0;
+  const scored = list.filter((c) => !c.needs_setup && c.score != null);
+  const avgScore = scored.length ? Math.round(scored.reduce((s, c) => s + c.score, 0) / scored.length) : 0;
   const needAttention = list.filter((c) => (c.status || "") !== "On Track").length;
 
   const buildBookPdf = () => {
@@ -153,7 +160,7 @@ export default function AdvisorClients() {
           </div>
           )}
 
-          {view === "opps" && <OpportunitiesList list={list} sort={sort} setSort={setSort} onOpen={openClient} />}
+          {view === "opps" && <OpportunitiesList list={list} sort={sort} setSort={setSort} typeFilter={typeFilter} setTypeFilter={setTypeFilter} statusFilter={statusFilter} setStatusFilter={setStatusFilter} onOpen={openClient} />}
         </>
       )}
 
@@ -168,8 +175,25 @@ const SORTS = [
   { key: "name", label: "Household A–Z" },
 ];
 
-function OpportunitiesList({ list, sort, setSort, onOpen }) {
-  const opps = list.flatMap((c) => (c.alerts || []).map((a) => ({ c, alert: a })));
+const OPP_TYPES = ["all", "Retirement", "Insurance", "Debt", "Goals", "Estate", "Net worth", "Setup", "Other"];
+
+function alertType(a) {
+  const s = (a || "").toLowerCase();
+  if (s.includes("retirement")) return "Retirement";
+  if (s.includes("insurance") || s.includes("protection")) return "Insurance";
+  if (s.includes("debt")) return "Debt";
+  if (s.includes("goal")) return "Goals";
+  if (s.includes("will") || s.includes("beneficiar") || s.includes("estate")) return "Estate";
+  if (s.includes("net worth")) return "Net worth";
+  if (s.includes("set up") || s.includes("setup") || s.includes("not set up")) return "Setup";
+  return "Other";
+}
+
+function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, statusFilter, setStatusFilter, onOpen }) {
+  const statuses = ["all", ...Array.from(new Set(list.map((c) => c.status).filter(Boolean)))];
+  let opps = list.flatMap((c) => (c.alerts || []).map((a) => ({ c, alert: a, type: alertType(a) })));
+  if (typeFilter !== "all") opps = opps.filter((o) => o.type === typeFilter);
+  if (statusFilter !== "all") opps = opps.filter((o) => o.c.status === statusFilter);
   opps.sort((x, y) => {
     if (sort === "score-desc") return (y.c.score || 0) - (x.c.score || 0);
     if (sort === "name") return (x.c.primary || "").localeCompare(y.c.primary || "");
@@ -177,15 +201,16 @@ function OpportunitiesList({ list, sort, setSort, onOpen }) {
   });
   return (
     <div data-testid="opportunities-list">
-      <div className="flex items-center justify-between mb-4 gap-3">
-        <div className="text-sm text-compass-muted">{opps.length} open opportunit{opps.length === 1 ? "y" : "ies"} across {list.length} households</div>
-        <div className="flex items-center gap-2">
-          <ArrowUpDown size={15} className="text-compass-muted shrink-0" />
-          <div className="w-52"><Select value={sort} onChange={(e) => setSort(e.target.value)} data-testid="opps-sort">{SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</Select></div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+        <div className="text-sm text-compass-muted">{opps.length} open opportunit{opps.length === 1 ? "y" : "ies"}</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="w-40"><Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} data-testid="opps-filter-type">{OPP_TYPES.map((t) => <option key={t} value={t}>{t === "all" ? "All types" : t}</option>)}</Select></div>
+          <div className="w-40"><Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} data-testid="opps-filter-status">{statuses.map((s) => <option key={s} value={s}>{s === "all" ? "All statuses" : s}</option>)}</Select></div>
+          <div className="flex items-center gap-1.5"><ArrowUpDown size={15} className="text-compass-muted shrink-0" /><div className="w-44"><Select value={sort} onChange={(e) => setSort(e.target.value)} data-testid="opps-sort">{SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</Select></div></div>
         </div>
       </div>
       {opps.length === 0 ? (
-        <Empty icon={Zap} title="No open opportunities">Every household is on track.</Empty>
+        <Empty icon={Zap} title="No matching opportunities">Try a different filter — or every household is on track.</Empty>
       ) : (
         <div className="space-y-2.5">
           {opps.map((o, i) => {
@@ -196,15 +221,16 @@ function OpportunitiesList({ list, sort, setSort, onOpen }) {
                   <AlertTriangle size={16} style={{ color: meta.color }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-heading font-bold text-compass-navy truncate">{o.c.primary || o.c.client_id}</span>
                     <Badge color={meta.color} bg={meta.bg}>{o.c.status}</Badge>
+                    <Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{o.type}</Badge>
                   </div>
                   <div className="text-sm text-compass-navy mt-0.5">{o.alert}</div>
                   <div className="text-xs text-compass-muted mt-0.5"><span className="muted-label">Next: </span>{o.c.next_action}</div>
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="font-heading text-xl font-extrabold" style={{ color: scoreColor(o.c.score || 0) }}>{o.c.score ?? "—"}</div>
+                  <div className="font-heading text-xl font-extrabold" style={{ color: o.c.score == null ? "#60708f" : scoreColor(o.c.score) }}>{o.c.score ?? "—"}</div>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => onOpen(o.c)} data-testid={`opp-open-${i}`}>Open <ArrowRight size={14} /></Button>
               </Card>
@@ -219,21 +245,33 @@ function OpportunitiesList({ list, sort, setSort, onOpen }) {
 function NewHouseholdModal({ open, onClose, onCreate }) {
   const [full_name, setFullName] = useState("");
   const [province, setProvince] = useState("ON");
+  const [income, setIncome] = useState("");
+  const [spouse_name, setSpouseName] = useState("");
+  const [spouse_income, setSpouseIncome] = useState("");
   const [loading, setLoading] = useState(false);
-  React.useEffect(() => { if (open) { setFullName(""); setProvince("ON"); } }, [open]);
+  React.useEffect(() => { if (open) { setFullName(""); setProvince("ON"); setIncome(""); setSpouseName(""); setSpouseIncome(""); } }, [open]);
   const submit = async () => {
     if (!full_name.trim()) return;
     setLoading(true);
-    try { await onCreate({ full_name: full_name.trim(), province }); }
+    try { await onCreate({ full_name: full_name.trim(), province, income, spouse_name, spouse_income }); }
     catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
     finally { setLoading(false); }
   };
   return (
     <Modal open={open} onClose={onClose} title="New household" testid="new-household-modal">
       <div className="space-y-4">
-        <p className="text-sm text-compass-muted">Create a household and open its planner. You can add a spouse and dependants on the next screen.</p>
-        <Field label="Primary client name"><Input value={full_name} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Jordan Blake" data-testid="new-household-name" /></Field>
-        <Field label="Province"><Select value={province} onChange={(e) => setProvince(e.target.value)} data-testid="new-household-province">{PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}</Select></Field>
+        <p className="text-sm text-compass-muted">Capture the essentials now — you can add dependants and full details on the next screen.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Primary client name"><Input value={full_name} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Jordan Blake" data-testid="new-household-name" /></Field>
+          <Field label="Province"><Select value={province} onChange={(e) => setProvince(e.target.value)} data-testid="new-household-province">{PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}</Select></Field>
+        </div>
+        <Field label="Primary annual income"><Input type="number" min="0" value={income} onChange={(e) => setIncome(e.target.value)} placeholder="e.g. 95000" data-testid="new-household-income" /></Field>
+        <div className="pt-1 border-t border-compass-border" />
+        <div className="muted-label">Spouse / partner (optional)</div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Spouse name"><Input value={spouse_name} onChange={(e) => setSpouseName(e.target.value)} placeholder="e.g. Sam Blake" data-testid="new-household-spouse-name" /></Field>
+          <Field label="Spouse annual income"><Input type="number" min="0" value={spouse_income} onChange={(e) => setSpouseIncome(e.target.value)} placeholder="e.g. 60000" data-testid="new-household-spouse-income" /></Field>
+        </div>
         <div className="flex gap-2 justify-end pt-2">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={submit} disabled={!full_name.trim() || loading} data-testid="new-household-create">{loading ? "Creating…" : "Create & open"}</Button>

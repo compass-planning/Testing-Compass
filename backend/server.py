@@ -11,8 +11,10 @@ import os
 import logging
 from typing import Optional
 from datetime import datetime, timezone, timedelta
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, UploadFile, File, Response
+from fastapi.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
+import storage
 
 import jwt
 from security import (
@@ -44,6 +46,7 @@ class BrandingInput(BaseModel):
     firm_name: str = "Compass Planning"
     cover_note: str = ""
     logo: str = ""
+    logo_url: str = ""
 
 SECURITY_QUESTIONS = [
     "What was the name of your first pet?",
@@ -58,6 +61,15 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger("compass")
 
 app = FastAPI(title="Compass Planning API")
+
+
+@app.on_event("startup")
+async def _init_storage():
+    try:
+        storage.init_storage()
+        logger.info("Object storage initialized")
+    except Exception as e:
+        logger.warning(f"Object storage init failed (logo uploads disabled): {e}")
 api = APIRouter(prefix="/api")
 
 seed.seed()
@@ -570,6 +582,11 @@ def _household_score(c, nw, debts, insurance, retirement, goals, estate=None):
     liabilities = sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "liability") \
         + sum(float(d.get("balance", 0)) for d in debts)
     net_worth = assets - liabilities
+    if not nw and not debts and not insurance and not retirement and not goals and not (estate or []) and c["assets"] == 0:
+        return {"score": None, "status": "Needs Setup", "needs_setup": True,
+                "alerts": ["Household not set up yet"],
+                "next_action": "Add assets, goals and a retirement plan",
+                "net_worth": 0.0, "debt": 0.0}
     alerts, next_action, score = [], None, 100
     if not retirement:
         score -= 25; alerts.append("No retirement projection on file"); next_action = next_action or "Build a retirement projection"
@@ -595,7 +612,7 @@ def _household_score(c, nw, debts, insurance, retirement, goals, estate=None):
         score -= 15; alerts.append("Negative net worth")
     score = max(0, min(100, score))
     status = "On Track" if score >= 75 else ("Needs Review" if score >= 50 else "At Risk")
-    return {"score": score, "status": status, "alerts": alerts,
+    return {"score": score, "status": status, "alerts": alerts, "needs_setup": False,
             "next_action": next_action or "Schedule annual review", "net_worth": net_worth, "debt": liabilities}
 
 
@@ -953,7 +970,7 @@ async def email_report(body: ReportEmailInput, user: dict = Depends(get_current_
     household_name = f"The {primary['full_name'].split()[-1]} Household" if primary else "Household"
     goals = repo.list(store, "goals", read)[:5]
     branding = user.get("branding") or {}
-    html = render_report_html(household_name, body.net_worth, body.protection_score, body.retirement_success, goals, branding.get("firm_name"))
+    html = render_report_html(household_name, body.net_worth, body.protection_score, body.retirement_success, goals, branding.get("firm_name"), logo_url=branding.get("logo_url"))
     email_id = await send_email(to=str(body.recipient), subject=f"{household_name} — financial summary", html=html)
     repo.create(store, "report_log", {
         "id": _id(), "store": store, "scope": ws, "household_id": hid,
@@ -974,8 +991,48 @@ async def get_branding(user: dict = Depends(get_current_user)):
 async def put_branding(body: BrandingInput, user: dict = Depends(get_current_user)):
     if user["tier"] == "enterprise":
         raise HTTPException(status_code=403, detail="Not available for this tier")
-    repo.update_user(user["id"], {"branding": body.model_dump()})
-    return body.model_dump()
+    merged = {**(user.get("branding") or {}), **body.model_dump()}
+    repo.update_user(user["id"], {"branding": merged})
+    return merged
+
+
+_LOGO_MIME = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp", "gif": "image/gif"}
+
+
+@api.post("/advisor/branding/logo")
+async def upload_branding_logo(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    if user["tier"] == "enterprise":
+        raise HTTPException(status_code=403, detail="Not available for this tier")
+    data = await file.read()
+    if len(data) > 1_000_000:
+        raise HTTPException(status_code=413, detail="Logo too large (max 1MB)")
+    ext = (file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "png").lower()
+    ct = _LOGO_MIME.get(ext)
+    if not ct:
+        raise HTTPException(status_code=400, detail="Logo must be PNG, JPG, WEBP or GIF")
+    path = f"{storage.APP_NAME}/logos/{user['id']}.{ext}"
+    try:
+        result = await run_in_threadpool(storage.put_object, path, data, ct)
+    except Exception as e:
+        logger.error(f"Logo upload failed: {e}")
+        raise HTTPException(status_code=502, detail="Could not store the logo right now")
+    merged = {**(user.get("branding") or {}), "logo_path": result["path"]}
+    repo.update_user(user["id"], {"branding": merged})
+    audit(user, "branding.logo", "branding", "Uploaded firm logo")
+    return {"logo_path": result["path"]}
+
+
+@api.get("/public/logo/{uid}")
+async def public_logo(uid: str):
+    u = repo.find_user_by_id(uid)
+    path = (u.get("branding") or {}).get("logo_path") if u else None
+    if not path:
+        raise HTTPException(status_code=404, detail="No logo on file")
+    try:
+        content, ct = await run_in_threadpool(storage.get_object, path)
+    except Exception:
+        raise HTTPException(status_code=404, detail="No logo on file")
+    return Response(content=content, media_type=ct, headers={"Cache-Control": "public, max-age=3600"})
 
 
 @api.get("/report/history")
