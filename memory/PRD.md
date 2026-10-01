@@ -41,6 +41,13 @@ PIPEDA-compliant. v1 runs on a seeded in-memory repository behind a swappable in
 - **P1**: TOTP MFA (pyotp) rebuild; secure password reset flow; retirement projections/calculators.
 - **P2**: PDF reports + client letters; contributions tracking over time; additional CRM connectors; real Salesforce connector; breach-notification workflow.
 
+## Planning Workspace (added 2026-06, matches original Compass menu)
+Solo tier now has the full original sidebar: **Home** (My Dashboard, Insights, My Profile), **My Plan** (Net Worth, Goals, Debt, Retirement, Insurance, Cash Flow, Tax & Estate), **Reports** (AI Insights, Documents, Financial Plan).
+- Backend generic planning layer: `/api/plan/{collection}` CRUD for networth/debts/expenses/insurance/documents/tax_notes/retirement + `/api/plan/overview` + `/api/plan/profile` (GET/PUT). Scoped via `planner_scope()`, enterprise write-blocked, tenant-isolated. Seeded for client_solo1.
+- Frontend: generic `PlanningPage` (PLAN_CONFIGS) + Retirement calculator, AI Insights (rule-based mock), Financial Plan summary, Insight Dashboard, Profile editor.
+- 51/51 backend pytest pass.
+- STILL SOLO-ONLY: advisor/enterprise planner integration (drill into a client household and use the same tabs) is the next step; backend scoping already supports `household_id`.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.

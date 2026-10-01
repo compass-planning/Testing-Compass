@@ -382,3 +382,164 @@ class TestPromotion:
             "consent_data_sharing": True, "consent_reconfirmed": True,
         })
         assert r.status_code == 403
+
+
+
+# ---------- Planning workspace (NEW in iteration 2) ----------
+PLAN_COLLS = ["networth", "debts", "expenses", "insurance", "documents", "tax_notes", "retirement"]
+
+
+class TestPlanningOverview:
+    def test_solo_overview_seeded_totals(self, tokens):
+        r = requests.get(f"{API}/plan/overview", headers=auth(tokens["solo"]))
+        assert r.status_code == 200, r.text
+        d = r.json()
+        # Allow a tiny tolerance in case erasure/consent tests mutated nothing material
+        assert abs(d["totalAssets"] - 792700) < 1, d
+        assert abs(d["totalLiabilities"] - 445000) < 1, d
+        assert abs(d["netWorth"] - 347700) < 1, d
+        # counts
+        for k in ("retirementProjections", "insuranceAnalyses", "debtCount",
+                  "documents", "goals", "accounts", "monthlyExpenses"):
+            assert k in d
+        assert d["debtCount"] == 2
+        assert d["insuranceAnalyses"] == 2
+        assert d["documents"] == 2
+        assert d["retirementProjections"] == 1
+        # 2900 + 950 + 520 = 4370
+        assert abs(d["monthlyExpenses"] - 4370) < 1
+
+
+class TestPlanningProfile:
+    def test_get_profile_returns_self_owner(self, tokens):
+        r = requests.get(f"{API}/plan/profile", headers=auth(tokens["solo"]))
+        assert r.status_code == 200
+        p = r.json()
+        assert p["full_name"] == "Jordan Blake"
+        assert p["relationship"] == "self"
+
+    def test_put_profile_persists_extra_fields(self, tokens):
+        h = auth(tokens["solo"])
+        payload = {
+            "full_name": "Jordan Blake",
+            "relationship": "self",
+            "date_of_birth": "1985-08-30",
+            "province": "BC",
+            "annual_income": 125000,
+            "retirement_age": 62,
+            "desired_income": 72000,
+            "spouse_name": "Sam Blake",
+        }
+        r = requests.put(f"{API}/plan/profile", headers=h, json=payload)
+        assert r.status_code == 200, r.text
+        updated = r.json()
+        assert updated["province"] == "BC"
+        assert updated["annual_income"] == 125000
+        # GET verify
+        g = requests.get(f"{API}/plan/profile", headers=h).json()
+        assert g["province"] == "BC"
+        assert g["annual_income"] == 125000
+        assert g["retirement_age"] == 62
+        # revert to ON for isolation of other tests
+        requests.put(f"{API}/plan/profile", headers=h, json={**payload, "province": "ON"})
+
+
+class TestPlanningCRUD:
+    @pytest.mark.parametrize("coll", PLAN_COLLS)
+    def test_crud_roundtrip(self, tokens, coll):
+        h = auth(tokens["solo"])
+        # LIST baseline
+        before = requests.get(f"{API}/plan/{coll}", headers=h)
+        assert before.status_code == 200, before.text
+        base_rows = before.json()
+        assert isinstance(base_rows, list)
+
+        # CREATE
+        payload = {"name": f"TEST_{coll}_row", "category": "TEST",
+                   "value": 1234, "amount": 123, "balance": 100,
+                   "rate": 1.1, "payment": 10, "coverage": 1000, "premium": 5,
+                   "note": "pytest"}
+        r = requests.post(f"{API}/plan/{coll}", headers=h, json=payload)
+        assert r.status_code == 200, r.text
+        created = r.json()
+        rid = created["id"]
+        assert created.get("name") == f"TEST_{coll}_row"
+        assert created["household_id"] == "client_solo1"
+
+        # LIST contains new
+        rows = requests.get(f"{API}/plan/{coll}", headers=h).json()
+        assert any(x["id"] == rid for x in rows)
+        assert len(rows) == len(base_rows) + 1
+
+        # UPDATE
+        patch = {**payload, "name": f"TEST_{coll}_row_updated"}
+        r = requests.put(f"{API}/plan/{coll}/{rid}", headers=h, json=patch)
+        assert r.status_code == 200, r.text
+        assert r.json()["name"] == f"TEST_{coll}_row_updated"
+        # GET verify persistence
+        rows2 = requests.get(f"{API}/plan/{coll}", headers=h).json()
+        found = [x for x in rows2 if x["id"] == rid][0]
+        assert found["name"] == f"TEST_{coll}_row_updated"
+
+        # DELETE
+        r = requests.delete(f"{API}/plan/{coll}/{rid}", headers=h)
+        assert r.status_code == 200
+        rows3 = requests.get(f"{API}/plan/{coll}", headers=h).json()
+        assert not any(x["id"] == rid for x in rows3)
+
+    def test_unknown_collection_404(self, tokens):
+        r = requests.get(f"{API}/plan/foobar", headers=auth(tokens["solo"]))
+        assert r.status_code == 404
+        r = requests.post(f"{API}/plan/foobar", headers=auth(tokens["solo"]), json={"name": "x"})
+        assert r.status_code == 404
+
+
+class TestPlanningTenantIsolation:
+    def test_advisor_cannot_see_solo_networth(self, tokens):
+        r = requests.get(f"{API}/plan/networth", headers=auth(tokens["advisor"]))
+        assert r.status_code == 200
+        rows = r.json()
+        # Must not contain any solo household rows
+        assert all(r.get("household_id") != "client_solo1" for r in rows)
+        assert all(r.get("scope", {}).get("client_id") != "client_solo1" for r in rows)
+
+    def test_enterprise_cannot_see_solo_networth(self, tokens):
+        r = requests.get(f"{API}/plan/networth", headers=auth(tokens["enterprise"]))
+        assert r.status_code == 200
+        rows = r.json()
+        assert all(r.get("household_id") != "client_solo1" for r in rows)
+
+    def test_advisor_overview_isolated(self, tokens):
+        r = requests.get(f"{API}/plan/overview", headers=auth(tokens["advisor"]))
+        assert r.status_code == 200
+        d = r.json()
+        # Advisor has no plan_* seed in solo household -> no debts/insurance/retirement rows
+        assert d["debtCount"] == 0
+        assert d["insuranceAnalyses"] == 0
+        assert d["retirementProjections"] == 0
+
+
+class TestPlanningEnterpriseWriteBlock:
+    def test_enterprise_cannot_create_plan_row(self, tokens):
+        r = requests.post(f"{API}/plan/networth", headers=auth(tokens["enterprise"]),
+                          json={"kind": "asset", "name": "X", "value": 1})
+        assert r.status_code == 403
+
+    def test_enterprise_cannot_update_profile(self, tokens):
+        r = requests.put(f"{API}/plan/profile", headers=auth(tokens["enterprise"]),
+                         json={"full_name": "X"})
+        assert r.status_code == 403
+
+    def test_enterprise_cannot_delete_plan_row(self, tokens):
+        # Try deleting a bogus id — still should 403 before 404
+        r = requests.delete(f"{API}/plan/networth/nope", headers=auth(tokens["enterprise"]))
+        assert r.status_code == 403
+
+
+class TestPlanningAuth:
+    def test_requires_auth(self):
+        for coll in PLAN_COLLS:
+            r = requests.get(f"{API}/plan/{coll}")
+            assert r.status_code == 401
+        assert requests.get(f"{API}/plan/overview").status_code == 401
+        assert requests.get(f"{API}/plan/profile").status_code == 401

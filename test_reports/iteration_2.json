@@ -1,0 +1,30 @@
+{
+  "summary": "Iteration 2 verifies the new Planning Workspace (Net Worth, Debt, Cash Flow, Insurance, Tax & Estate, Documents, Retirement, Profile) plus regression on auth/dashboard/owners/goals/advisor/crm/PIPEDA/promotion. Backend pytest: 51/51 passing (18 new planning cases parametrized across all 7 collections + 33 regression). Frontend Playwright (solo@compass.ca): login, full sidebar nav (16 testids present), Net Worth list/add/delete round-trip, Cash Flow footer total $4,370 verified, Retirement calculator renders and save persists, Profile income edit persists across reload, Insights/AI/Financial Plan pages render. No blocking bugs.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_compass_backend.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py planner_scope() returns `read` filter but then post-filters by household_id in Python for GET /api/plan/{collection}. Advisor path with household_id works, but note that advisor without household_id will return the entire org_maple plan_* set — in this iteration no advisor plan_* rows are seeded so it's benign; when advisor planner integration lands, make sure household_id is required for advisor GETs or scope by advisor_id as well.",
+    "PUT /api/plan/profile uses body.model_dump() with ProfileInput(extra='allow') — this REPLACES the owner document with only the submitted keys (via repo.update merge). repo.update does field merge (not replace) so this is fine, but validator-free extra='allow' means a malicious/badly-typed client could inject arbitrary fields (e.g. scope override). Consider explicit allowlist for ProfileInput fields.",
+    "PlanningItemInput uses extra='allow' with no min-field validation. Clients can POST empty bodies and still get a 200. For v2 consider per-collection schemas or at least requiring `name`/`amount`/`value` depending on collection.",
+    "PlanningPage.jsx: the 'edit-{id}' and 'delete-{id}' testids are not namespaced by collection — multiple PlanningPage instances won't collide (only one page is mounted at a time), but reusing just the row id is a bit fragile; `edit-{kind}-{id}` would be safer long-term.",
+    "Retirement.jsx and PlanningPage.jsx both duplicate the invalidate(['plan','overview']) pattern. If more pages are added, extract a shared `usePlanMutations(kind)` hook."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_compass_backend.py (added 18 planning cases: overview totals, profile GET/PUT, parametrized CRUD across 7 collections, tenant isolation for advisor+enterprise, enterprise write-block, unknown collection 404, unauth 401)"
+  ],
+  "success_rate": { "backend": "100% (51/51 pytest)", "frontend": "100% of critical solo-tier flows" },
+  "test_credentials": "Password Compass2026! for solo@compass.ca, advisor@compass.ca, scott@sweston.ca, firmadmin@compass.ca, planner@sweston.ca. Bearer JWT via POST /api/auth/login.",
+  "seed_data_creation": "Backend was restarted once during this run (re-seeds in memory). Playwright left: profile income=137000 (previously blank), 2 extra retirement projections, net-worth round-trip row was deleted. No persistent mutations that affect pytest invariants (overview totals still assert within tolerance against original seed because retirement rows don't change assets/liabilities and profile fields don't affect overview).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend URL: env REACT_APP_BACKEND_URL. Reuse /app/backend/tests/test_compass_backend.py as regression. Planning testids: nav-<route>, add-<kind>-button (kind in networth|debts|expenses|insurance|tax_notes|documents), field-<key>, <kind>-save, <kind>-row-<id>, edit-<id>, delete-<id>, ret-save, ret-current/ret-annual, profile-save, profile-name, profile-income, app-main. Advisor/Enterprise planning pages are NOT yet wired in the UI (routes are solo-tier only via TierRoute); backend already enforces the isolation + enterprise write-block, verified. Only the seeded solo household (client_solo1) has plan_* rows; advisor/enterprise plan_* lists are empty by seed. If testing advisor planning later, verify the server-side household_id scoping in planner_scope() for advisor GETs."
+}
