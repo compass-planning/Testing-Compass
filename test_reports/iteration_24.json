@@ -1,0 +1,22 @@
+{
+  "summary": "Iter24 frontend-only review of 4 new advisor features. All 4 pass end-to-end against the live preview URL with real advisor login (MFA via shared TOTP). (1) Mark Reviewed: 4 today-review-<id> buttons rendered in advisor-today-panel; clicking first (client_0a836c02) showed 'Marked reviewed' toast, attention rows dropped 4→3, and after full reload the reviewed household stayed excluded (persisted). today-attention-open-<id> sub-area also present per spec. (2) Task Quick-Add: quick-add-client / quick-add-title / quick-add-submit all present. Submit correctly disabled when empty, still disabled with title-only, becomes enabled when both household (client_a1 Anh Nguyen) and title set. Submit triggered 'Task added' toast, cleared title input, and the new task 'Test task from testing' appeared on /tasks board. (3) Search Everywhere: household-search input lives above both tabs. On Opportunities tab, typing 'Nguyen' filtered opp rows to only Nguyen (Okafor+Rossi hidden); gibberish 'xyzzz9999notreal' showed the 'No matching opportunities' empty state. Switching back to Queue preserved the search and filtered household cards; gibberish rendered household-search-empty. (4) Digest Retry: triggered 'Send test' and 'Send weekly summary test' to generate failed entries; digest-history then contained 5 digest-retry-<entryId> buttons. Clicking first resend triggered expected bounce; 'not delivered' entries continued to grow — matches preview-env PASS criteria per task note. One console 401 observed pre-auth (expected AuthContext bootstrap before token injection), not a bug.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "No functional issues found this iter. Previous iter23 suggestion to add data-testid='queue-household-card-<id>' to each Queue card still stands — not blocking."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (frontend-only)", "frontend": "100%" },
+  "test_credentials": "advisor@compass.ca / Compass2026! + shared TOTP JBSWY3DPEHPK3PXP (pyotp)",
+  "seed_data_creation": "Marked 1 household reviewed via POST /advisor/households/client_0a836c02/review (expires in 7 days — attention panel will restore automatically). Created 1 advisor task via quick-add: client_a1 'Test task from testing' (visible on /tasks board). Triggered 2 preview-env digest sends (daily + weekly) + 1 resend during Digest Retry test, which added ~3 additional 'not delivered' entries to digest history. Advisor digest_settings not modified by this run (left as enabled:true, weekly_enabled:true per prior state).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 4 iter24 features confirmed working against production preview URL. If re-running, note that client_0a836c02 may already be review-suppressed (within 7-day window) so attention panel will show 3 rows initially instead of 4 — pick any other today-review-<id> or clear reviews first via backend. Quick-add left a 'Test task from testing' task for client_a1 on the task board; may want to delete during cleanup. Digest history will have accumulated 'not delivered' entries from both iter23 and iter24 test runs.",
+  "rca of the issue": "N/A — no bugs found."
+}
