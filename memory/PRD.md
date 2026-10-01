@@ -109,6 +109,14 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - **Client PDF Report** (`pages/ClientReport.jsx`, jsPDF): branded one-page household summary (net worth, assets/liabilities, protection score, retirement success %, top goals) downloadable from Reports → Client Report. Route `/report`.
 - Testing: iter7 — backend 4/4 pass; frontend 100% (Estate CRUD + estimate reactive to province, goal linking auto-funds, alerts feed navigates, PDF downloads). Fixed GoalModal uncontrolled-input warning. Report `/app/test_reports/iteration_7.json`.
 
+## Report Branding / Estate Flags / Goal Projections / Email Report (added 2026-06)
+- **Report Branding** (`pages/ClientReport.jsx`): Branding panel with firm name, cover note, and logo upload (stored per-advisor in localStorage) — all drawn into the jsPDF header/body and the live preview.
+- **Estate Flags** (`server.py` `_household_score`): "No will on file" (−10) and "Beneficiary designations missing" (−5) now feed the household health score, Household Queue alerts and the dashboard Action Feed. Will check is case-insensitive on doc_type/status.
+- **Goal Projections** (`models.py` Goal + `pages/Goals.jsx`): optional monthly contribution + expected growth % per goal; the card shows a projected funding date (green if on/before target year, amber if after). `monthly_contribution`/`growth_rate` persist.
+- **Email Report** (`email_service.py` + `POST /api/report/email`, Emergent-managed Resend): advisor emails a branded HTML household summary (net worth, protection score, retirement success %, top goals) to a recipient. Server-rendered template (no caller markup) + `_assert_safe_email` gate + per-user rate limit. PDF stays an in-app download. `.env`: EMERGENT_EMAIL_KEY, EMAIL_FROM_NAME="Compass Planning".
+- Cleaned up leftover "Promo Owner" test households from Mongo.
+- Testing: iter8 — backend 6/6 pass; frontend 100% (branding persists + PDF, email send toast, goal projection on card, estate flags in feed/queue). Report `/app/test_reports/iteration_8.json`.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.

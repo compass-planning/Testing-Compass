@@ -529,7 +529,8 @@ def _household_score(c, nw, debts, insurance, retirement, goals, estate=None):
     if behind:
         score -= min(30, 10 * len(behind)); alerts.append(f"{len(behind)} goal(s) off track"); next_action = next_action or "Rebalance goal funding"
     est = estate or []
-    has_will = any(r.get("kind") == "document" and r.get("doc_type") == "Will" and r.get("status") == "On file" for r in est)
+    has_will = any(r.get("kind") == "document" and str(r.get("doc_type", "")).lower() == "will"
+                   and str(r.get("status", "")).lower() in ("on file", "current", "active") for r in est)
     if not has_will:
         score -= 10; alerts.append("No will on file"); next_action = next_action or "Add or confirm the client's will"
     if not any(r.get("kind") == "beneficiary" for r in est):

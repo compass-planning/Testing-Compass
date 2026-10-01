@@ -1,0 +1,32 @@
+{
+  "summary": "Iter8 — full backend + frontend coverage of the 4 new iter8 modules (Report Branding, Email Report, Goal Projections, Estate Flags). Backend: 6/6 pytest cases pass in /app/backend/tests/test_iter8_email_goals_estate.py — TestReportEmail (advisor-no-household -> 400, enterprise -> 403, advisor+client_a1 -> 200 {status:sent, email_id}, solo -> 200), TestGoalProjections (POST/PUT persist monthly_contribution + growth_rate; round-trip on GET), TestEstateAlerts (advisor/clients surfaces 'No will on file' and 'Beneficiary designations missing' in alerts). Frontend verified via Playwright at the preview URL as advisor@compass.ca with client_a1 active: (1) /report Branding panel — brand-firm-name updates header, brand-cover-note live-updates cover-note-preview, brand-logo-upload renders brand-logo-preview, values persist across reload (localStorage); Download PDF produced 'The-Nguyen-Household-summary.pdf' (8.8KB) with zero jsPDF console errors. (2) Email panel — send-email-button disabled when email-recipient is empty; filling delivered@resend.dev and clicking Send summary posted /api/report/email (200) and showed the 'Summary emailed to delivered@resend.dev' success toast. (3) /goals — edit-goal-<id> modal has goal-contribution + goal-growth; after saving 1500 / 6 the goal card shows goal-projection-<id> 'Projected funding: Jun 2031 (on track)' coloured green (year <= target_year); re-opening the modal shows 1500 and 6 persisted. (4) /dashboard advisor-alerts-feed shows 'No will on file' and 'Beneficiary designations missing' rows (visible for Elena Rossi + both Promo Owner HHs); /clients client-alerts-<id> also show the same strings for 5 households. End-to-end: all 4 iter8 features are green.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/clients Household Queue", "issues": ["Two seeded 'Promo Owner' households show 0 assets/goals and inflate the Need-Attention count — context_note already flagged these as ignorable but main agent may want to hide empty promo households from the queue header KPIs."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter8_email_goals_estate.py",
+    "/app/test_reports/pytest/iter8.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py _household_score: 'has_will' check compares doc_type == 'Will' with capital W and status == 'On file' with exact casing; the Estate modal (iter7) saves doc_type lowercased ('will') and status 'current', so even after a user adds a Will the 'No will on file' alert will NOT clear. Confirm doc_type/status normalisation matches between Tax.jsx Estate form and _household_score, or lower() both sides. This likely breaks the 'adding a Will clears the alert' flow called out in the review request (not retested end-to-end because tolerant of flag presence only).",
+    "email_service.py: EMAIL_KEY/EMAIL_FROM_NAME read at import time via os.environ[...] — if .env is missing those keys the backend module import fails hard and the whole server 500s. Prefer os.environ.get with a clear startup check and 503 on /report/email when unset.",
+    "Rate limiter _SENDS is in-process only — won't survive worker restart or multi-worker deploys; acceptable for MVP but note for prod.",
+    "ClientReport.jsx: branding stored in localStorage only — per-advisor/per-browser, not shared across devices. Consider server-side firm branding under advisor profile.",
+    "Goals.jsx projectFunding: silent early-return of null when both monthly==0 and growth==0 and current<target; the goal card then simply omits the projection row. Consider rendering a 'Add a monthly contribution to project funding' hint for discoverability.",
+    "server.py plan_profile_save still accepts advisor without household_id (carryover from iter6/iter7)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter8_email_goals_estate.py (NEW — 6 cases)"],
+  "success_rate": {"backend": "100% (6/6 iter8)", "frontend": "100% (all 4 iter8 modules verified)"},
+  "test_credentials": "advisor@compass.ca / Compass2026! — TOTP reset at start of run (advisor + solo + scott) so this iter will leave them enrolled with fresh secrets. Re-run requires reset snippet from /app/memory/test_credentials.md.",
+  "seed_data_creation": "No persistent new seed data. Playwright edited an existing Nguyen household goal to add monthly_contribution=1500 and growth_rate=6 (left in place — Projected funding now shows on the goal card). Branding localStorage was written then is per-browser only. Pytest created+deleted a TEST_Projection Goal.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend regression: `pytest /app/backend/tests/test_iter8_email_goals_estate.py -v -o addopts=''`. Login helper handles mfa_setup (fresh enroll) and mfa_required (DEMO_TOTP=JBSWY3DPEHPK3PXP); reset enrolled users with the snippet in /app/memory/test_credentials.md if DEMO fails. All 4 iter8 features (Branding, Email, Goal Projections, Estate Flags) are green. The one open concern (not blocking) is the doc_type/status casing mismatch between Tax.jsx Estate save and server.py _household_score which would prevent 'No will on file' from clearing after a user adds a Will.",
+  "rca_of_the_issue": "Potential alert-clearing mismatch — server.py _household_score at line 532 checks `r.get('doc_type')=='Will' and r.get('status')=='On file'` while iter7 Estate modal persists doc_type/status in lowercase/custom casing. Mitigation: normalise both sides to .lower() or expose canonical enum values from models.py."
+}
