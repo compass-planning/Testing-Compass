@@ -1074,7 +1074,7 @@ async def invite_client(body: InviteClientInput, user: dict = Depends(get_curren
     email = body.email.lower()
     if repo.find_user_by_email(email):
         raise HTTPException(status_code=409, detail="An account with this email already exists")
-    temp_password = "Cmps-" + secrets.token_urlsafe(6)
+    temp_password = "Cmps-" + secrets.token_urlsafe(10)
     sc = user.get("scope", {})
     client = {
         "id": _id(), "email": email, "password_hash": hash_password(temp_password),
