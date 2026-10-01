@@ -37,13 +37,13 @@ function DigestSettings() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["digest-settings"], queryFn: async () => (await api.get("/advisor/digest-settings")).data });
   const historyQ = useQuery({ queryKey: ["digest-history"], queryFn: async () => (await api.get("/advisor/digest-history")).data });
-  const s = q.data || { enabled: true, weekly_enabled: true, daily_hour: 8, weekly_hour: 8 };
+  const s = q.data || { enabled: true, weekly_enabled: true, summary_enabled: false, daily_hour: 8, weekly_hour: 8, summary_hour: 17 };
   const save = useMutation({
     mutationFn: (next) => api.put("/advisor/digest-settings", next),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["digest-settings"] }); toast.success("Digest settings saved"); },
     onError: () => toast.error("Could not save digest settings"),
   });
-  const patch = (delta) => save.mutate({ enabled: s.enabled, weekly_enabled: s.weekly_enabled, daily_hour: s.daily_hour, weekly_hour: s.weekly_hour, ...delta });
+  const patch = (delta) => save.mutate({ enabled: s.enabled, weekly_enabled: s.weekly_enabled, summary_enabled: s.summary_enabled, daily_hour: s.daily_hour, weekly_hour: s.weekly_hour, summary_hour: s.summary_hour, ...delta });
   const preview = useMutation({
     mutationFn: () => api.post("/advisor/digest-preview"),
     onSuccess: (res) => { qc.invalidateQueries({ queryKey: ["digest-history"] }); res.data.sent ? toast.success(`Test digest sent to ${res.data.to}`) : toast.info("Preview built, but email delivery is unavailable in this environment"); },
@@ -54,6 +54,12 @@ function DigestSettings() {
     onSuccess: (res) => { qc.invalidateQueries({ queryKey: ["digest-history"] }); res.data.sent ? toast.success(`Weekly summary sent to ${res.data.to}`) : toast.info("Preview built, but email delivery is unavailable in this environment"); },
     onError: () => toast.error("Could not send weekly summary"),
   });
+  const summaryPreview = useMutation({
+    mutationFn: () => api.post("/advisor/today-summary/preview"),
+    onSuccess: (res) => { qc.invalidateQueries({ queryKey: ["digest-history"] }); res.data.sent ? toast.success(`End-of-day recap sent to ${res.data.to}`) : toast.info("Preview built, but email delivery is unavailable in this environment"); },
+    onError: () => toast.error("Could not send recap"),
+  });
+  const retryFor = (kind) => (kind === "weekly" ? weeklyPreview : kind === "summary" ? summaryPreview : preview);
   const fmtHour = (h) => { const am = h < 12; const base = h % 12 === 0 ? 12 : h % 12; return `${base}:00 ${am ? "AM" : "PM"}`; };
   const HourSelect = ({ value, onChange, disabled, testid }) => (
     <div className="w-28"><Select value={String(value)} disabled={disabled} onChange={(e) => onChange(Number(e.target.value))} data-testid={testid}>
@@ -95,6 +101,18 @@ function DigestSettings() {
                 <Button size="sm" variant="outline" onClick={() => weeklyPreview.mutate()} disabled={weeklyPreview.isPending} data-testid="weekly-preview-button"><Send size={13} /> {weeklyPreview.isPending ? "Sending…" : "Send weekly summary test"}</Button>
               </div>
             </div>
+            <div className="flex flex-wrap items-center gap-3 justify-between rounded-lg bg-compass-bg/50 px-3 py-2.5">
+              <div>
+                <div className="text-sm font-semibold text-compass-navy">End-of-day recap</div>
+                <div className="text-xs text-compass-muted">What you completed today & what rolled over.</div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-compass-muted">at</span>
+                <HourSelect value={s.summary_hour} disabled={!s.summary_enabled} onChange={(v) => patch({ summary_hour: v })} testid="digest-summary-hour-select" />
+                <Toggle checked={s.summary_enabled} onChange={(v) => patch({ summary_enabled: v })} testid="digest-summary-toggle" />
+                <Button size="sm" variant="outline" onClick={() => summaryPreview.mutate()} disabled={summaryPreview.isPending} data-testid="summary-preview-button"><Send size={13} /> {summaryPreview.isPending ? "Sending…" : "Send recap test"}</Button>
+              </div>
+            </div>
             <div className="text-[11px] text-compass-muted pl-1">Times are America/Toronto (ET).</div>
             {history.length > 0 && (
               <div className="pt-2 border-t border-compass-border" data-testid="digest-history">
@@ -107,7 +125,7 @@ function DigestSettings() {
                       <span className="text-compass-muted">{h.channel === "preview" ? "test" : "scheduled"}</span>
                       <span className="text-compass-muted">· {h.sent ? "sent" : "not delivered"}</span>
                       <span className="text-compass-muted ml-auto">{fmtTs(h.timestamp)}</span>
-                      {!h.sent && <button onClick={() => (h.kind === "weekly" ? weeklyPreview : preview).mutate()} disabled={preview.isPending || weeklyPreview.isPending} className="shrink-0 font-semibold text-compass-blue hover:underline" data-testid={`digest-retry-${h.id}`}>Resend</button>}
+                      {!h.sent && <button onClick={() => retryFor(h.kind).mutate()} disabled={preview.isPending || weeklyPreview.isPending || summaryPreview.isPending} className="shrink-0 font-semibold text-compass-blue hover:underline" data-testid={`digest-retry-${h.id}`}>Resend</button>}
                     </div>
                   ))}
                 </div>

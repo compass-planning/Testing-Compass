@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from repository import repo
 from models import _id
 from deps import get_current_user, scope_context, write_scope, audit, log_digest
-from email_service import send_email, render_task_digest_html
+from email_service import send_email, render_task_digest_html, render_today_summary_html
 
 logger = logging.getLogger("compass")
 router = APIRouter()
@@ -57,6 +57,11 @@ async def update_task(tid: str, body: TaskPatch, user: dict = Depends(get_curren
     patch = {k: v for k, v in body.model_dump().items() if v is not None}
     if not patch:
         patch = {"done": True}
+    if patch.get("done") is True:
+        patch["completed_at"] = datetime.now(timezone.utc).isoformat()
+    elif body.done is False:
+        patch["done"] = False
+        patch["completed_at"] = None
     updated = repo.update(store, "tasks", tid, patch, flt)
     if not updated:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -80,15 +85,19 @@ DEFAULT_DIGEST_HOUR = 8
 class DigestSettings(BaseModel):
     enabled: bool = True
     weekly_enabled: bool = True
+    summary_enabled: bool = False
     daily_hour: int = Field(default=DEFAULT_DIGEST_HOUR, ge=0, le=23)
     weekly_hour: int = Field(default=DEFAULT_DIGEST_HOUR, ge=0, le=23)
+    summary_hour: int = Field(default=17, ge=0, le=23)
 
 
 def _resolved_settings(user: dict) -> dict:
     s = user.get("digest_settings") or {}
     legacy = s.get("hour", DEFAULT_DIGEST_HOUR)
     return {"enabled": s.get("enabled", True), "weekly_enabled": s.get("weekly_enabled", True),
-            "daily_hour": s.get("daily_hour", legacy), "weekly_hour": s.get("weekly_hour", legacy)}
+            "summary_enabled": s.get("summary_enabled", False),
+            "daily_hour": s.get("daily_hour", legacy), "weekly_hour": s.get("weekly_hour", legacy),
+            "summary_hour": s.get("summary_hour", 17)}
 
 
 @router.get("/advisor/digest-settings")
@@ -103,7 +112,8 @@ async def put_digest_settings(body: DigestSettings, user: dict = Depends(get_cur
     if user["tier"] != "advisor":
         raise HTTPException(status_code=403, detail="Advisor tier only")
     settings = {"enabled": body.enabled, "weekly_enabled": body.weekly_enabled,
-                "daily_hour": body.daily_hour, "weekly_hour": body.weekly_hour}
+                "summary_enabled": body.summary_enabled, "daily_hour": body.daily_hour,
+                "weekly_hour": body.weekly_hour, "summary_hour": body.summary_hour}
     repo.update_user(user["id"], {"digest_settings": settings})
     return settings
 
@@ -144,6 +154,69 @@ async def _run_task_digest():
         except Exception as e:
             logger.warning(f"Task digest email failed for {u['email']}: {e}")
     logger.info(f"Task digest run (hour={now.hour} ET): emailed {sent} advisor(s)")
+
+
+async def _run_today_summary():
+    now = datetime.now(ZoneInfo("America/Toronto"))
+    today = now.date().isoformat()
+    sent = 0
+    for u in repo.all_users():
+        if u.get("tier") != "advisor":
+            continue
+        rs = _resolved_settings(u)
+        if not rs["summary_enabled"] or int(rs["summary_hour"]) != now.hour:
+            continue
+        store, flt = scope_context(u)
+        tasks = repo.list(store, "tasks", flt)
+        completed = [t for t in tasks if t.get("done") and (t.get("completed_at") or "")[:10] == today]
+        rolled = sorted([t for t in tasks if not t.get("done") and t.get("due_date") and t["due_date"] <= today],
+                        key=lambda t: t["due_date"])
+        if not completed and not rolled:
+            continue
+        firm = (u.get("branding") or {}).get("firm_name")
+        html = render_today_summary_html(u.get("name"), firm, completed, rolled)
+        try:
+            await send_email(to=u["email"], subject="Your end-of-day recap", html=html)
+            sent += 1
+            log_digest(u, "summary", "scheduled", True)
+        except Exception as e:
+            logger.warning(f"Today summary email failed for {u['email']}: {e}")
+    logger.info(f"Today summary run (hour={now.hour} ET): emailed {sent} advisor(s)")
+
+
+@router.post("/cron/today-summary")
+async def cron_today_summary(background: BackgroundTasks, authorization: str = Header(default="")):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    secret = os.environ.get("WEBHOOK_CRON_SECRET", "")
+    token = authorization[7:] if authorization.startswith("Bearer ") else ""
+    if not secret or not token or not _secrets.compare_digest(token, secret):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    background.add_task(_run_today_summary)
+    return {"status": "accepted"}
+
+
+@router.post("/advisor/today-summary/preview")
+async def today_summary_preview(user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    today = datetime.now(ZoneInfo("America/Toronto")).date().isoformat()
+    store, flt = scope_context(user)
+    tasks = repo.list(store, "tasks", flt)
+    completed = [t for t in tasks if t.get("done") and (t.get("completed_at") or "")[:10] == today]
+    rolled = sorted([t for t in tasks if not t.get("done") and t.get("due_date") and t["due_date"] <= today],
+                    key=lambda t: t["due_date"])
+    if not completed and not rolled:
+        completed = [{"title": "Sample: reviewed the Nguyen household"}]
+    firm = (user.get("branding") or {}).get("firm_name")
+    html = render_today_summary_html(user.get("name"), firm, completed, rolled)
+    try:
+        await send_email(to=user["email"], subject="[Preview] Your end-of-day recap", html=html)
+        log_digest(user, "summary", "preview", True)
+        return {"sent": True, "to": user["email"]}
+    except Exception as e:
+        logger.warning(f"Today summary preview failed for {user['email']}: {e}")
+        log_digest(user, "summary", "preview", False)
+        return {"sent": False, "to": user["email"], "detail": "Email delivery is unavailable in this environment"}
 
 
 @router.post("/cron/task-digest")

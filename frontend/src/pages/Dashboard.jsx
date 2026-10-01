@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
-import { Wallet, Users, Target, Building2, RefreshCw, ShieldAlert, ArrowRight, TrendingUp, AlertTriangle, ClipboardCheck, Plus, CheckCircle2 } from "lucide-react";
+import { Wallet, Users, Target, Building2, RefreshCw, ShieldAlert, ArrowRight, TrendingUp, AlertTriangle, ClipboardCheck, Plus, CheckCircle2, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -23,7 +23,8 @@ export default function Dashboard() {
   const qc = useQueryClient();
   const [qaClient, setQaClient] = useState("");
   const [qaTitle, setQaTitle] = useState("");
-  const reviewMut = useMutation({ mutationFn: (cid) => api.post(`/advisor/households/${cid}/review`), onSuccess: () => { qc.invalidateQueries({ queryKey: ["advisor-today"] }); toast.success("Marked reviewed — cleared until next week"); }, onError: () => toast.error("Could not mark reviewed") });
+  const reviewMut = useMutation({ mutationFn: ({ cid, duration }) => api.post(`/advisor/households/${cid}/review`, { duration }), onSuccess: (res, vars) => { qc.invalidateQueries({ queryKey: ["advisor-today"] }); toast.success("Snoozed from the panel", { duration: 8000, action: { label: "Undo", onClick: () => unreviewMut.mutate(vars.cid) } }); }, onError: () => toast.error("Could not snooze household") });
+  const unreviewMut = useMutation({ mutationFn: (cid) => api.delete(`/advisor/households/${cid}/review`), onSuccess: () => { qc.invalidateQueries({ queryKey: ["advisor-today"] }); toast.success("Brought back to the panel"); }, onError: () => toast.error("Could not un-snooze") });
   const addTaskMut = useMutation({ mutationFn: (b) => api.post("/advisor/tasks", b), onSuccess: () => { qc.invalidateQueries({ queryKey: ["advisor-today"] }); qc.invalidateQueries({ queryKey: ["tasks"] }); setQaTitle(""); toast.success("Task added"); }, onError: () => toast.error("Could not add task") });
 
   if (isLoading || !data) return <div className="text-compass-muted">Loading dashboard…</div>;
@@ -185,9 +186,27 @@ export default function Dashboard() {
                           <span className="block text-xs text-compass-blue font-semibold truncate">Next: {c.next_action}</span>
                         </span>
                       </button>
-                      <button onClick={() => reviewMut.mutate(c.client_id)} disabled={reviewMut.isPending} title="Mark reviewed — clears until next week" className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-compass-green hover:text-compass-navy transition-colors" data-testid={`today-review-${c.client_id}`}><CheckCircle2 size={15} /> Reviewed</button>
+                      <select defaultValue="" onChange={(e) => { if (e.target.value) { reviewMut.mutate({ cid: c.client_id, duration: e.target.value }); e.target.value = ""; } }} title="Snooze this household from the panel" className="shrink-0 rounded-lg border border-compass-border bg-white px-2 py-1 text-xs font-semibold text-compass-green focus:border-compass-blue focus:outline-none" data-testid={`today-review-${c.client_id}`}>
+                        <option value="">Reviewed…</option>
+                        <option value="week">Hide for a week</option>
+                        <option value="month">Hide for a month</option>
+                        <option value="quarter">Hide for a quarter</option>
+                      </select>
                     </div>
                   ))}
+                </div>
+              )}
+              {(t.snoozed || []).length > 0 && (
+                <div className="mt-3 pt-3 border-t border-compass-border" data-testid="today-snoozed">
+                  <div className="muted-label mb-1.5">Snoozed</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {t.snoozed.map((sn) => (
+                      <span key={sn.client_id} className="inline-flex items-center gap-1.5 rounded-full bg-compass-bg text-compass-muted text-xs font-semibold pl-3 pr-1.5 py-1" data-testid={`snoozed-${sn.client_id}`}>
+                        {sn.primary}
+                        <button onClick={() => unreviewMut.mutate(sn.client_id)} className="hover:text-compass-navy" title="Bring back to the panel" data-testid={`unsnooze-${sn.client_id}`}><X size={12} /></button>
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </Card>

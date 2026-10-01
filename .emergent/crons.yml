@@ -15,3 +15,11 @@ crons:
     method: POST
     # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
     enabled: true
+  - name: today-summary
+    description: "Hourly check that emails advisors an opt-in end-of-day recap at each advisor's chosen hour (ET)"
+    cron: "0 * * * *"
+    timezone: "America/Toronto"
+    endpoint: "{{BASE_URL}}/api/cron/today-summary"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true

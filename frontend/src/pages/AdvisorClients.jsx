@@ -151,7 +151,7 @@ export default function AdvisorClients() {
             ) : [...filtered].sort((a, b) => (a.score || 0) - (b.score || 0)).map((c) => {
               const meta = SCORE_META[c.status] || SCORE_META["Needs Review"];
               return (
-                <Card key={c.client_id} className="p-5" data-testid={`client-row-${c.client_id}`}>
+                <Card key={c.client_id} className="p-5" data-testid={`queue-household-card-${c.client_id}`}>
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-xl gradient-bg flex items-center justify-center text-white font-bold">{(c.primary || "H").slice(0, 1)}</div>

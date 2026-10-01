@@ -310,3 +310,39 @@ def render_book_digest_html(advisor_name, firm, stats, base_url=None) -> str:
         f'</td></tr></table>'
     )
 
+
+
+def render_today_summary_html(advisor_name, firm, completed, rolled) -> str:
+    firm = escape(str(firm or EMAIL_FROM_NAME))
+    name = escape(str(advisor_name or "there").split()[0])
+    completed = completed or []
+    rolled = rolled or []
+
+    def row(title, meta, color):
+        return (f'<tr><td style="padding:8px 0;border-bottom:1px solid #eef1f6;color:#0B1437;font-size:14px">{escape(str(title))}</td>'
+                f'<td style="padding:8px 0;border-bottom:1px solid #eef1f6;text-align:right;color:{color};font-size:12px;font-weight:600;white-space:nowrap">{escape(str(meta))}</td></tr>')
+
+    sections = ""
+    if completed:
+        rows = "".join(row(t.get("title", "Task"), "Done", "#00A36C") for t in completed)
+        sections += (f'<h3 style="color:#00A36C;margin:20px 0 4px;font-size:14px">Completed today ({len(completed)})</h3>'
+                     f'<table role="presentation" width="100%">{rows}</table>')
+    if rolled:
+        rows = "".join(row(t.get("title", "Task"), f'Due {t.get("due_date", "")}', "#EE5D50") for t in rolled)
+        sections += (f'<h3 style="color:#EE5D50;margin:20px 0 4px;font-size:14px">Rolling over ({len(rolled)})</h3>'
+                     f'<table role="presentation" width="100%">{rows}</table>')
+    return (
+        f'<table role="presentation" width="100%" style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif">'
+        f'<tr><td style="background:#0B1437;padding:20px 24px;border-radius:10px 10px 0 0">'
+        f'<div style="color:#fff;font-size:20px;font-weight:700">{firm}</div>'
+        f'<div style="color:#9db2e6;font-size:12px">Your end-of-day recap</div></td></tr>'
+        f'<tr><td style="padding:24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px">'
+        f'<h2 style="color:#0B1437;margin:0 0 4px">Nice work today, {name}</h2>'
+        f'<p style="color:#60708f;margin:0 0 6px;font-size:13px">You completed <strong>{len(completed)}</strong> task(s); '
+        f'<strong>{len(rolled)}</strong> rolled over to tomorrow.</p>'
+        f'{sections}'
+        f'<p style="font-size:11px;color:#9aa5b9;margin-top:22px">Sign in to {firm} to pick up where you left off. '
+        f'We never ask for your password or card details by email.</p>'
+        f'</td></tr></table>'
+    )
+

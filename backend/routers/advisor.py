@@ -489,29 +489,53 @@ def _app_base_url() -> str:
     return (url or "").rstrip("/")
 
 
+_REVIEW_DURATIONS = {"week": 7, "month": 30, "quarter": 90}
+
+
 def _reviewed_set(user: dict) -> set:
     store, flt = scope_context(user)
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     return {r["client_id"] for r in repo.list(store, "reviews", flt)
-            if r.get("client_id") and r.get("reviewed_at", "") >= cutoff}
+            if r.get("client_id") and r.get("expires_at", "") > now}
+
+
+class ReviewInput(BaseModel):
+    duration: str = "week"
 
 
 @router.post("/advisor/households/{client_id}/review")
-async def mark_reviewed(client_id: str, user: dict = Depends(get_current_user)):
+async def mark_reviewed(client_id: str, body: ReviewInput | None = None, user: dict = Depends(get_current_user)):
     if user["tier"] != "advisor":
         raise HTTPException(status_code=403, detail="Advisor tier only")
     store, flt = scope_context(user)
-    now = datetime.now(timezone.utc).isoformat()
+    duration = (body.duration if body else "week")
+    days = _REVIEW_DURATIONS.get(duration, 7)
+    now_dt = datetime.now(timezone.utc)
+    now, expires = now_dt.isoformat(), (now_dt + timedelta(days=days)).isoformat()
     existing = next((r for r in repo.list(store, "reviews", flt) if r.get("client_id") == client_id), None)
     if existing:
-        repo.update(store, "reviews", existing["id"], {"reviewed_at": now}, flt)
+        repo.update(store, "reviews", existing["id"], {"reviewed_at": now, "expires_at": expires, "duration": duration}, flt)
     else:
         sc = user.get("scope", {})
         repo.create(store, "reviews", {"id": _id(), "store": store, "client_id": client_id,
                                        "scope": {"org_id": sc.get("org_id"), "advisor_id": sc.get("advisor_id"), "client_id": client_id},
-                                       "reviewed_at": now})
-    audit(user, "household.review", "reviews", client_id)
-    return {"client_id": client_id, "reviewed_at": now}
+                                       "reviewed_at": now, "expires_at": expires, "duration": duration})
+    audit(user, "household.review", "reviews", f"{client_id} ({duration})")
+    return {"client_id": client_id, "expires_at": expires, "duration": duration}
+
+
+@router.delete("/advisor/households/{client_id}/review")
+async def unmark_reviewed(client_id: str, user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    store, flt = scope_context(user)
+    removed = 0
+    for r in repo.list(store, "reviews", flt):
+        if r.get("client_id") == client_id:
+            removed += repo.delete(store, "reviews", r["id"], flt)
+    if removed:
+        audit(user, "household.unreview", "reviews", client_id)
+    return {"ok": True, "client_id": client_id}
 
 
 def _book_stats(user: dict) -> dict:
@@ -606,9 +630,14 @@ async def advisor_today(user: dict = Depends(get_current_user)):
     reviewed = _reviewed_set(user)
     attention = [c for c in roster if (c.get("needs_setup") or c.get("status") in ("At Risk", "Needs Review")) and c["client_id"] not in reviewed]
     attention.sort(key=lambda c: (not c.get("needs_setup"), c.get("score") if c.get("score") is not None else 999))
+    now_iso = datetime.now(timezone.utc).isoformat()
+    snoozed = [{"client_id": r["client_id"], "primary": primary.get(r["client_id"], r["client_id"]), "expires_at": r.get("expires_at")}
+               for r in repo.list(store, "reviews", flt) if r.get("client_id") and r.get("expires_at", "") > now_iso]
+    snoozed.sort(key=lambda x: x["primary"])
     return {
         "overdue": overdue,
         "due_today": due_today,
+        "snoozed": snoozed,
         "attention": [{"client_id": c["client_id"], "primary": c.get("primary") or c["client_id"],
                        "status": c["status"], "score": c.get("score"), "next_action": c.get("next_action")}
                       for c in attention[:6]],
