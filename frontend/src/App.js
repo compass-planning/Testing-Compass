@@ -17,6 +17,7 @@ import Privacy from "@/pages/Privacy";
 import AuditLog from "@/pages/AuditLog";
 import Promotion from "@/pages/Promotion";
 import PlanningPage from "@/components/PlanningPage";
+import ClientReport from "@/pages/ClientReport";
 import Retirement from "@/pages/Retirement";
 import AIInsights from "@/pages/AIInsights";
 import FinancialPlan from "@/pages/FinancialPlan";
@@ -74,6 +75,7 @@ function App() {
               <Route path="/retirement" element={<RequireHousehold><Retirement /></RequireHousehold>} />
               <Route path="/ai" element={<RequireHousehold><AIInsights /></RequireHousehold>} />
               <Route path="/plan" element={<RequireHousehold><FinancialPlan /></RequireHousehold>} />
+              <Route path="/report" element={<RequireHousehold><ClientReport /></RequireHousehold>} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/audit" element={<AuditLog />} />
             </Route>

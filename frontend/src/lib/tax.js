@@ -86,3 +86,23 @@ export function incomeSplitting(incomeA, incomeB, province = "ON") {
   const split = calcTax(avg, province).total * 2;
   return { separate, split, savings: Math.max(0, separate - split) };
 }
+
+// --- Estate settlement estimate (illustrative, Canada-only) ---
+const PROBATE = {
+  ON: (v) => (v <= 50000 ? 0 : (v - 50000) * 0.015),
+  BC: (v) => (v <= 25000 ? 0 : 200 + Math.max(0, Math.min(v, 50000) - 25000) * 0.006 + Math.max(0, v - 50000) * 0.014),
+  AB: (v) => (v <= 10000 ? 35 : v <= 25000 ? 135 : v <= 125000 ? 275 : v <= 250000 ? 400 : 525),
+  QC: () => 0,
+};
+
+export function probateFee(estateValue, province = "ON") {
+  const f = PROBATE[province] || PROBATE.ON;
+  return Math.max(0, f(Math.max(0, estateValue)));
+}
+
+// Deemed disposition at death: registered assets (RRSP/RRIF) are fully taxable as income.
+export function estateEstimate({ estateValue, registeredValue, province = "ON" }) {
+  const probate = probateFee(estateValue, province);
+  const deemedTax = registeredValue * (marginalRate(registeredValue, province) / 100);
+  return { probate, deemedTax, total: probate + deemedTax };
+}

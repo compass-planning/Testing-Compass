@@ -125,6 +125,7 @@ class Goal(BaseModel):
     current_amount: float = 0.0
     target_year: int
     status: str = "on_track"  # on_track, at_risk, behind, achieved
+    linked_asset_ids: Optional[List[str]] = None
     created_at: str = Field(default_factory=_now)
 
 
@@ -135,6 +136,7 @@ class GoalInput(BaseModel):
     current_amount: float = 0.0
     target_year: int
     owner_id: Optional[str] = None
+    linked_asset_ids: Optional[List[str]] = None
 
 
 class GoalProgressInput(BaseModel):

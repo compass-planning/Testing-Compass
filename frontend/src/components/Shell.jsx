@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Target, ShieldCheck, ScrollText, RefreshCw,
   ArrowUpCircle, LogOut, Menu, X, Building2, UserCog, User as UserIcon,
-  Home, TrendingUp, Scale, CreditCard, PiggyBank, Shield, Receipt, Brain, FileText, Sparkles, ArrowLeft,
+  Home, TrendingUp, Scale, CreditCard, PiggyBank, Shield, Receipt, Brain, FileText, Sparkles, ArrowLeft, FileBarChart,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useHousehold } from "@/context/HouseholdContext";
@@ -24,6 +24,7 @@ function getNav(tier, active) {
   const reports = { label: "Reports", tabs: [
     { to: "/ai", label: "AI Insights", icon: Brain },
     { to: "/documents", label: "Documents", icon: FileText },
+    { to: "/report", label: "Client Report", icon: FileBarChart },
     { to: "/plan", label: "Financial Plan", icon: Sparkles },
   ]};
   const gov = { label: "Governance", tabs: [

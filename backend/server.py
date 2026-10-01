@@ -744,7 +744,7 @@ async def promotion_request(body: PromotionInput, user: dict = Depends(get_curre
 #  Documents, Retirement) — mirrors the original Compass planner.
 # =====================================================================
 
-PLAN_COLLECTIONS = {"networth", "debts", "expenses", "insurance", "documents", "tax_notes", "retirement"}
+PLAN_COLLECTIONS = {"networth", "debts", "expenses", "insurance", "documents", "tax_notes", "retirement", "estate"}
 
 
 def planner_scope(user: dict, household_id: str = None):

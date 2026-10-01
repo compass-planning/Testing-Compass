@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
-import { Wallet, Users, Target, Building2, RefreshCw, ShieldAlert, ArrowRight, TrendingUp } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Wallet, Users, Target, Building2, RefreshCw, ShieldAlert, ArrowRight, TrendingUp, AlertTriangle } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { useHousehold } from "@/context/HouseholdContext";
 import { Card, Stat, Badge, Button } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money, compact, dateFmt, STATUS_META } from "@/lib/format";
@@ -13,9 +14,18 @@ const CHART_COLORS = ["#0052FF", "#00DF89", "#FFB800", "#A3AED0", "#1B2559"];
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { setActive } = useHousehold();
+  const navigate = useNavigate();
   const { data, isLoading } = useQuery({ queryKey: ["dashboard"], queryFn: async () => (await api.get("/dashboard")).data });
+  const clientsQ = useQuery({ queryKey: ["clients"], queryFn: async () => (await api.get("/advisor/clients")).data, enabled: user.tier === "advisor" });
 
   if (isLoading || !data) return <div className="text-compass-muted">Loading dashboard…</div>;
+
+  const openHousehold = (c) => { setActive(c.client_id, c.primary || c.client_id); navigate("/profile"); };
+  const feed = (clientsQ.data || [])
+    .filter((c) => (c.alerts || []).length > 0)
+    .sort((a, b) => (a.score || 0) - (b.score || 0))
+    .flatMap((c) => (c.alerts || []).map((a) => ({ client_id: c.client_id, primary: c.primary || c.client_id, score: c.score, status: c.status, alert: a, next_action: c.next_action })));
 
   const statusData = Object.entries(data.goal_status || {}).map(([k, v]) => ({
     name: STATUS_META[k]?.label || k, value: v, color: STATUS_META[k]?.color || "#A3AED0",
@@ -121,6 +131,32 @@ export default function Dashboard() {
             </div>
           </div>
           <Link to="/clients"><Button variant="outline">Open roster <ArrowRight size={16} /></Button></Link>
+        </Card>
+      )}
+
+      {user.tier === "advisor" && (
+        <Card className="p-6 mt-6" data-testid="advisor-alerts-feed">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-heading font-bold text-compass-navy flex items-center gap-2"><AlertTriangle size={18} className="text-compass-amber" /> Action feed</h3>
+            <Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{feed.length}</Badge>
+          </div>
+          {feed.length === 0 ? (
+            <div className="text-sm text-compass-muted">No open items across your book. Nicely done.</div>
+          ) : (
+            <div className="space-y-2">
+              {feed.slice(0, 12).map((f, i) => (
+                <button key={i} onClick={() => openHousehold(f)} data-testid={`feed-item-${i}`}
+                  className="w-full flex items-center gap-3 rounded-xl bg-compass-bg hover:bg-compass-blue/5 border border-transparent hover:border-compass-blue/20 px-4 py-3 text-left transition-colors">
+                  <span className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ background: (f.score >= 75 ? "#00DF89" : f.score >= 50 ? "#FFB800" : "#EE5D50") }}>{f.score}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-compass-navy truncate">{f.primary} <span className="text-compass-muted font-normal">· {f.alert}</span></div>
+                    <div className="text-xs text-compass-blue font-semibold">Next: {f.next_action}</div>
+                  </div>
+                  <ArrowRight size={15} className="text-compass-muted shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 
