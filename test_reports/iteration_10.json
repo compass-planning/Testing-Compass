@@ -1,0 +1,30 @@
+{
+  "summary": "Iter10 — Verified all 4 NEW items end-to-end. BACKEND (pytest iter10, /app/backend/tests/test_iter10_branded_email_history.py — 2/2 pass): (a) POST /api/report/email with advisor branding set to 'TEST_Iter10 Firm' returns 200 (branded header path exercised; render_report_html at email_service.py:142 now takes firm_name and renders a firm-initials badge + firm_name in <td style=color:#0052FF>, and server.py:928-929 passes user.branding.firm_name through); (b) After POST /report/email with net_worth=777777/prot=88/ret=91, GET /report/history returns a row containing all 5 drill-in fields (recipient, sent_at, net_worth=777777, protection_score=88, retirement_success=91). FRONTEND (Playwright, advisor@compass.ca token + compass_active_household=client_a1): (1) HISTORY DRILL-IN /report — after sending to delivered@resend.dev, history-row-0 is a clickable button; clicking it opens history-modal showing Recipient delivered@resend.dev, Sent datetime, Net worth $316,454, Protection score 15/100, Retirement success Not run (screenshot confirmed). (2) NUDGE FIX /goals — created TEST_Iter10 Behind (target 1M, current 100, year 2027, contrib 50, growth 2); goal-fix-<id> rendered 'Catch up: contribute $332,745/mo to hit 2027' with Apply button; clicking apply-fix-<id> saved monthly_contribution=332745 and goal-projection-<id> flipped to 'Projected funding: Jun 2031 (on track)', goal-fix box disappeared. (3) BOOK REPORT /clients — book-report-button present when households exist; click produced download 'book-review.pdf' via jsPDF with no console errors (buildBookPdf iterates list sorted by score, one row per household with score/status/net worth/top alert). (4) BRANDING-IN-EMAIL (indirect) — brand-firm-name field saves to /api/advisor/branding on blur/change; after setting 'TEST_Iter10 Branded Firm' and full reload, value persisted from server (not just localStorage); email send toast 'Summary emailed to delivered@resend.dev' confirms branded email path works. No console errors on any page.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter10_branded_email_history.py",
+    "/app/test_reports/pytest/iter10.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ClientReport.jsx:35 persist() fires a PUT /advisor/branding on every keystroke of firm_name AND cover_note — carryover from iter9. Debounce ~300ms would materially reduce API chatter while typing the cover note.",
+    "AdvisorClients.jsx buildBookPdf: no handling for jsPDF add-page overflow of a long per-household block — if a household's alert line wraps or there are >~40 rows, lines can run under the footer area. Current MVP has 3 clients so this is latent; consider doc.splitTextToSize + checking y>268 after each line, not just at loop top.",
+    "AdvisorClients.jsx buildBookPdf header shows the user's existing book-level firm name/branding is NOT inlined — the Book Review PDF uses hard-coded 'Book Review' title; could reuse brand.firm_name from /advisor/branding for brand consistency with the single-household PDF.",
+    "ClientReport.jsx history drill-in: when history row's sent_at is null/undefined, `new Date(undefined).toLocaleString()` renders 'Invalid Date' in the modal. Guard with `historyModal.sent_at ? new Date(...).toLocaleString() : '—'`.",
+    "email_service.py render_report_html still reads EMAIL_FROM_NAME and EMAIL_KEY at import time — missing env would crash backend on boot. Already noted iter9; still unresolved.",
+    "Goals.jsx requiredMonthly: when target_year is in the past (ty < current year), n is clamped to 1 so suggestion becomes ~ (target - current) in a single month (e.g. $999,900/mo), which is noisy. Add 'overdue' label or cap suggestion when target_year < now.",
+    "Goals.jsx applyFix rounds to Math.round(req) — fine, but when req is very large (hundreds of thousands) you may want to also bump growth_rate or warn the user that the suggested contribution is unrealistic rather than silently save.",
+    "ClientReport.jsx download() PDF Estate section: when beneficiaries + documents are both 0, prints 'No estate register entries.' but the three KPI lines are always printed; good, matches UI."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter10_branded_email_history.py (NEW — 2 cases, both pass)"
+  ],
+  "success_rate": {"backend": "100% (2/2 iter10)", "frontend": "100% (4/4 iter10 features)"},
+  "test_credentials": "advisor@compass.ca was reset to unenrolled at start of run and re-enrolled during pytest. Advisor branding was reset to 'Compass Planning' as cleanup. TEST_Iter10 Behind goal was deleted after test.",
+  "seed_data_creation": "No persistent seed data remains. Report history on client_a1 picked up ~2 new delivered@resend.dev rows from this run (harmless and expected for drill-in testing).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend regression: `REACT_APP_BACKEND_URL=https://compass-vault.preview.emergentagent.com pytest /app/backend/tests/test_iter10_branded_email_history.py -v -o addopts=''`. Note iter9 test file hardcodes a fallback DEMO_SECRET='JBSWY3DPEHPK3PXP' for the mfa_required path, which fails when the account was previously enrolled with a different secret — before rerunning iter9, reset MFA for advisor/scott/solo via the snippet in /app/memory/test_credentials.md. Playwright flow for advisor: generate JWT via full MFA (login → mfa/verify with pyotp.TOTP(secret from response).now() → security-question answer=toronto), then set localStorage {compass_token, compass_tier:'advisor', compass_active_household:'client_a1'} on the preview origin before navigating. Behind-goal seed: target 1_000_000 / current 100 / year 2027 / contrib 50 / growth 2.",
+  "rca_of_the_issue": "N/A — no bugs found this iteration. All 4 new features (branded email header, history drill-in, nudge fix shortcut, multi-household book report) implemented correctly and behave as specified."
+}

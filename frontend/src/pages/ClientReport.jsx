@@ -255,7 +255,7 @@ export default function ClientReport() {
         {historyModal && (
           <div className="space-y-2 text-sm">
             <Row label="Recipient" value={historyModal.recipient} />
-            <Row label="Sent" value={new Date(historyModal.sent_at).toLocaleString("en-CA")} />
+            <Row label="Sent" value={historyModal.sent_at ? new Date(historyModal.sent_at).toLocaleString("en-CA") : "—"} />
             <Row label="Net worth" value={money(historyModal.net_worth)} />
             <Row label="Protection score" value={`${historyModal.protection_score}/100`} />
             <Row label="Retirement success" value={historyModal.retirement_success != null ? `${historyModal.retirement_success}%` : "Not run"} />

@@ -109,11 +109,18 @@ export default function Goals() {
                     </div>
                   )}
                   {current < Number(g.target_amount || 0) && (!proj || !onTime) && (() => {
+                    const overdue = Number(g.target_year || 0) < new Date().getFullYear();
                     const req = requiredMonthly(current, Number(g.target_amount || 0), Number(g.growth_rate || 0), Number(g.target_year || new Date().getFullYear()));
                     return (
                       <div className="mt-2.5 rounded-lg bg-compass-amber/10 px-3 py-2 text-xs flex items-center justify-between gap-2" data-testid={`goal-fix-${g.id}`}>
-                        <span className="text-compass-navy"><span className="font-semibold">Catch up:</span> contribute <span className="font-bold">{money(req)}/mo</span> to hit {g.target_year}</span>
-                        <button onClick={() => applyFix(g, current, req)} className="text-compass-blue font-bold shrink-0 hover:underline" data-testid={`apply-fix-${g.id}`}>Apply</button>
+                        {overdue ? (
+                          <span className="text-compass-amber font-semibold">Target year passed — review the goal timeline.</span>
+                        ) : (
+                          <>
+                            <span className="text-compass-navy"><span className="font-semibold">Catch up:</span> contribute <span className="font-bold">{money(req)}/mo</span> to hit {g.target_year}</span>
+                            <button onClick={() => applyFix(g, current, req)} className="text-compass-blue font-bold shrink-0 hover:underline" data-testid={`apply-fix-${g.id}`}>Apply</button>
+                          </>
+                        )}
                       </div>
                     );
                   })()}

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="6" failures="0" skipped="0" tests="10" time="3.681" timestamp="2026-10-01T12:59:22.272469+00:00" hostname="agent-env-f6579cf0-e04d-4210-91d9-914f9c6477e6"><testcase classname="tests.test_iter10_branded_email_history.TestBrandedEmailHeader" name="test_email_uses_branded_firm_name" time="1.167" /><testcase classname="tests.test_iter10_branded_email_history.TestHistoryDrillin" name="test_history_row_has_drillin_fields" time="0.437" /><testcase classname="tests.test_iter9_branding_history_nudge.TestBranding" name="test_advisor_put_and_get_persists" time="0.447"><error message="failed on setup with &quot;AssertionError: {'detail': 'Invalid authentication code'}&#10;assert None == 'authenticated'&#10; +  where None = &lt;built-in method get of dict object at 0xfa45b63bc880&gt;('status')&#10; +    where &lt;built-in method get of dict object at 0xfa45b63bc880&gt; = {'detail': 'Invalid authentication code'}.get&quot;">backend/tests/test_iter9_branding_history_nudge.py:33: in advisor
+    return _login("advisor@compass.ca")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_iter9_branding_history_nudge.py:26: in _login
+    assert v.get("status") == "authenticated", v
+E   AssertionError: {'detail': 'Invalid authentication code'}
+E   assert None == 'authenticated'
+E    +  where None = &lt;built-in method get of dict object at 0xfa45b63bc880&gt;('status')
+E    +    where &lt;built-in method get of dict object at 0xfa45b63bc880&gt; = {'detail': 'Invalid authentication code'}.get</error></testcase><testcase classname="tests.test_iter9_branding_history_nudge.TestBranding" name="test_enterprise_put_forbidden" time="0.498" /><testcase classname="tests.test_iter9_branding_history_nudge.TestBranding" name="test_branding_persists_new_request" time="0.000"><error message="failed on setup with &quot;AssertionError: {'detail': 'Invalid authentication code'}&#10;assert None == 'authenticated'&#10; +  where None = &lt;built-in method get of dict object at 0xfa45b63bc880&gt;('status')&#10; +    where &lt;built-in method get of dict object at 0xfa45b63bc880&gt; = {'detail': 'Invalid authentication code'}.get&quot;">backend/tests/test_iter9_branding_history_nudge.py:33: in advisor
+    return _login("advisor@compass.ca")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_iter9_branding_history_nudge.py:26: in _login
+    assert v.get("status") == "authenticated", v
+E   AssertionError: {'detail': 'Invalid authentication code'}
+E   assert None == 'authenticated'
+E    +  where None = &lt;built-in method get of dict object at 0xfa45b63bc880&gt;('status')
+E    +    where &lt;built-in method get of dict object at 0xfa45b63bc880&gt; = {'detail': 'Invalid authentication code'}.get</error></testcase><testcase classname="tests.test_iter9_branding_history_nudge.TestBranding" name="test_reset_branding_to_default" time="0.000"><error message="failed on setup with &quot;AssertionError: {'detail': 'Invalid authentication code'}&#10;assert None == 'authenticated'&#10; +  where None = &lt;built-in method get of dict object at 0xfa45b63bc880&gt;('status')&#10; +    where &lt;built-in method get of dict object at 0xfa45b63bc880&gt; = {'detail': 'Invalid authentication code'}.get&quot;">backend/tests/test_iter9_branding_history_nudge.py:33: in advisor
+    return _login("advisor@compass.ca")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_iter9_branding_history_nudge.py:26: in _login
+    assert v.get("status") == "authenticated", v
+E   AssertionError: {'detail': 'Invalid authentication code'}
+E   assert None == 'authenticated'
+E    +  where None = &lt;built-in method get of dict object at 0xfa45b63bc880&gt;('status')
+E    +    where &lt;built-in method get of dict object at 0xfa45b63bc880&gt; = {'detail': 'Invalid authentication code'}.get</error></testcase><testcase classname="tests.test_iter9_branding_history_nudge.TestReportHistory" name="test_email_then_history_newest_first" time="0.000"><error message="failed on setup with &quot;AssertionError: {'detail': 'Invalid authentication code'}&#10;assert None == 'authenticated'&#10; +  where None = &lt;built-in method get of dict object at 0xfa45b63bc880&gt;('status')&#10; +    where &lt;built-in method get of dict object at 0xfa45b63bc880&gt; = {'detail': 'Invalid authentication code'}.get&quot;">backend/tests/test_iter9_branding_history_nudge.py:33: in advisor
+    return _login("advisor@compass.ca")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_iter9_branding_history_nudge.py:26: in _login
+    assert v.get("status") == "authenticated", v
+E   AssertionError: {'detail': 'Invalid authentication code'}
+E   assert None == 'authenticated'
+E    +  where None = &lt;built-in method get of dict object at 0xfa45b63bc880&gt;('status')
+E    +    where &lt;built-in method get of dict object at 0xfa45b63bc880&gt; = {'detail': 'Invalid authentication code'}.get</error></testcase><testcase classname="tests.test_iter9_branding_history_nudge.TestReportHistory" name="test_history_scoped_to_household" time="0.000"><error message="failed on setup with &quot;AssertionError: {'detail': 'Invalid authentication code'}&#10;assert None == 'authenticated'&#10; +  where None = &lt;built-in method get of dict object at 0xfa45b63bc880&gt;('status')&#10; +    where &lt;built-in method get of dict object at 0xfa45b63bc880&gt; = {'detail': 'Invalid authentication code'}.get&quot;">backend/tests/test_iter9_branding_history_nudge.py:33: in advisor
+    return _login("advisor@compass.ca")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_iter9_branding_history_nudge.py:26: in _login
+    assert v.get("status") == "authenticated", v
+E   AssertionError: {'detail': 'Invalid authentication code'}
+E   assert None == 'authenticated'
+E    +  where None = &lt;built-in method get of dict object at 0xfa45b63bc880&gt;('status')
+E    +    where &lt;built-in method get of dict object at 0xfa45b63bc880&gt; = {'detail': 'Invalid authentication code'}.get</error></testcase><testcase classname="tests.test_iter9_branding_history_nudge.TestReportHistory" name="test_solo_history_works" time="1.033" /><testcase classname="tests.test_iter9_branding_history_nudge.TestGoalNudge" name="test_behind_schedule_alert_appears" time="0.002"><error message="failed on setup with &quot;AssertionError: {'detail': 'Invalid authentication code'}&#10;assert None == 'authenticated'&#10; +  where None = &lt;built-in method get of dict object at 0xfa45b63bc880&gt;('status')&#10; +    where &lt;built-in method get of dict object at 0xfa45b63bc880&gt; = {'detail': 'Invalid authentication code'}.get&quot;">backend/tests/test_iter9_branding_history_nudge.py:33: in advisor
+    return _login("advisor@compass.ca")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_iter9_branding_history_nudge.py:26: in _login
+    assert v.get("status") == "authenticated", v
+E   AssertionError: {'detail': 'Invalid authentication code'}
+E   assert None == 'authenticated'
+E    +  where None = &lt;built-in method get of dict object at 0xfa45b63bc880&gt;('status')
+E    +    where &lt;built-in method get of dict object at 0xfa45b63bc880&gt; = {'detail': 'Invalid authentication code'}.get</error></testcase></testsuite></testsuites>

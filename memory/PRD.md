@@ -125,6 +125,13 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - Hardened: email_service boots safely if keys unset (503 instead of crash); branding GET returns a stable default shape.
 - Testing: iter9 — backend 8/8 pass; frontend 100% (estate in PDF, server branding sync across reload, nudge alerts, history logging). Report `/app/test_reports/iteration_9.json`.
 
+## Branded Email / History Drill-in / Nudge Fix / Book Report (added 2026-06)
+- **Branding in Email** (`email_service.py`): the emailed HTML summary header now shows the advisor's firm name + an initials badge (real image logos can't be inlined due to the managed-email safety gate; firm name/initials used instead). `render_report_html` takes `firm_name` from `user.branding`.
+- **History Drill-in** (`pages/ClientReport.jsx`): Sent-history rows are clickable → modal showing recipient, sent datetime, net worth, protection score, retirement success for that send (figures stored in `report_log`).
+- **Nudge Fix Shortcut** (`pages/Goals.jsx`): under-funded goals show a "Catch up: contribute $X/mo" suggestion (required monthly to hit target by target_year) with an Apply button; overdue goals show a review-timeline note.
+- **Multi-Household Report** (`pages/AdvisorClients.jsx`): a "Book report" button on the Household Queue downloads a combined book-level PDF (every household with score, status, net worth, top alert) via jsPDF.
+- Testing: iter10 — backend 2/2 pass; frontend 100% (branded email header, history modal, nudge apply flips goal on-track, book-review.pdf downloads). Report `/app/test_reports/iteration_10.json`.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.
