@@ -172,6 +172,28 @@ class PromotionInput(BaseModel):
     consent_reconfirmed: bool
 
 
+class MFAVerifyInput(BaseModel):
+    challenge: str
+    code: str
+
+
+class SecurityQuestionInput(BaseModel):
+    setup_token: str
+    question: str = Field(min_length=1)
+    answer: str = Field(min_length=1)
+
+
+class ForgotInput(BaseModel):
+    email: EmailStr
+
+
+class ResetInput(BaseModel):
+    email: EmailStr
+    answer: str = Field(min_length=1)
+    code: str = ""
+    new_password: str = Field(min_length=6)
+
+
 class PlanningItemInput(BaseModel):
     model_config = ConfigDict(extra="allow")
 

@@ -14,15 +14,29 @@ from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request
 from starlette.middleware.cors import CORSMiddleware
 
 import jwt
-from security import hash_password, verify_password, create_access_token, decode_token
+from security import (
+    hash_password, verify_password, create_access_token, decode_token,
+    create_scoped_token, generate_totp_secret, totp_uri, verify_totp, qr_data_url,
+    hash_answer, verify_answer,
+)
 from repository import repo
 from models import (
     _id, User, PublicUser, RegisterInput, LoginInput,
     PensionOwner, OwnerInput, PensionAccount, AccountInput,
     Goal, GoalInput, GoalProgressInput, AuditEntry, ConsentToggleInput,
     ErasureInput, PromotionInput, PlanningItemInput, ProfileInput,
+    MFAVerifyInput, SecurityQuestionInput, ForgotInput, ResetInput,
 )
 import seed
+
+SECURITY_QUESTIONS = [
+    "What was the name of your first pet?",
+    "What was the name of your elementary school?",
+    "What is your mother's maiden name?",
+    "What city were you born in?",
+    "What was the make of your first car?",
+    "What is the name of your childhood best friend?",
+]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("compass")
@@ -37,7 +51,8 @@ seed.seed()
 
 def _public(user: dict) -> dict:
     u = dict(user)
-    u.pop("password_hash", None)
+    for k in ("password_hash", "mfa_secret", "security_answer_hash"):
+        u.pop(k, None)
     return u
 
 
@@ -135,8 +150,13 @@ async def register(body: RegisterInput):
         "opt_out_at": None, "purge_at": None, "status": "active",
     })
     audit(user, "auth.register", "account", "Solo self-signup")
+    return {"status": "registered"}
+
+
+def _issue_session(user: dict):
     token = create_access_token(user["id"], user["email"])
-    return {"token": token, "user": _public(user)}
+    audit(user, "auth.login", "session", f"{user['tier']} sign-in (MFA verified)")
+    return {"status": "authenticated", "token": token, "user": _public(user)}
 
 
 @api.post("/auth/login")
@@ -144,9 +164,81 @@ async def login(body: LoginInput):
     user = repo.find_user_by_email(body.email.lower())
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    audit(user, "auth.login", "session", f"{user['tier']} sign-in")
-    token = create_access_token(user["id"], user["email"])
-    return {"token": token, "user": _public(user)}
+    # TOTP is required for every account. Enrolled -> verify; otherwise forced setup.
+    if user.get("mfa_enabled") and user.get("mfa_secret"):
+        challenge = create_scoped_token({"sub": user["id"]}, 10, "mfa_verify")
+        return {"status": "mfa_required", "challenge": challenge}
+    secret = generate_totp_secret()
+    challenge = create_scoped_token({"sub": user["id"], "pending_secret": secret}, 10, "mfa_setup")
+    uri = totp_uri(secret, user["email"])
+    return {"status": "mfa_setup", "challenge": challenge, "secret": secret,
+            "otpauth_uri": uri, "qr": qr_data_url(uri)}
+
+
+@api.get("/auth/security-questions")
+async def list_security_questions():
+    return {"questions": SECURITY_QUESTIONS}
+
+
+@api.post("/auth/mfa/verify")
+async def mfa_verify(body: MFAVerifyInput):
+    try:
+        p = decode_token(body.challenge)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Challenge expired — please sign in again")
+    if p.get("type") not in ("mfa_verify", "mfa_setup"):
+        raise HTTPException(status_code=401, detail="Invalid challenge")
+    user = repo.find_user_by_id(p["sub"])
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    secret = p.get("pending_secret") if p["type"] == "mfa_setup" else user.get("mfa_secret")
+    if not verify_totp(secret, body.code):
+        raise HTTPException(status_code=401, detail="Invalid authentication code")
+    if p["type"] == "mfa_setup":
+        repo.update_user(user["id"], {"mfa_enabled": True, "mfa_secret": secret})
+        user = repo.find_user_by_id(user["id"])
+    if not user.get("security_question"):
+        setup_token = create_scoped_token({"sub": user["id"]}, 10, "security_setup")
+        return {"status": "security_required", "setup_token": setup_token, "questions": SECURITY_QUESTIONS}
+    return _issue_session(user)
+
+
+@api.post("/auth/security-question")
+async def set_security_question(body: SecurityQuestionInput):
+    try:
+        p = decode_token(body.setup_token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Session expired — please sign in again")
+    if p.get("type") != "security_setup":
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user = repo.find_user_by_id(p["sub"])
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    repo.update_user(user["id"], {"security_question": body.question,
+                                  "security_answer_hash": hash_answer(body.answer)})
+    return _issue_session(repo.find_user_by_id(user["id"]))
+
+
+@api.post("/auth/forgot-password")
+async def forgot_password(body: ForgotInput):
+    user = repo.find_user_by_email(body.email.lower())
+    if not user or not user.get("security_question"):
+        return {"question": None, "mfa": False}
+    return {"question": user["security_question"], "mfa": bool(user.get("mfa_enabled"))}
+
+
+@api.post("/auth/reset-password")
+async def reset_password(body: ResetInput):
+    user = repo.find_user_by_email(body.email.lower())
+    if not user:
+        raise HTTPException(status_code=404, detail="No account found for that email")
+    if not (user.get("security_answer_hash") and verify_answer(body.answer, user["security_answer_hash"])):
+        raise HTTPException(status_code=401, detail="Security answer is incorrect")
+    if user.get("mfa_enabled") and not verify_totp(user.get("mfa_secret"), body.code):
+        raise HTTPException(status_code=401, detail="Invalid authentication code")
+    repo.update_user(user["id"], {"password_hash": hash_password(body.new_password)})
+    audit(user, "auth.reset", "account", "Password reset via security question + TOTP")
+    return {"ok": True}
 
 
 @api.get("/auth/me")

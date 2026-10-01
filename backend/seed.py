@@ -53,6 +53,8 @@ def seed():
 
     pw = os.environ.get("DEMO_PASSWORD", "Compass2026!")
     ph = hash_password(pw)
+    totp_secret = os.environ.get("DEMO_TOTP_SECRET", "JBSWY3DPEHPK3PXP")
+    answer_hash = hash_password("toronto")
 
     # ---------------- Users ----------------
     users = [
@@ -72,7 +74,8 @@ def seed():
             "id": _id(), "email": u["email"].lower(), "password_hash": ph,
             "name": u["name"], "tier": u["tier"], "role": u["role"],
             "scope": {"corp_id": None, "org_id": None, "advisor_id": None, "client_id": None, **u["scope"]},
-            "mfa_enabled": u["mfa_enabled"],
+            "mfa_enabled": True, "mfa_secret": totp_secret,
+            "security_question": "What city were you born in?", "security_answer_hash": answer_hash,
             "consent": {"marketing": False, "data_processing": True,
                         "crm_sharing": u["tier"] == "enterprise", "updated_at": _now()},
             "created_at": _now(),

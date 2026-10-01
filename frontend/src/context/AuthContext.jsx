@@ -21,23 +21,16 @@ export function AuthProvider({ children }) {
     })();
   }, []);
 
-  const login = async (email, password) => {
+  const applySession = (token, u) => {
     qc.clear();
-    const { data } = await api.post("/auth/login", { email, password });
-    setToken(data.token);
-    localStorage.setItem("compass_tier", data.user.tier);
-    setUser(data.user);
-    return data.user;
+    setToken(token);
+    localStorage.setItem("compass_tier", u.tier);
+    setUser(u);
   };
 
-  const register = async (payload) => {
-    qc.clear();
-    const { data } = await api.post("/auth/register", payload);
-    setToken(data.token);
-    localStorage.setItem("compass_tier", data.user.tier);
-    setUser(data.user);
-    return data.user;
-  };
+  const login = (email, password) => api.post("/auth/login", { email, password }).then((r) => r.data);
+
+  const register = (payload) => api.post("/auth/register", payload).then((r) => r.data);
 
   const logout = () => {
     setToken(null);
@@ -55,7 +48,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthCtx.Provider value={{ user, login, register, logout, refresh, setUser }}>
+    <AuthCtx.Provider value={{ user, login, register, logout, refresh, setUser, applySession }}>
       {children}
     </AuthCtx.Provider>
   );

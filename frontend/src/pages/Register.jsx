@@ -22,8 +22,8 @@ export default function Register() {
     setLoading(true);
     try {
       await register({ ...form, consent_data_processing: consent });
-      toast.success("Welcome to Compass Planning");
-      nav("/dashboard", { replace: true });
+      toast.success("Account created — sign in and set up two-factor authentication");
+      nav("/login", { replace: true });
     } catch (err) {
       toast.error(formatApiError(err.response?.data?.detail) || "Registration failed");
     } finally {
