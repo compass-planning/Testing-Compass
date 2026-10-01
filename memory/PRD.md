@@ -240,3 +240,10 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - **Queue Card Test IDs** (`AdvisorClients.jsx`): each Household Queue card now has `data-testid="queue-household-card-<client_id>"`.
 - **Today Summary Email** (`routers/tasks.py` digest-settings gains `summary_enabled`/`summary_hour`; `update_task` records `completed_at`; new `POST /cron/today-summary` (hourly) + `POST /advisor/today-summary/preview`; `email_service.render_today_summary_html`; `.emergent/crons.yml` `today-summary`): opt-in end-of-day recap of tasks completed today + rolled-over tasks, at the advisor's chosen hour. `TaskBoard.jsx`: a third 'End-of-day recap' digest row + the Digest Retry 'Resend' now covers summary entries.
 - Testing: iter25 — frontend 4/4 flows + regression pass (100%); backend endpoints curl-verified + summary email HTML validated against the safe-email gate. Report `/app/test_reports/iteration_25.json`.
+
+## Snooze Reason / Recap Time-Window / Bulk Snooze / Weekly Reviewed Count (added 2026-06, iter26)
+- **Snooze Reason** (`routers/advisor.py` review accepts `{duration?, note?}`, note-only updates keep expiry; `GET /advisor/today` snoozed[] includes `note`): snoozed-household rows in the Dashboard Today panel have a note input that persists via POST review.
+- **Recap Time-Window** (`routers/tasks.py`): the end-of-day recap now counts tasks completed since `user.last_summary_at` (or last 24h) rather than calendar-day; a scheduled send stamps `last_summary_at` — fixes near-midnight accuracy.
+- **Bulk Snooze** (`routers/advisor.py` `POST /advisor/snooze-bulk {duration, statuses}` → `{count, applied}`): a 'Snooze lower-priority' button snoozes all Needs-Review/Needs-Setup attention households at once, with a toast Undo that restores them.
+- **Weekly Reviewed Count** (`GET /advisor/today` `reviewed_this_week`): the attention card shows a 'Reviewed this week: N' progress stat.
+- Testing: iter26 — frontend 7/7 assertions + regression pass (100%); backend endpoints curl-verified. Report `/app/test_reports/iteration_26.json`.
