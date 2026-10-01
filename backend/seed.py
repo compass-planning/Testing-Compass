@@ -74,7 +74,7 @@ def seed():
             "id": _id(), "email": u["email"].lower(), "password_hash": ph,
             "name": u["name"], "tier": u["tier"], "role": u["role"],
             "scope": {"corp_id": None, "org_id": None, "advisor_id": None, "client_id": None, **u["scope"]},
-            "mfa_enabled": True, "mfa_secret": totp_secret,
+            "mfa_enabled": False, "mfa_secret": None,
             "security_question": "What city were you born in?", "security_answer_hash": answer_hash,
             "consent": {"marketing": False, "data_processing": True,
                         "crm_sharing": u["tier"] == "enterprise", "updated_at": _now()},
