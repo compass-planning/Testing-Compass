@@ -489,13 +489,39 @@ def _app_base_url() -> str:
     return (url or "").rstrip("/")
 
 
+def _reviewed_set(user: dict) -> set:
+    store, flt = scope_context(user)
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    return {r["client_id"] for r in repo.list(store, "reviews", flt)
+            if r.get("client_id") and r.get("reviewed_at", "") >= cutoff}
+
+
+@router.post("/advisor/households/{client_id}/review")
+async def mark_reviewed(client_id: str, user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    store, flt = scope_context(user)
+    now = datetime.now(timezone.utc).isoformat()
+    existing = next((r for r in repo.list(store, "reviews", flt) if r.get("client_id") == client_id), None)
+    if existing:
+        repo.update(store, "reviews", existing["id"], {"reviewed_at": now}, flt)
+    else:
+        sc = user.get("scope", {})
+        repo.create(store, "reviews", {"id": _id(), "store": store, "client_id": client_id,
+                                       "scope": {"org_id": sc.get("org_id"), "advisor_id": sc.get("advisor_id"), "client_id": client_id},
+                                       "reviewed_at": now})
+    audit(user, "household.review", "reviews", client_id)
+    return {"client_id": client_id, "reviewed_at": now}
+
+
 def _book_stats(user: dict) -> dict:
     roster = _build_roster(user)
+    reviewed = _reviewed_set(user)
     scored = [c for c in roster if c.get("score") is not None]
     counts = {"On Track": 0, "Needs Review": 0, "At Risk": 0, "Needs Setup": 0}
     for c in roster:
         counts[c.get("status", "Needs Review")] = counts.get(c.get("status", "Needs Review"), 0) + 1
-    attention = [c for c in roster if c.get("needs_setup") or c.get("status") in ("At Risk", "Needs Review")]
+    attention = [c for c in roster if (c.get("needs_setup") or c.get("status") in ("At Risk", "Needs Review")) and c["client_id"] not in reviewed]
     attention.sort(key=lambda c: (not c.get("needs_setup"), c.get("score") if c.get("score") is not None else 999))
     return {
         "households": len(roster),
@@ -577,7 +603,8 @@ async def advisor_today(user: dict = Depends(get_current_user)):
     due = [t for t in repo.list(store, "tasks", flt) if not t.get("done") and t.get("due_date")]
     overdue = sorted([task_row(t) for t in due if t["due_date"] < today], key=lambda r: r["due_date"])
     due_today = [task_row(t) for t in due if t["due_date"] == today]
-    attention = [c for c in roster if c.get("needs_setup") or c.get("status") in ("At Risk", "Needs Review")]
+    reviewed = _reviewed_set(user)
+    attention = [c for c in roster if (c.get("needs_setup") or c.get("status") in ("At Risk", "Needs Review")) and c["client_id"] not in reviewed]
     attention.sort(key=lambda c: (not c.get("needs_setup"), c.get("score") if c.get("score") is not None else 999))
     return {
         "overdue": overdue,

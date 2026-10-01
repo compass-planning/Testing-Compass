@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
-import { Wallet, Users, Target, Building2, RefreshCw, ShieldAlert, ArrowRight, TrendingUp, AlertTriangle, ClipboardCheck } from "lucide-react";
+import { Wallet, Users, Target, Building2, RefreshCw, ShieldAlert, ArrowRight, TrendingUp, AlertTriangle, ClipboardCheck, Plus, CheckCircle2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -19,6 +20,11 @@ export default function Dashboard() {
   const { data, isLoading } = useQuery({ queryKey: ["dashboard"], queryFn: async () => (await api.get("/dashboard")).data });
   const clientsQ = useQuery({ queryKey: ["clients"], queryFn: async () => (await api.get("/advisor/clients")).data, enabled: user.tier === "advisor" });
   const todayQ = useQuery({ queryKey: ["advisor-today"], queryFn: async () => (await api.get("/advisor/today")).data, enabled: user.tier === "advisor" });
+  const qc = useQueryClient();
+  const [qaClient, setQaClient] = useState("");
+  const [qaTitle, setQaTitle] = useState("");
+  const reviewMut = useMutation({ mutationFn: (cid) => api.post(`/advisor/households/${cid}/review`), onSuccess: () => { qc.invalidateQueries({ queryKey: ["advisor-today"] }); toast.success("Marked reviewed — cleared until next week"); }, onError: () => toast.error("Could not mark reviewed") });
+  const addTaskMut = useMutation({ mutationFn: (b) => api.post("/advisor/tasks", b), onSuccess: () => { qc.invalidateQueries({ queryKey: ["advisor-today"] }); qc.invalidateQueries({ queryKey: ["tasks"] }); setQaTitle(""); toast.success("Task added"); }, onError: () => toast.error("Could not add task") });
 
   if (isLoading || !data) return <div className="text-compass-muted">Loading dashboard…</div>;
 
@@ -150,6 +156,14 @@ export default function Dashboard() {
                   ))}
                 </div>
               )}
+              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-compass-border">
+                <select value={qaClient} onChange={(e) => setQaClient(e.target.value)} data-testid="quick-add-client" className="rounded-lg border border-compass-border bg-white px-2 py-1.5 text-xs text-compass-navy max-w-[40%] focus:border-compass-blue focus:outline-none">
+                  <option value="">Household…</option>
+                  {(clientsQ.data || []).map((c) => <option key={c.client_id} value={c.client_id}>{c.primary || c.client_id}</option>)}
+                </select>
+                <input value={qaTitle} onChange={(e) => setQaTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && qaClient && qaTitle.trim()) addTaskMut.mutate({ client_id: qaClient, title: qaTitle.trim() }); }} placeholder="Quick-add a task…" data-testid="quick-add-title" className="flex-1 min-w-0 rounded-lg border border-compass-border bg-white px-2.5 py-1.5 text-xs text-compass-navy placeholder:text-compass-muted focus:border-compass-blue focus:outline-none" />
+                <Button size="sm" onClick={() => qaClient && qaTitle.trim() && addTaskMut.mutate({ client_id: qaClient, title: qaTitle.trim() })} disabled={!qaClient || !qaTitle.trim() || addTaskMut.isPending} data-testid="quick-add-submit"><Plus size={13} /> Add</Button>
+              </div>
               <Link to="/tasks" className="inline-flex items-center gap-1 text-sm font-semibold text-compass-blue mt-3" data-testid="today-open-tasks">Open Task Board <ArrowRight size={14} /></Link>
             </Card>
             <Card className="p-6">
@@ -162,15 +176,17 @@ export default function Dashboard() {
               ) : (
                 <div className="space-y-2">
                   {t.attention.map((c) => (
-                    <button key={c.client_id} onClick={() => openCid(c.client_id, c.primary)} data-testid={`today-attention-${c.client_id}`}
-                      className="w-full flex items-center gap-3 rounded-xl bg-compass-bg hover:bg-compass-blue/5 border border-transparent hover:border-compass-blue/20 px-4 py-2.5 text-left transition-colors">
-                      <span className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ background: (c.score == null ? "#60708f" : c.score >= 75 ? "#00DF89" : c.score >= 50 ? "#FFB800" : "#EE5D50") }}>{c.score ?? "—"}</span>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-semibold text-compass-navy truncate">{c.primary} <span className="text-compass-muted font-normal">· {c.status}</span></div>
-                        <div className="text-xs text-compass-blue font-semibold truncate">Next: {c.next_action}</div>
-                      </div>
-                      <ArrowRight size={15} className="text-compass-muted shrink-0" />
-                    </button>
+                    <div key={c.client_id} data-testid={`today-attention-${c.client_id}`}
+                      className="w-full flex items-center gap-3 rounded-xl bg-compass-bg hover:bg-compass-blue/5 border border-transparent hover:border-compass-blue/20 px-4 py-2.5 transition-colors">
+                      <button onClick={() => openCid(c.client_id, c.primary)} className="flex items-center gap-3 min-w-0 flex-1 text-left" data-testid={`today-attention-open-${c.client_id}`}>
+                        <span className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ background: (c.score == null ? "#60708f" : c.score >= 75 ? "#00DF89" : c.score >= 50 ? "#FFB800" : "#EE5D50") }}>{c.score ?? "—"}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold text-compass-navy truncate">{c.primary} <span className="text-compass-muted font-normal">· {c.status}</span></span>
+                          <span className="block text-xs text-compass-blue font-semibold truncate">Next: {c.next_action}</span>
+                        </span>
+                      </button>
+                      <button onClick={() => reviewMut.mutate(c.client_id)} disabled={reviewMut.isPending} title="Mark reviewed — clears until next week" className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-compass-green hover:text-compass-navy transition-colors" data-testid={`today-review-${c.client_id}`}><CheckCircle2 size={15} /> Reviewed</button>
+                    </div>
                   ))}
                 </div>
               )}

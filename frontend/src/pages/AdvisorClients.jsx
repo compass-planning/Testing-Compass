@@ -138,12 +138,13 @@ export default function AdvisorClients() {
             <StatCard label="Need attention" value={needAttention} color={needAttention ? "#EE5D50" : "#00DF89"} />
           </div>
 
-          {view === "queue" && (
-          <>
           <div className="mb-4 relative max-w-sm">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-compass-muted" />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search households by name…" data-testid="household-search" className="w-full rounded-xl border border-compass-border bg-white pl-9 pr-3 py-2 text-sm text-compass-navy placeholder:text-compass-muted focus:border-compass-blue focus:outline-none" />
           </div>
+
+          {view === "queue" && (
+          <>
           <div className="grid md:grid-cols-2 gap-4">
             {(() => { const term = search.trim().toLowerCase(); const filtered = term ? list.filter((c) => (c.primary || "").toLowerCase().includes(term) || (c.members || []).some((m) => m.toLowerCase().includes(term))) : list; return filtered.length === 0 ? (
               <div className="md:col-span-2 text-sm text-compass-muted py-8 text-center" data-testid="household-search-empty">No households match "{search}".</div>
@@ -194,7 +195,7 @@ export default function AdvisorClients() {
           </>
           )}
 
-          {view === "opps" && <OpportunitiesList list={list} sort={sort} setSort={setSort} typeFilter={typeFilter} setTypeFilter={setTypeFilter} statusFilter={statusFilter} setStatusFilter={setStatusFilter} onOpen={openClient} />}
+          {view === "opps" && <OpportunitiesList list={list} search={search} sort={sort} setSort={setSort} typeFilter={typeFilter} setTypeFilter={setTypeFilter} statusFilter={statusFilter} setStatusFilter={setStatusFilter} onOpen={openClient} />}
         </>
       )}
 
@@ -297,7 +298,7 @@ function NudgeAllModal({ data, onClose, onApply, applying }) {
 }
 
 
-function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, statusFilter, setStatusFilter, onOpen }) {
+function OpportunitiesList({ list, search, sort, setSort, typeFilter, setTypeFilter, statusFilter, setStatusFilter, onOpen }) {
   const qc = useQueryClient();
   const viewsQ = useQuery({ queryKey: ["opps-views"], queryFn: async () => (await api.get("/advisor/opps-views")).data });
   const views = viewsQ.data || [];
@@ -322,6 +323,8 @@ function OpportunitiesList({ list, sort, setSort, typeFilter, setTypeFilter, sta
   let opps = list.flatMap((c) => (c.alerts || []).map((a) => ({ c, alert: a, type: alertType(a) })));
   if (typeFilter !== "all") opps = opps.filter((o) => o.type === typeFilter);
   if (statusFilter !== "all") opps = opps.filter((o) => o.c.status === statusFilter);
+  const term = (search || "").trim().toLowerCase();
+  if (term) opps = opps.filter((o) => (o.c.primary || "").toLowerCase().includes(term) || (o.c.members || []).some((m) => m.toLowerCase().includes(term)));
   opps.sort((x, y) => {
     if (sort === "score-desc") return (y.c.score || 0) - (x.c.score || 0);
     if (sort === "name") return (x.c.primary || "").localeCompare(y.c.primary || "");

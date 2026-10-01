@@ -107,6 +107,7 @@ function DigestSettings() {
                       <span className="text-compass-muted">{h.channel === "preview" ? "test" : "scheduled"}</span>
                       <span className="text-compass-muted">· {h.sent ? "sent" : "not delivered"}</span>
                       <span className="text-compass-muted ml-auto">{fmtTs(h.timestamp)}</span>
+                      {!h.sent && <button onClick={() => (h.kind === "weekly" ? weeklyPreview : preview).mutate()} disabled={preview.isPending || weeklyPreview.isPending} className="shrink-0 font-semibold text-compass-blue hover:underline" data-testid={`digest-retry-${h.id}`}>Resend</button>}
                     </div>
                   ))}
                 </div>
