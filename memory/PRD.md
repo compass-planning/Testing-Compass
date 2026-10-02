@@ -297,3 +297,14 @@ Ported the original Compass retirement engines to Python under `/app/backend/eng
 - Tests: iteration_31.json — backend 7/7, frontend 4/4, no issues. reportlab added to requirements.txt.
 
 ### Phase 1 COMPLETE. Next: Phase 2 (Documents Hub uploads, Voice input + Meeting recorder, Assumption editor).
+
+## Phase 2 — Documents Hub + Voice/Meetings + unification (added 2026-06, iter32) ✅
+- **Documents Hub** (`routers/documents.py`, object storage): per-household file vault — upload (≤10MB, categorised), list, download, delete. New `/documents` page with a Document Vault tab (replaces the old list-only PlanningPage). Enterprise read-only (403 on write).
+- **Voice & Meeting capture**: Meetings tab uses browser MediaRecorder → `POST /plan/meetings/transcribe` (Whisper whisper-1 via emergentintegrations + EMERGENT_LLM_KEY) → saves a transcript note; list/delete. Raw audio is not stored.
+- **Unified Protection Helper**: `engine/insurance.protection_score()` is the single source of truth — advisor roster, plan PDF, AND the `/plan/overview` (now returns `protection_score`) all use it; Client Report UI reads `overview.protection_score` (fixed 40-vs-15 drift).
+- **Estate Waterfall in PDF**: exported plan PDF includes a proportional gross→probate→terminal-tax→net-to-heirs coloured bar (verified visually).
+- New plan collections: `plan_document_files`, `plan_meetings`.
+- **Bug fixed (iter32)**: multipart endpoints must accept `household_id` from BOTH query (axios interceptor convention) AND form — `upload_file`/`transcribe_meeting` now read `request.query_params` first, then Form. Any future multipart `/plan` endpoint must do the same.
+- Tests: iteration_32.json — backend 8/8 pytest; after the household_id + drift fixes, query-style upload persists & lists, overview protection_score=40, vault UI verified end-to-end.
+
+### Phase 2 remaining: Assumption editor + Action-items panel. Then Phase 3 (Education/RESP, US cross-border, Letters/Policies, i18n, hub nav).

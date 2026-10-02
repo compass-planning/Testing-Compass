@@ -5,7 +5,7 @@ import uuid
 import tempfile
 import logging
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
 from fastapi.responses import StreamingResponse
 
 from repository import repo
@@ -34,10 +34,11 @@ async def list_files(user: dict = Depends(get_current_user), household_id: str =
 
 
 @router.post("/plan/documents/upload")
-async def upload_file(file: UploadFile = File(...), category: str = Form("document"),
+async def upload_file(request: Request, file: UploadFile = File(...), category: str = Form("document"),
                       household_id: str = Form(None), user: dict = Depends(get_current_user)):
     _block_enterprise_write(user)
-    store, read, ws, hid = planner_scope(user, household_id)
+    hid_in = request.query_params.get("household_id") or household_id
+    store, read, ws, hid = planner_scope(user, hid_in)
     data = await file.read()
     if len(data) > MAX_DOC:
         raise HTTPException(status_code=413, detail="File too large (max 10MB)")
@@ -93,10 +94,11 @@ async def list_meetings(user: dict = Depends(get_current_user), household_id: st
 
 
 @router.post("/plan/meetings/transcribe")
-async def transcribe_meeting(file: UploadFile = File(...), title: str = Form("Client meeting"),
+async def transcribe_meeting(request: Request, file: UploadFile = File(...), title: str = Form("Client meeting"),
                              household_id: str = Form(None), user: dict = Depends(get_current_user)):
     _block_enterprise_write(user)
-    store, read, ws, hid = planner_scope(user, household_id)
+    hid_in = request.query_params.get("household_id") or household_id
+    store, read, ws, hid = planner_scope(user, hid_in)
     data = await file.read()
     if len(data) > MAX_AUDIO:
         raise HTTPException(status_code=413, detail="Recording too long (max ~24MB)")

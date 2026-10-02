@@ -257,6 +257,7 @@ async def plan_overview(user: dict = Depends(get_current_user), household_id: st
         "retirementProjections": len(hh(repo.list(store, "plan_retirement", read))),
         "insuranceAnalyses": len(hh(repo.list(store, "plan_insurance", read))),
         "protectionAnalyses": len(hh(repo.list(store, "plan_protection", read))),
+        "protection_score": protection_score(hh(repo.list(store, "plan_protection", read)))["protection_score"],
         "debtCount": len(debts),
         "monthlyExpenses": sum(float(r.get("amount", 0)) for r in hh(repo.list(store, "plan_expenses", read))),
         "documents": len(hh(repo.list(store, "plan_documents", read))),

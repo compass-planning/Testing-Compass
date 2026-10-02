@@ -64,7 +64,7 @@ export default function ClientReport() {
     const pol = insurance.data || [];
     const cover = (t) => pol.filter((p) => t.includes(p.policy_type)).reduce((s, p) => s + Number(p.coverage || 0), 0);
     const pct = (have, rec) => (rec > 0 ? Math.min(100, Math.round((have / rec) * 100)) : have > 0 ? 100 : 0);
-    const protection = Math.round(0.5 * pct(cover(LIFE), 10 * income + totalDebt + 100000 * dependants) + 0.3 * pct(cover(DI), (0.65 * income) / 12) + 0.2 * pct(cover(LTC), 300000));
+    const protection = o.protection_score != null ? o.protection_score : Math.round(0.5 * pct(cover(LIFE), 10 * income + totalDebt + 100000 * dependants) + 0.3 * pct(cover(DI), (0.65 * income) / 12) + 0.2 * pct(cover(LTC), 300000));
     const success = (retirement.data || []).slice(-1)[0]?.success_prob ?? null;
     const registeredValue = (networth.data || []).filter((r) => r.kind === "asset" && r.category === "RRSP").reduce((s, r) => s + Number(r.value || 0), 0)
       + (accounts.data || []).filter((a) => REGISTERED_ACCT.includes(a.account_type)).reduce((s, a) => s + Number(a.balance || 0), 0);

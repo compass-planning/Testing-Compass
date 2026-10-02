@@ -1,0 +1,57 @@
+{
+  "summary": "Phase 2 (Documents Hub + Meetings/Whisper + unified protection helper + estate waterfall PDF) tested end-to-end. Backend 8/8 pytest pass. Found ONE critical frontend-backend integration bug: documents.upload and meetings.transcribe only read household_id from Form body, but the frontend's axios interceptor sends it as a query parameter, so advisor uploads are persisted with household_id=None and then filtered out of the Vault list — making the UI look broken (file silently 'disappears' after upload). Same latent issue for meeting transcribe. All other pieces OK: Whisper transcription succeeded on a 1s silent WAV (empty transcript as expected), oversize 413, empty 400, enterprise 403, advisor-clients protection_score=40 for client_a1, /api/report/pdf 200+%PDF, Documents page UI renders with both tabs, meeting recorder renders with title + record controls, /clients client-protection-client_a1 shows '40/100', /report download-full-plan button present.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/plan/documents/upload (and POST /api/plan/meetings/transcribe)",
+        "issue": "household_id is declared as Form(None) but the frontend (axios interceptor in /app/frontend/src/lib/api.js) sends it only as a query-string param. Result: records are stored with household_id=None, then GET /api/plan/documents/files?household_id=client_a1 filters them out — the Vault appears empty after a 'successful' upload. Same latent bug for /api/plan/meetings/transcribe (meetings tab).",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Documents Vault upload",
+        "issue": "After set_input_files -> axios POST returns 200 and the subsequent list refetch (200) returns the file ONLY for other advisor queries; for this user's active-household view the uploaded doc is invisible because backend stored household_id=None (see backend/critical). Toast 'File uploaded' fires but the UI stays at 'No documents yet'.",
+        "affected_selectors": ["vault-upload-btn", "vault-file-input", "vault-list"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "/report (Client Report page)",
+        "issues": ["Shows 'Protection Score 15/100' here while /clients roster shows '40/100' for the SAME client (client_a1). Both should route through engine/insurance.protection_score() to prevent drift — this was the point of the Phase-2 unification. The PDF path was unified, but the Report UI stat card appears to still use a separate (older) calculation."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase2_documents_meetings.py",
+    "/app/test_reports/pytest/phase2_results.xml"
+  ],
+  "action_items": [
+    "In /app/backend/routers/documents.py, make household_id readable from BOTH query and form on upload_file() and transcribe_meeting(). Simplest fix: add a dependency that pulls it from request.query_params first, then falls back to Form. Or change the frontend to append household_id into the FormData before posting. Either direction works; recommend fixing the backend so both call styles continue to work.",
+    "Also audit any other POST endpoint that uses `household_id: str = Form(None)` — the axios interceptor sends it as a query param globally.",
+    "Route the Client Report page's 'Protection Score' stat card through the same engine/insurance.protection_score() helper so advisor roster, report UI, and PDF all agree (currently 40 vs 15 for client_a1)."
+  ],
+  "critical_code_review_comments": [
+    "documents.py mixes Form(None) household_id with the project-wide axios interceptor convention of sending it as query — this will keep breaking every new multipart endpoint. Centralise this: a small FastAPI dependency `household_from_request(req)` that reads either source and feed it to planner_scope.",
+    "transcribe_meeting() reads the whole audio into RAM then writes to a NamedTemporaryFile — fine at 24MB cap but the UploadFile already provides a SpooledTemporaryFile; could pass that directly to Whisper to halve memory.",
+    "storage.delete_object raises on 405 and documents.delete_file catches it as warning — correct, but consider logging rec['path'] and user for post-mortem orphan cleanup.",
+    "The DOC_CATEGORIES set is duplicated between frontend CATS array and backend — move to a shared constants.py or at least call this out in a comment."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase2_documents_meetings.py (new, 8 tests)"
+  ],
+  "success_rate": {
+    "backend": "100% (8/8 pytest) — but note the integration gap for form-vs-query household_id is only exposed by the frontend flow, so pytest alone cannot catch it unless we add a 'query-param-only' upload case; I did reproduce it manually via curl.",
+    "frontend": "~70% — Documents page / tabs / meeting recorder / regression (clients + report button) all render; vault upload end-to-end broken by the household_id gap."
+  },
+  "test_credentials": "advisor@compass.ca / Compass2026! + TOTP JBSWY3DPEHPK3PXP (seeded, see /app/memory/test_credentials.md). scott@sweston.ca for enterprise 403.",
+  "seed_data_creation": "None persisted — each pytest create/delete cycle cleans up. One orphaned test doc (hid=None) created while reproducing the integration bug — can be purged with: db.plan_document_files.deleteMany({name:/TEST_qp/}).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The ONLY blocker is household_id form-vs-query in /plan/documents/upload and /plan/meetings/transcribe. Once fixed, re-run `pytest /app/backend/tests/test_phase2_documents_meetings.py -v` (should stay 8/8) and re-drive the Documents Vault UI with set_input_files + wait for a doc-<id> card to appear in vault-list, then click doc-delete-<id> and confirm it disappears. The meeting recorder UI itself cannot be mic-driven headlessly, so only verify (a) the recorder card renders and (b) any backend-created meeting appears as meeting-<id> with a delete control. All Phase-1 regressions (client-protection-client_a1, download-full-plan, /api/report/pdf) are green.",
+  "rca of the issue": "FastAPI's `Form(...)` descriptor binds only multipart form fields; it does NOT fall back to query string. The frontend's axios interceptor (/app/frontend/src/lib/api.js lines 13-22) unconditionally injects household_id as a query param on every advisor/enterprise request. The documents.upload and meetings.transcribe endpoints were written with `household_id: str = Form(None)` so the request yields household_id=None → planner_scope returns hid=None → repo.create stores the record with household_id=None → list_files queries with household_id=client_a1 and filters it out. Reproduction: POST /api/plan/documents/upload?household_id=client_a1 with multipart body containing only `file` and `category` (no household_id form field) → 200 with 'household_id': null → GET /api/plan/documents/files?household_id=client_a1 → empty. Fix: add a helper dependency (e.g., `def hh_from_req(request: Request, household_id: str = Form(None)) -> str | None: return household_id or request.query_params.get('household_id')`) and use it in BOTH upload_file and transcribe_meeting."
+}
