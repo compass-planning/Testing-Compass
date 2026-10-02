@@ -169,6 +169,12 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - **Batch Review Actions**: the OCR "Needs review" queue has an "Accept all" button that clears `needs_review` on every flagged policy in one click.
 - **Expiring Filter**: Household Queue has a "Renewing soon" toggle (`renewalsOnly`) that filters to households with `renewals_soon > 0`, with a live count.
 
+## Phase 3l — Inactivity Timeout + Self-Service Change Password (added 2026-06, iter40) ✅
+- **Self-Service Change Password** (`routers/auth.py` POST `/api/auth/change-password-self`, authenticated; `components/ChangePasswordModal.jsx`; wired into `Shell.jsx` sidebar footer "Change password" button, data-testid `change-password-button`): any logged-in user changes their own password — verifies current password (401 if wrong), rejects same-as-current (400), min-8 new, confirm-match. Success toast + modal close. Does NOT touch the existing forced-first-login token flow (`/auth/change-password`). Curl-verified 401/400/200; frontend 100% (iter40).
+- **15-min Inactivity Auto-Logout** (`hooks/useIdleLogout.js` wired in `Shell.jsx`): resets a 15-minute timer on mouse/key/scroll/touch/click; on expiry logs out, clears active household, routes to /login, shows a "Signed out due to inactivity" toast. Enabled for all authenticated tiers.
+- FR i18n added for the modal strings in `lib/i18n.jsx`.
+- Testing: iteration_40.json — frontend 4/4 pass, no regressions. Code-review note (future): consider rate-limiting `/auth/change-password-self`.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.

@@ -1,0 +1,23 @@
+{
+  "summary": "Frontend-only testing of Change Password modal and idle-logout regression for advisor account. All 4 scenarios passed: (1) modal opens from sidebar button, (2) wrong current password shows cp-error 'Current password is incorrect' and does not change pw, (3) mismatched confirm keeps cp-submit disabled, (4) valid change succeeds with 'Password updated' toast and modal closes. Password was changed to TempPass123! and then successfully reverted back to Compass2026! so the demo account remains usable. Sidebar nav regression (Clients/Tasks/Dashboard) works and no JS/pageerror observed; only expected 401 before login.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "useIdleLogout hook is cleanly implemented and only fires once (ref-based callback) — good.",
+    "ChangePasswordModal: 'valid' flag correctly disables submit on mismatch/short password — matches spec.",
+    "Consider adding rate-limiting on /auth/change-password-self to prevent brute-force on current_password (backend concern, not tested here)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100%"},
+  "test_credentials": "advisor@compass.ca / Compass2026! (restored); TOTP secret JBSWY3DPEHPK3PXP",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Advisor password confirmed back at 'Compass2026!' after the test. Change Password modal and idle-logout wiring are stable. Idle timeout is 15 min — not practical to e2e test; code review of useIdleLogout.js was done instead."
+}
