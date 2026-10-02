@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import "@/App.css";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { HouseholdProvider, useHousehold } from "@/context/HouseholdContext";
+import { LanguageProvider } from "@/lib/i18n";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Shell from "@/components/Shell";
 import Login from "@/pages/Login";
@@ -52,6 +53,7 @@ function App() {
   return (
     <AuthProvider>
       <HouseholdProvider>
+        <LanguageProvider>
         <Toaster position="top-right" richColors />
         <BrowserRouter>
           <Routes>
@@ -93,6 +95,7 @@ function App() {
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>
+        </LanguageProvider>
       </HouseholdProvider>
     </AuthProvider>
   );

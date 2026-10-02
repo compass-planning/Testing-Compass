@@ -63,3 +63,15 @@ body {
 @layer base {
     [data-debug-wrapper="true"] { display: contents !important; }
 }
+
+@media print {
+    body * { visibility: hidden !important; }
+    #report-print, #report-print * { visibility: visible !important; }
+    #report-print {
+        position: absolute !important;
+        left: 0; top: 0; width: 100%;
+        margin: 0 !important; padding: 0 !important;
+        box-shadow: none !important; border: none !important;
+    }
+    @page { margin: 1.4cm; }
+}

@@ -6,6 +6,7 @@ import { Card, Progress, Empty, Button } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
+import { useLang } from "@/lib/i18n";
 
 function Stat({ icon: Icon, label, value, tone = "navy" }) {
   const color = { navy: "#0B1437", green: "#00A36C", red: "#EE5D50" }[tone];
@@ -17,13 +18,13 @@ function Stat({ icon: Icon, label, value, tone = "navy" }) {
   );
 }
 
-const TOUR_STEPS = [
-  { icon: Wallet, title: "Your net worth at a glance", body: "The cards up top show your net worth, total assets and total debt — refreshed whenever your advisor updates your plan." },
-  { icon: Target, title: "Track your goals", body: "Every goal your advisor sets up appears below with a live progress bar, so you always know how close you are." },
-  { icon: Landmark, title: "Your advisor keeps it current", body: "This view is read-only. To change a goal or add details, just reach out to your advisor — they manage everything here for you." },
-];
-
 function WelcomeTour({ onFinish }) {
+  const { t } = useLang();
+  const TOUR_STEPS = [
+    { icon: Wallet, title: t("tour1_title"), body: t("tour1_body") },
+    { icon: Target, title: t("tour2_title"), body: t("tour2_body") },
+    { icon: Landmark, title: t("tour3_title"), body: t("tour3_body") },
+  ];
   const [step, setStep] = React.useState(0);
   const s = TOUR_STEPS[step];
   const Icon = s.icon;
@@ -42,12 +43,12 @@ function WelcomeTour({ onFinish }) {
           ))}
         </div>
         <div className="flex items-center justify-between">
-          <button onClick={onFinish} className="text-sm font-semibold text-compass-muted hover:text-compass-navy" data-testid="tour-skip">Skip</button>
+          <button onClick={onFinish} className="text-sm font-semibold text-compass-muted hover:text-compass-navy" data-testid="tour-skip">{t("skip")}</button>
           <div className="flex gap-2">
-            {step > 0 && <Button variant="ghost" onClick={() => setStep(step - 1)} data-testid="tour-back">Back</Button>}
+            {step > 0 && <Button variant="ghost" onClick={() => setStep(step - 1)} data-testid="tour-back">{t("back")}</Button>}
             {last
-              ? <Button onClick={onFinish} data-testid="tour-finish">Get started</Button>
-              : <Button onClick={() => setStep(step + 1)} data-testid="tour-next">Next</Button>}
+              ? <Button onClick={onFinish} data-testid="tour-finish">{t("get_started")}</Button>
+              : <Button onClick={() => setStep(step + 1)} data-testid="tour-next">{t("next")}</Button>}
           </div>
         </div>
       </div>
@@ -57,6 +58,7 @@ function WelcomeTour({ onFinish }) {
 
 export default function MyPlan() {
   const { user } = useAuth();
+  const { t } = useLang();
   const overview = useQuery({ queryKey: ["plan-overview"], queryFn: async () => (await api.get("/plan/overview")).data });
   const goalsQ = useQuery({ queryKey: ["goals"], queryFn: async () => (await api.get("/goals")).data });
   const o = overview.data || {};
@@ -68,18 +70,18 @@ export default function MyPlan() {
   return (
     <div data-testid="my-plan-page">
       {showWelcome && <WelcomeTour onFinish={dismissWelcome} />}
-      <PageHeader title={`Welcome back, ${(user?.name || "").split(" ")[0] || "there"}`} subtitle="Your plan at a glance. Your advisor keeps this up to date — reach out any time to make changes." />
+      <PageHeader title={t("welcome_back", { name: (user?.name || "").split(" ")[0] || "there" })} subtitle={t("myplan_sub")} />
 
       <div className="grid sm:grid-cols-3 gap-4 mb-6">
-        <Stat icon={Wallet} label="Net Worth" value={money(o.netWorth || 0)} tone={(o.netWorth || 0) >= 0 ? "green" : "red"} />
-        <Stat icon={Landmark} label="Total Assets" value={money(o.totalAssets || 0)} />
-        <Stat icon={TrendingUp} label="Total Debt" value={money(o.totalLiabilities || 0)} tone="red" />
+        <Stat icon={Wallet} label={t("net_worth")} value={money(o.netWorth || 0)} tone={(o.netWorth || 0) >= 0 ? "green" : "red"} />
+        <Stat icon={Landmark} label={t("total_assets")} value={money(o.totalAssets || 0)} />
+        <Stat icon={TrendingUp} label={t("total_debt")} value={money(o.totalLiabilities || 0)} tone="red" />
       </div>
 
       <Card className="p-6">
-        <div className="flex items-center gap-2 mb-4"><Target size={18} className="text-compass-blue" /><h2 className="font-heading text-lg font-bold text-compass-navy">My Goals</h2></div>
+        <div className="flex items-center gap-2 mb-4"><Target size={18} className="text-compass-blue" /><h2 className="font-heading text-lg font-bold text-compass-navy">{t("my_goals")}</h2></div>
         {goals.length === 0 ? (
-          <Empty icon={Target} title="No goals yet">Your advisor will add goals to your plan.</Empty>
+          <Empty icon={Target} title={t("no_goals_title")}>{t("no_goals_body")}</Empty>
         ) : (
           <div className="space-y-4" data-testid="myplan-goals">
             {goals.map((g) => {
@@ -87,7 +89,7 @@ export default function MyPlan() {
               return (
                 <div key={g.id} data-testid={`myplan-goal-${g.id}`}>
                   <div className="flex items-center justify-between text-sm mb-1.5">
-                    <span className="font-semibold text-compass-navy">{g.title} <span className="text-compass-muted font-normal">· by {g.target_year}</span></span>
+                    <span className="font-semibold text-compass-navy">{g.title} <span className="text-compass-muted font-normal">· {t("by_year", { year: g.target_year })}</span></span>
                     <span className="text-compass-muted">{money(g.current_amount || 0)} / {money(g.target_amount || 0)}</span>
                   </div>
                   <Progress value={pct} />
@@ -98,7 +100,7 @@ export default function MyPlan() {
         )}
       </Card>
 
-      <p className="text-xs text-compass-muted mt-6">This is a read-only view maintained by your advisor. Contact them to update your goals or financial details. <button onClick={() => setShowWelcome(true)} aria-label="Replay welcome tour" className="font-semibold text-compass-blue hover:underline" data-testid="replay-tour">Replay tour</button></p>
+      <p className="text-xs text-compass-muted mt-6">{t("readonly_note")} <button onClick={() => setShowWelcome(true)} aria-label="Replay welcome tour" className="font-semibold text-compass-blue hover:underline" data-testid="replay-tour">{t("replay_tour")}</button></p>
     </div>
   );
 }

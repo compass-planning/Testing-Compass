@@ -1,11 +1,11 @@
 import React, { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { FileText, Upload, Trash2, Download, Mic, Square, FolderOpen, Loader2, Sparkles, ListChecks } from "lucide-react";
+import { FileText, Upload, Trash2, Download, Mic, Square, FolderOpen, Loader2, Sparkles, ListChecks, FileSearch, Check } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
-import { docsApi, meetingsApi } from "@/lib/planning";
+import { docsApi, meetingsApi, lettersApi, planApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
-import { Card, Button, Badge, Empty, Select, Modal } from "@/components/ui-kit";
+import { Card, Button, Badge, Empty, Select, Modal, Input } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 
 const CATS = ["document", "statement", "will", "tax", "insurance", "other"];
@@ -16,18 +16,22 @@ export default function Documents() {
   const { user } = useAuth();
   const readOnly = user.tier === "enterprise";
   const [tab, setTab] = useState("vault");
+  const tabs = [{ k: "vault", l: "Document Vault", i: FolderOpen }, { k: "meetings", l: "Meetings", i: Mic }];
+  if (!readOnly) tabs.push({ k: "letters", l: "Letters & Policies", i: FileSearch });
   return (
     <div data-testid="documents-page">
       <PageHeader title="Documents & Meetings" subtitle="A secure vault for plans, statements and wills — plus recorded meeting notes." />
       <div className="flex gap-1 mb-6 border-b border-compass-border">
-        {[{ k: "vault", l: "Document Vault", i: FolderOpen }, { k: "meetings", l: "Meetings", i: Mic }].map((t) => (
+        {tabs.map((t) => (
           <button key={t.k} onClick={() => setTab(t.k)} data-testid={`documents-tab-${t.k}`}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === t.k ? "border-compass-blue text-compass-blue" : "border-transparent text-compass-muted hover:text-compass-navy"}`}>
             <t.i size={16} /> {t.l}
           </button>
         ))}
       </div>
-      {tab === "vault" ? <Vault readOnly={readOnly} /> : <Meetings readOnly={readOnly} isAdvisor={user.tier === "advisor"} />}
+      {tab === "vault" && <Vault readOnly={readOnly} />}
+      {tab === "meetings" && <Meetings readOnly={readOnly} isAdvisor={user.tier === "advisor"} />}
+      {tab === "letters" && <LettersImporter />}
     </div>
   );
 }
@@ -216,4 +220,111 @@ function Meetings({ readOnly, isAdvisor }) {
       </Modal>
     </div>
   );
+}
+
+
+const POLICY_TYPES = ["Term Life", "Whole Life", "Disability", "Critical Illness", "Long-Term Care", "Health"];
+
+function LettersImporter() {
+  const qc = useQueryClient();
+  const fileRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const [policies, setPolicies] = useState(null); // null = nothing parsed yet
+  const [picked, setPicked] = useState({});
+  const [fileName, setFileName] = useState("");
+
+  const parse = async (file) => {
+    if (!file) return;
+    if (!/\.pdf$/i.test(file.name)) { toast.error("Please upload a PDF file"); return; }
+    setBusy(true); setPolicies(null); setFileName(file.name);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await lettersApi.parse(fd);
+      const list = res.policies || [];
+      setPolicies(list);
+      const init = {}; list.forEach((_, i) => { init[i] = true; }); setPicked(init);
+      if (list.length === 0) toast.info("No policies detected in that document.");
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail) || "Could not read that PDF");
+    } finally { setBusy(false); if (fileRef.current) fileRef.current.value = ""; }
+  };
+
+  const edit = (i, key, val) => setPolicies((ps) => ps.map((p, idx) => (idx === i ? { ...p, [key]: val } : p)));
+
+  const addSelected = useMutation({
+    mutationFn: async () => {
+      const chosen = (policies || []).map((p, i) => ({ p, i })).filter(({ i }) => picked[i]);
+      for (const { p } of chosen) {
+        await planApi.create("insurance", {
+          policy_type: p.policy_type,
+          carrier: p.carrier || "",
+          coverage: Number(p.coverage) || 0,
+          premium: Number(p.premium) || 0,
+          insured: p.insured || "",
+          policy_number: p.policy_number || "",
+          renewal_date: p.renewal_date || null,
+          source: "imported",
+        });
+      }
+      return chosen.length;
+    },
+    onSuccess: (n) => { qc.invalidateQueries({ queryKey: ["plan", "insurance"] }); toast.success(`${n} polic${n === 1 ? "y" : "ies"} added to the plan`); setPolicies(null); setFileName(""); },
+    onError: (e) => toast.error(formatApiError(e.response?.data?.detail) || "Open a household first"),
+  });
+
+  return (
+    <div>
+      <Card className="p-5 mb-6" data-testid="letters-importer">
+        <div className="flex flex-wrap items-center gap-3">
+          <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" data-testid="letters-file-input"
+            onChange={(e) => e.target.files[0] && parse(e.target.files[0])} />
+          <Button onClick={() => fileRef.current?.click()} disabled={busy} data-testid="letters-upload-btn">
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />} {busy ? "Reading policy…" : "Upload policy PDF"}
+          </Button>
+          <span className="text-xs text-compass-muted">We read the PDF with AI and extract the policies — you review and confirm before anything is saved.</span>
+        </div>
+        {fileName && !busy && <div className="text-xs text-compass-muted mt-3 flex items-center gap-1.5"><FileText size={13} /> {fileName}</div>}
+      </Card>
+
+      {policies === null ? (
+        <Empty icon={FileSearch} title="Import coverage from a letter or policy">Upload an insurance policy or coverage letter (PDF) and we'll pull out the policies so you can add them to the plan in one click.</Empty>
+      ) : policies.length === 0 ? (
+        <Empty icon={FileSearch} title="No policies found">We couldn't detect any insurance policies in that document. Try a clearer policy PDF.</Empty>
+      ) : (
+        <div data-testid="letters-results">
+          <p className="text-sm text-compass-muted mb-3">Review the extracted policies, edit anything that looks off, then add the ones you want.</p>
+          <div className="space-y-3">
+            {policies.map((p, i) => (
+              <Card key={i} className="p-4" data-testid={`letter-policy-${i}`}>
+                <label className="flex items-center gap-2.5 mb-3 cursor-pointer">
+                  <input type="checkbox" checked={!!picked[i]} onChange={(e) => setPicked((pk) => ({ ...pk, [i]: e.target.checked }))} className="h-4 w-4 accent-compass-blue" data-testid={`letter-pick-${i}`} />
+                  <span className="font-heading font-bold text-compass-navy">{p.carrier || "Policy"} <span className="text-compass-muted font-normal">· {p.policy_type}</span></span>
+                </label>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <Lab label="Type"><Select value={p.policy_type} onChange={(e) => edit(i, "policy_type", e.target.value)} data-testid={`letter-type-${i}`}>{POLICY_TYPES.map((pt) => <option key={pt} value={pt}>{pt}</option>)}</Select></Lab>
+                  <Lab label="Carrier"><Input value={p.carrier || ""} onChange={(e) => edit(i, "carrier", e.target.value)} data-testid={`letter-carrier-${i}`} /></Lab>
+                  <Lab label="Insured"><Input value={p.insured || ""} onChange={(e) => edit(i, "insured", e.target.value)} data-testid={`letter-insured-${i}`} /></Lab>
+                  <Lab label="Coverage"><Input type="number" value={p.coverage ?? ""} onChange={(e) => edit(i, "coverage", e.target.value)} data-testid={`letter-coverage-${i}`} /></Lab>
+                  <Lab label="Premium"><Input type="number" value={p.premium ?? ""} onChange={(e) => edit(i, "premium", e.target.value)} data-testid={`letter-premium-${i}`} /></Lab>
+                  <Lab label="Policy #"><Input value={p.policy_number || ""} onChange={(e) => edit(i, "policy_number", e.target.value)} data-testid={`letter-number-${i}`} /></Lab>
+                  <Lab label="Renewal date"><Input type="date" value={p.renewal_date || ""} onChange={(e) => edit(i, "renewal_date", e.target.value)} data-testid={`letter-renewal-${i}`} /></Lab>
+                </div>
+              </Card>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="ghost" onClick={() => { setPolicies(null); setFileName(""); }}>Discard</Button>
+            <Button onClick={() => addSelected.mutate()} disabled={addSelected.isPending || !Object.values(picked).some(Boolean)} data-testid="letters-add-selected">
+              {addSelected.isPending ? <Loader2 size={16} className="animate-spin" /> : <Check size={15} />} Add selected to plan
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Lab({ label, children }) {
+  return <div><div className="muted-label mb-1">{label}</div>{children}</div>;
 }

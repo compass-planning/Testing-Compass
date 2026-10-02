@@ -7,9 +7,25 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useHousehold } from "@/context/HouseholdContext";
+import { useLang } from "@/lib/i18n";
 import { Logo, CompassMark } from "@/components/Logo";
 import { Badge } from "@/components/ui-kit";
 import { TIER_META } from "@/lib/format";
+import CommandPalette from "@/components/CommandPalette";
+
+function LangToggle() {
+  const { lang, setLang } = useLang();
+  return (
+    <div className="flex items-center rounded-lg border border-compass-border overflow-hidden" data-testid="lang-toggle">
+      {["en", "fr"].map((l) => (
+        <button key={l} onClick={() => setLang(l)} data-testid={`lang-${l}`}
+          className={`px-2.5 py-1 text-xs font-bold transition-colors ${lang === l ? "bg-compass-blue text-white" : "text-compass-muted hover:text-compass-navy"}`}>
+          {l.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function getNav(tier, active, isClient) {
   const suite = { label: "Financial Planning Suite", tabs: [
@@ -189,6 +205,13 @@ export default function Shell() {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            {user.tier === "advisor" && (
+              <button onClick={() => window.dispatchEvent(new CustomEvent("open-command"))} data-testid="command-trigger"
+                className="hidden sm:flex items-center gap-1.5 rounded-lg border border-compass-border px-2.5 py-1.5 text-xs font-semibold text-compass-muted hover:text-compass-navy hover:border-compass-blue transition-colors">
+                <Menu size={13} /> <span className="font-mono">⌘K</span>
+              </button>
+            )}
+            <LangToggle />
             {user.mfa_enabled ? (
               <Badge color="#00DF89" bg="rgba(0,223,137,0.12)" data-testid="mfa-badge">
                 <ShieldCheck size={13} /> MFA On
@@ -206,6 +229,7 @@ export default function Shell() {
           <Outlet />
         </main>
       </div>
+      {user.tier === "advisor" && <CommandPalette />}
     </div>
   );
 }

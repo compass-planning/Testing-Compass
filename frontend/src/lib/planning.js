@@ -70,3 +70,7 @@ export const crossBorderApi = {
   saved: () => api.get(`/plan/crossborder/saved`).then((r) => r.data),
 };
 
+export const lettersApi = {
+  parse: (form) => api.post(`/plan/letters/parse`, form).then((r) => r.data),
+};
+

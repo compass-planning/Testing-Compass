@@ -15,7 +15,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 import storage
 import seed
-from routers import auth, planning, advisor, tasks, compliance, retirement, protection, estate, insights, documents, education, crossborder
+from routers import auth, planning, advisor, tasks, compliance, retirement, protection, estate, insights, documents, education, crossborder, letters
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("compass")
@@ -50,6 +50,7 @@ api.include_router(insights.router)
 api.include_router(documents.router)
 api.include_router(education.router)
 api.include_router(crossborder.router)
+api.include_router(letters.router)
 api.include_router(planning.router)
 api.include_router(advisor.router)
 api.include_router(tasks.router)

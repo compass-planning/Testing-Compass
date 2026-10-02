@@ -2,10 +2,11 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
-import { FileBarChart, Download, Upload, Mail, Palette, History, Scale, FileText } from "lucide-react";
+import { FileBarChart, Download, Upload, Mail, Palette, History, Scale, FileText, Printer } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { planApi, docsApi, crossBorderApi, educationApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
+import { useLang } from "@/lib/i18n";
 import { Card, Button, Stat, Badge, Field, Input, Empty, Modal } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
@@ -19,6 +20,7 @@ const PROVINCES = ["ON", "BC", "AB", "QC"];
 
 export default function ClientReport() {
   const { user } = useAuth();
+  const { t } = useLang();
   const qc = useQueryClient();
   const brandKey = `compass_brand_${user.id}`;
   const [brand, setBrand] = useState({ firm_name: "Compass Planning", cover_note: "", logo: "", logo_url: "" });
@@ -217,12 +219,13 @@ export default function ClientReport() {
   return (
     <div>
       <PageHeader title="Client Report" subtitle="A branded one-page household summary you can download and share.">
+        <Button variant="outline" onClick={() => window.print()} data-testid="print-preview"><Printer size={16} /> Print preview</Button>
         <Button variant="outline" onClick={downloadFullPlan} data-testid="download-full-plan"><FileText size={16} /> Full plan PDF</Button>
         <Button onClick={download} data-testid="download-report"><Download size={16} /> Download PDF</Button>
       </PageHeader>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        <Card className="p-6 lg:col-span-2" data-testid="report-preview">
+        <Card className="p-6 lg:col-span-2" id="report-print" data-testid="report-preview">
           <div className="flex items-center gap-3 mb-6">
             {brand.logo
               ? <img src={brand.logo} alt="logo" className="h-11 w-11 rounded-xl object-contain bg-white border border-compass-border" data-testid="brand-logo-preview" />
@@ -235,99 +238,99 @@ export default function ClientReport() {
 
           {brand.cover_note && <p className="text-sm text-compass-navy bg-compass-bg rounded-xl p-4 mb-4" data-testid="cover-note-preview">{brand.cover_note}</p>}
 
-          <div className="text-xs text-compass-muted mb-5 flex items-center gap-1.5" data-testid="preview-caption"><FileBarChart size={13} /> Live preview — reflects your selected sections ({activeSections().length} on)</div>
+          <div className="text-xs text-compass-muted mb-5 flex items-center gap-1.5" data-testid="preview-caption"><FileBarChart size={13} /> {t("live_preview", { n: activeSections().length })}</div>
 
           <div className="grid grid-cols-3 gap-4 mb-6">
-            <Stat label="Net worth" value={money(data.netWorth)} accent />
-            <Stat label="Protection score" value={`${data.protection}/100`} />
-            <Stat label="Retirement success" value={data.success != null ? `${data.success}%` : "Not run"} />
+            <Stat label={t("net_worth")} value={money(data.netWorth)} accent />
+            <Stat label={t("protection_score")} value={`${data.protection}/100`} />
+            <Stat label={t("retirement_success")} value={data.success != null ? `${data.success}%` : t("not_run")} />
           </div>
 
           <div className="mb-6">
-            <div className="muted-label mb-2">Balance sheet</div>
-            <Row label="Total assets" value={money(data.assets)} />
-            <Row label="Total liabilities" value={money(data.liabilities)} />
-            <Row label="Monthly expenses" value={money(data.monthlyExpenses)} />
+            <div className="muted-label mb-2">{t("balance_sheet")}</div>
+            <Row label={t("total_assets")} value={money(data.assets)} />
+            <Row label={t("total_liabilities")} value={money(data.liabilities)} />
+            <Row label={t("monthly_expenses")} value={money(data.monthlyExpenses)} />
           </div>
 
           {sections.retirement && (
             <div className="mb-6" data-testid="report-retirement-section">
-              <div className="muted-label mb-2">Retirement</div>
+              <div className="muted-label mb-2">{t("retirement")}</div>
               {latestRet ? (
                 <>
-                  <Row label="Scenario" value={latestRet.name || "Latest"} />
-                  <Row label="Projected portfolio at retirement" value={money(latestRet.nest_egg)} />
-                  <Row label="Target monthly income" value={latestRet.monthly_income_goal ? `${money(latestRet.monthly_income_goal)}/mo` : "—"} />
-                  <Row label="Retirement age" value={latestRet.retire_age || "—"} />
-                  <Row label="Success probability" value={latestRet.success_prob != null ? `${latestRet.success_prob}%` : "Not run"} />
+                  <Row label={t("scenario")} value={latestRet.name || "Latest"} />
+                  <Row label={t("projected_portfolio")} value={money(latestRet.nest_egg)} />
+                  <Row label={t("target_monthly_income")} value={latestRet.monthly_income_goal ? `${money(latestRet.monthly_income_goal)}/mo` : "—"} />
+                  <Row label={t("retirement_age")} value={latestRet.retire_age || "—"} />
+                  <Row label={t("success_probability")} value={latestRet.success_prob != null ? `${latestRet.success_prob}%` : t("not_run")} />
                 </>
-              ) : <div className="text-sm text-compass-muted">No retirement scenario saved yet.</div>}
+              ) : <div className="text-sm text-compass-muted">{t("no_retirement")}</div>}
             </div>
           )}
 
           {sections.protection && (
             <div className="mb-6" data-testid="report-protection-section">
-              <div className="muted-label mb-2">Protection gaps</div>
-              <Row label="Protection score" value={<Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{data.protection}/100</Badge>} />
+              <div className="muted-label mb-2">{t("protection_gaps")}</div>
+              <Row label={t("protection_score")} value={<Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{data.protection}/100</Badge>} />
               {protRows.length ? (
                 <>
-                  <Row label="Life insurance gap" value={money(gap("life").life_gap || 0)} />
-                  <Row label="Disability monthly gap" value={`${money(gap("di").di_monthly_gap || 0)}/mo`} />
-                  <Row label="Long-term care gap" value={`${money(gap("ltc").ltc_gap || 0)}/day`} />
+                  <Row label={t("life_gap")} value={money(gap("life").life_gap || 0)} />
+                  <Row label={t("di_gap")} value={`${money(gap("di").di_monthly_gap || 0)}/mo`} />
+                  <Row label={t("ltc_gap")} value={`${money(gap("ltc").ltc_gap || 0)}/day`} />
                 </>
-              ) : <div className="text-sm text-compass-muted">No protection analyses saved yet.</div>}
+              ) : <div className="text-sm text-compass-muted">{t("no_protection")}</div>}
             </div>
           )}
 
           {sections.goals && (
             <div className="mb-6" data-testid="report-goals-section">
-              <div className="muted-label mb-2">Top goals</div>
-              {data.goals.length === 0 ? <div className="text-sm text-compass-muted">No goals on file.</div> :
+              <div className="muted-label mb-2">{t("top_goals")}</div>
+              {data.goals.length === 0 ? <div className="text-sm text-compass-muted">{t("no_goals")}</div> :
                 data.goals.map((g) => { const p = g.target_amount ? Math.round((g.current_amount / g.target_amount) * 100) : 0; return <Row key={g.id} label={g.title} value={<Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{p}%</Badge>} />; })}
             </div>
           )}
 
           {sections.estate && (
           <div className="mb-6" data-testid="report-estate-section">
-            <div className="muted-label mb-2 flex items-center gap-1.5"><Scale size={13} /> Estate ({data.province})</div>
+            <div className="muted-label mb-2 flex items-center gap-1.5"><Scale size={13} /> {t("estate")} ({data.province})</div>
             <div className="grid grid-cols-3 gap-4 mb-3">
-              <Row label="Probate fees" value={money(data.estEstimate.probate)} />
-              <Row label="Deemed tax" value={money(data.estEstimate.deemedTax)} />
-              <Row label="Settlement cost" value={money(data.estEstimate.total)} />
+              <Row label={t("probate_fees")} value={money(data.estEstimate.probate)} />
+              <Row label={t("deemed_tax")} value={money(data.estEstimate.deemedTax)} />
+              <Row label={t("settlement_cost")} value={money(data.estEstimate.total)} />
             </div>
             {(data.beneficiaries.length > 0 || data.documents.length > 0) ? (
               <div className="grid md:grid-cols-2 gap-6">
                 <div>{data.beneficiaries.slice(0, 4).map((b) => <Row key={b.id} label={`${b.asset || "Asset"} → ${b.beneficiary || "—"}`} value={b.allocation ? `${b.allocation}%` : "—"} />)}</div>
                 <div>{data.documents.slice(0, 4).map((d) => <Row key={d.id} label={`${d.doc_type || "Document"}`} value={<Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{d.status}</Badge>} />)}</div>
               </div>
-            ) : <div className="text-sm text-compass-muted">No estate register entries.</div>}
+            ) : <div className="text-sm text-compass-muted">{t("no_estate")}</div>}
           </div>
           )}
 
           {sections.crossborder && cb && (
             <div className="mb-6" data-testid="report-crossborder-section">
-              <div className="muted-label mb-2">US / cross-border</div>
-              <Row label="Jurisdiction" value={cb.jurisdiction?.label || "—"} />
+              <div className="muted-label mb-2">{t("crossborder")}</div>
+              <Row label={t("jurisdiction")} value={cb.jurisdiction?.label || "—"} />
               {cb.us_tax && <>
-                <Row label="US federal tax" value={money(cb.us_tax.federal_tax)} />
-                <Row label={`US state tax (${cb.us_tax.state || "—"})`} value={money(cb.us_tax.state_tax)} />
-                <Row label="Total US tax" value={money(cb.us_tax.total_us_tax)} />
+                <Row label={t("us_federal_tax")} value={money(cb.us_tax.federal_tax)} />
+                <Row label={`${t("us_state_tax")} (${cb.us_tax.state || "—"})`} value={money(cb.us_tax.state_tax)} />
+                <Row label={t("total_us_tax")} value={money(cb.us_tax.total_us_tax)} />
               </>}
-              {cb.social_security && <Row label="Social Security at 67" value={`${money(cb.social_security.fra_monthly)}/mo`} />}
+              {cb.social_security && <Row label={t("ss_67")} value={`${money(cb.social_security.fra_monthly)}/mo`} />}
             </div>
           )}
 
           {sections.education && ed && ed.per_child?.length > 0 && (
             <div className="mb-6" data-testid="report-education-section">
-              <div className="muted-label mb-2">Education funding (RESP)</div>
-              {ed.per_child.map((c, i) => <Row key={i} label={c.name} value={`${money(c.projectedValue)} · ${c.coveragePct}% covered`} />)}
-              <Row label="Combined projected value" value={money(ed.combined?.projectedValue)} />
+              <div className="muted-label mb-2">{t("education")}</div>
+              {ed.per_child.map((c, i) => <Row key={i} label={c.name} value={`${money(c.projectedValue)} · ${c.coveragePct}% ${t("covered")}`} />)}
+              <Row label={t("combined_projected")} value={money(ed.combined?.projectedValue)} />
             </div>
           )}
 
           {sections.documents && attached.length > 0 && (
             <div className="mb-6" data-testid="report-attached-docs">
-              <div className="muted-label mb-2 flex items-center gap-1.5"><FileText size={13} /> Attached documents</div>
+              <div className="muted-label mb-2 flex items-center gap-1.5"><FileText size={13} /> {t("attached_documents")}</div>
               {(vault.data || []).filter((f) => attached.includes(f.id)).map((f) => (
                 <Row key={f.id} label={f.name} value={<Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{f.category}</Badge>} />
               ))}
