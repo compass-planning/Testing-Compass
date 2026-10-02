@@ -267,3 +267,14 @@ Ported the original Compass retirement engines to Python under `/app/backend/eng
 - Bug fixed during QA: DecisionsTab double-unwrapped axios `.data` (retirementApi already unwraps) — consumers must use `q.data` not `q.data.data`.
 
 ### Next: Phase 1 (Protection + Tax engines + AI/PDF) per /app/memory/PORTING_ROADMAP.md
+
+## Phase 1a — Protection engine + Scenario Compare (added 2026-06, iter29) ✅
+- **engine/insurance.py**: life-needs analysis (DIME, Human Life Value, Capital Retention), DI gap, CI gap; full LTC engine (benefit pool, inflation rider, elimination-period cost, self-insure NPV, break-even, provincial daily costs, premium estimator); full DI engine (70/85% income replacement, group vs individual tax treatment, CPP-D offset, occupation-class claim probability, COLA, partial disability, waiting-period cost).
+- **routers/protection.py**: POST /api/plan/protection/{life,di,ltc} — read-only, all tiers.
+- **Insurance.jsx**: rebuilt into 3 tabs (Life Needs / Disability / Long-Term Care) replacing the old premium-only page.
+- **Scenario Compare View**: Retirement hub Scenarios tab — pin two saved scenarios (scenario-pin-<id>) to render an 8-row side-by-side comparison table (max 2, replace-oldest).
+- Tests: tests/test_phase1_protection.py (6 golden) + test_phase1_protection_api.py (4 HTTP) — 10/10 pass. Frontend 100%. Report iteration_29.json.
+
+### STILL PENDING in Phase 1 (per PORTING_ROADMAP.md)
+- **1b** Server-side tax & estate: move tax math server-side + terminal-tax + per-province probate calculator (engine/estate.py partially scoped; estate engine logic already read from original: probate schedules all provinces, terminal tax RRSP/RRIF inclusion + cap-gains, province normalizer).
+- **1c** Real AI insights: replace mock AIInsights with Emergent LLM narrative advice (requires integration_expert playbook for Emergent LLM key before coding).
