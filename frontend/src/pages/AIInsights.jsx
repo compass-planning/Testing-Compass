@@ -16,9 +16,11 @@ const META = {
 export default function AIInsights() {
   const qc = useQueryClient();
   const existing = useQuery({ queryKey: ["ai-insights"], queryFn: async () => (await api.get("/plan/insights")).data });
+  const history = useQuery({ queryKey: ["ai-insights-history"], queryFn: async () => (await api.get("/plan/insights/history")).data });
+  const [showHistory, setShowHistory] = React.useState(false);
   const generate = useMutation({
     mutationFn: async () => (await api.post("/plan/insights/generate")).data,
-    onSuccess: (d) => { qc.setQueryData(["ai-insights"], d); toast.success(d.generated_by === "ai" ? "Fresh AI insights ready" : "Insights ready (offline summary)"); },
+    onSuccess: (d) => { qc.setQueryData(["ai-insights"], d); qc.invalidateQueries({ queryKey: ["ai-insights-history"] }); toast.success(d.generated_by === "ai" ? "Fresh AI insights ready" : "Insights ready (offline summary)"); },
     onError: (e) => toast.error(formatApiError(e.response?.data?.detail) || "Could not generate insights"),
   });
 
@@ -69,6 +71,27 @@ export default function AIInsights() {
         </div>
       )}
       <p className="text-xs text-compass-muted mt-6">Illustrative guidance generated from your plan data — not financial, tax or legal advice.</p>
+
+      {(history.data || []).length > 1 && (
+        <div className="mt-6" data-testid="insights-history">
+          <button onClick={() => setShowHistory((v) => !v)} className="text-sm font-semibold text-compass-blue hover:underline" data-testid="insights-history-toggle">
+            {showHistory ? "Hide" : "Show"} insight history ({history.data.length})
+          </button>
+          {showHistory && (
+            <div className="mt-3 space-y-2">
+              {history.data.map((h) => (
+                <Card key={h.id} className="p-3 flex items-center justify-between text-sm" data-testid={`insights-history-${h.id}`}>
+                  <span className="text-compass-navy font-semibold">{new Date(h.generated_at).toLocaleString("en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+                  <span className="flex items-center gap-2 text-compass-muted">
+                    <span>{h.insights.length} insight{h.insights.length === 1 ? "" : "s"}</span>
+                    <Badge color={h.generated_by === "ai" ? "#0052FF" : "#A3AED0"} bg={h.generated_by === "ai" ? "rgba(0,82,255,0.08)" : "rgba(163,174,208,0.15)"}>{h.generated_by === "ai" ? "AI" : "Offline"}</Badge>
+                  </span>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

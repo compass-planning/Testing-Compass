@@ -251,6 +251,29 @@ function Estate({ province }) {
         </Card>
       </div>
 
+      {est.total > 0 && estateValue > 0 && (
+        <Card className="p-6 mb-8" data-testid="estate-waterfall">
+          <h3 className="font-heading font-bold text-compass-navy mb-4">Estate waterfall</h3>
+          <div className="flex h-10 rounded-xl overflow-hidden border border-compass-border">
+            {(() => { const net = Math.max(0, est.net); const parts = [
+              { label: "Net to heirs", v: net, c: "#00DF89" },
+              { label: "Probate", v: est.probate, c: "#FFB800" },
+              { label: "Terminal tax", v: est.deemedTax, c: "#EE5D50" },
+            ]; const total = net + est.probate + est.deemedTax || 1;
+              return parts.filter((p) => p.v > 0).map((p) => (
+                <div key={p.label} title={`${p.label}: ${money(p.v)}`} style={{ width: `${(p.v / total) * 100}%`, background: p.c }} className="flex items-center justify-center" />
+              )); })()}
+          </div>
+          <div className="flex flex-wrap gap-4 mt-4 text-sm">
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: "#0052FF" }} /> Gross estate <b className="text-compass-navy">{money(estateValue)}</b></span>
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: "#FFB800" }} /> Probate <b className="text-compass-navy">{money(est.probate)}</b></span>
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: "#EE5D50" }} /> Terminal tax <b className="text-compass-navy">{money(est.deemedTax)}</b></span>
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded" style={{ background: "#00DF89" }} /> Net to heirs <b className="text-compass-navy">{money(est.net)}</b></span>
+          </div>
+          <p className="text-xs text-compass-muted mt-3">Of a {money(estateValue)} gross estate, an estimated {money(est.total)} ({estateValue ? Math.round((est.total / estateValue) * 100) : 0}%) goes to settlement costs, leaving {money(est.net)} for heirs.</p>
+        </Card>
+      )}
+
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-heading font-bold text-compass-navy">Beneficiary & document register</h3>
         {!readOnly && <Button onClick={() => setModal({})} data-testid="add-estate-button"><Plus size={16} /> Add entry</Button>}

@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
-import { FileBarChart, Download, Upload, Mail, Palette, History, Scale } from "lucide-react";
+import { FileBarChart, Download, Upload, Mail, Palette, History, Scale, FileText } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { planApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
@@ -163,9 +163,25 @@ export default function ClientReport() {
     toast.success("Report downloaded");
   };
 
+  const downloadFullPlan = async () => {
+    try {
+      const res = await api.get("/report/pdf", { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${data.household.replace(/\s+/g, "-")}-full-plan.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Full plan PDF downloaded");
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail) || "Could not generate PDF");
+    }
+  };
+
   return (
     <div>
       <PageHeader title="Client Report" subtitle="A branded one-page household summary you can download and share.">
+        <Button variant="outline" onClick={downloadFullPlan} data-testid="download-full-plan"><FileText size={16} /> Full plan PDF</Button>
         <Button onClick={download} data-testid="download-report"><Download size={16} /> Download PDF</Button>
       </PageHeader>
 

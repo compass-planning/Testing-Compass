@@ -169,10 +169,16 @@ export default function AdvisorClients() {
                     </div>
                   </div>
                   <Progress value={c.score || 0} color={scoreColor(c.score || 0)} />
-                  <div className="grid grid-cols-3 gap-2 mt-3 text-sm">
+                  <div className="grid grid-cols-4 gap-2 mt-3 text-sm">
                     <div><div className="muted-label">Assets</div><div className="font-semibold text-compass-navy">{money(c.assets)}</div></div>
                     <div><div className="muted-label">Net worth</div><div className="font-semibold text-compass-navy">{money(c.net_worth || 0)}</div></div>
                     <div><div className="muted-label">Goals</div><div className="font-semibold text-compass-navy">{c.goals}</div></div>
+                    <div data-testid={`client-protection-${c.client_id}`}>
+                      <div className="muted-label">Protection</div>
+                      {c.protection_score != null
+                        ? <div className="font-semibold" style={{ color: scoreColor(c.protection_score) }}>{c.protection_score}/100</div>
+                        : <div className="font-semibold text-compass-muted">—</div>}
+                    </div>
                   </div>
                   {(c.alerts || []).length > 0 && (
                     <div className="mt-3 space-y-1" data-testid={`client-alerts-${c.client_id}`}>

@@ -82,6 +82,16 @@ async def get_insights(user: dict = Depends(get_current_user), household_id: str
     return rows[0] if rows else None
 
 
+@router.get("/plan/insights/history")
+async def insights_history(user: dict = Depends(get_current_user), household_id: str = None):
+    store, read, _, hid = planner_scope(user, household_id)
+    rows = repo.list(store, "plan_ai_insights", read)
+    if hid:
+        rows = [r for r in rows if r.get("household_id") == hid]
+    rows.sort(key=lambda r: r.get("generated_at", ""), reverse=True)
+    return rows[:10]
+
+
 @router.post("/plan/insights/generate")
 async def generate_insights(user: dict = Depends(get_current_user), household_id: str = None):
     ctx, store, read, ws, hid = await _gather_context(user, household_id)
@@ -105,12 +115,14 @@ async def generate_insights(user: dict = Depends(get_current_user), household_id
     if not insights:
         insights, generated_by = _rule_based(ctx), "fallback"
 
-    # persist latest per household (replace previous)
-    for r in repo.list(store, "plan_ai_insights", read):
-        if r.get("household_id") == hid and r.get("actor_email") == user["email"]:
-            repo.delete(store, "plan_ai_insights", r["id"], read)
+    # append to history (keep last 10 per household+actor)
     rec = {"id": _id(), "store": store, "scope": ws, "household_id": hid,
            "insights": insights, "generated_by": generated_by, "actor_email": user["email"],
            "generated_at": datetime.now(timezone.utc).isoformat()}
     repo.create(store, "plan_ai_insights", rec)
+    mine = sorted([r for r in repo.list(store, "plan_ai_insights", read)
+                   if r.get("household_id") == hid and r.get("actor_email") == user["email"]],
+                  key=lambda r: r.get("generated_at", ""), reverse=True)
+    for old in mine[10:]:
+        repo.delete(store, "plan_ai_insights", old["id"], read)
     return rec

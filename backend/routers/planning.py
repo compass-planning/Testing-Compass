@@ -14,6 +14,9 @@ from deps import (
     _eff_hh, _clean, planner_scope, PLAN_COLLECTIONS,
 )
 from email_service import send_email, render_report_html, rate_ok
+from engine.report_pdf import build_plan_pdf
+from engine.estate import calculate_estate
+from fastapi.responses import StreamingResponse
 
 router = APIRouter()
 
@@ -385,3 +388,49 @@ async def report_history(user: dict = Depends(get_current_user), household_id: s
         rows = [r for r in rows if r.get("household_id") == hid]
     rows.sort(key=lambda r: r.get("sent_at", ""), reverse=True)
     return rows
+
+
+@router.get("/report/pdf")
+async def report_pdf(user: dict = Depends(get_current_user), household_id: str = None):
+    if user["tier"] == "enterprise":
+        raise HTTPException(status_code=403, detail="Not available for this tier")
+    store, read, _, hid = planner_scope(user, household_id)
+    if user["tier"] == "advisor" and not hid:
+        raise HTTPException(status_code=400, detail="Open a household before exporting its plan")
+
+    def hh(rows):
+        return [r for r in rows if (not hid or r.get("household_id") == hid)]
+    owners = repo.list(store, "owners", read)
+    primary = next((o for o in owners if o.get("relationship") == "self"), owners[0] if owners else None)
+    household_name = f"The {primary['full_name'].split()[-1]} Household" if primary else "Household"
+    nw_rows = hh(repo.list(store, "plan_networth", read))
+    debts = hh(repo.list(store, "plan_debts", read))
+    accounts = repo.list(store, "accounts", read)
+    goals = repo.list(store, "goals", read)
+    assets = sum(float(r.get("value", 0)) for r in nw_rows if r.get("kind") == "asset") + sum(float(a.get("balance", 0)) for a in accounts)
+    liabilities = sum(float(r.get("value", 0)) for r in nw_rows if r.get("kind") == "liability") + sum(float(d.get("balance", 0)) for d in debts)
+    protection = hh(repo.list(store, "plan_protection", read))
+    ps = None
+    if protection:
+        present = {p.get("kind") for p in protection}
+        ps = 100
+        for k in ("life", "di", "ltc"):
+            gapv = next((p.get("life_gap") if k == "life" else p.get("di_monthly_gap") if k == "di" else p.get("ltc_gap") for p in protection if p.get("kind") == k), None)
+            ps -= 15 if k not in present else (20 if (gapv or 0) > 0 else 0)
+        ps = max(0, min(100, ps))
+    retirement_rows = hh(repo.list(store, "plan_retirement", read))
+    retirement = retirement_rows[-1] if retirement_rows else None
+    reg_balance = sum(float(a.get("balance", 0)) for a in accounts if a.get("account_type") in ("RRSP", "RRIF"))
+    estate = calculate_estate({"province": (primary or {}).get("province", "ON"), "grossEstateValue": assets - liabilities, "rrspRrifBalance": reg_balance})
+
+    data = {
+        "household_name": household_name, "firm_name": (user.get("branding") or {}).get("firm_name"),
+        "net_worth": assets - liabilities, "total_assets": assets, "total_liabilities": liabilities,
+        "protection_score": ps, "protection": protection, "retirement": retirement,
+        "retirement_success": None, "estate": estate, "goals": goals,
+    }
+    pdf = build_plan_pdf(data)
+    audit(user, "report.pdf", "report", household_name)
+    fname = "".join(c for c in household_name if c.isalnum() or c in " -_").strip().replace(" ", "_") + "_Plan.pdf"
+    return StreamingResponse(iter([pdf]), media_type="application/pdf",
+                             headers={"Content-Disposition": f'attachment; filename="{fname}"'})
