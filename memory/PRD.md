@@ -288,3 +288,12 @@ Ported the original Compass retirement engines to Python under `/app/backend/eng
 - Tests: iteration_30.json — backend 9/10 then HIGH route-shadow bug fixed + self-verified (GET /plan/insights returns 6 'ai' insights; all generic /plan/* routes still 200; estate QC=0/AB=525/ON caps verified). Frontend 100%.
 
 ### Phase 1 remaining: 1d PDF report export.
+
+## Phase 1d + enhancements (added 2026-06, iter31) ✅
+- **PDF export** (`engine/report_pdf.py`, GET /api/report/pdf): polished 2-page ReportLab financial-plan PDF — KPI cards (net worth, protection score, retirement success), net worth, retirement scenario, protection gaps (life/DI/LTC), estate settlement, goals. Advisor needs household open (400 otherwise); enterprise 403. ClientReport page has a "Full plan PDF" button (download-full-plan) alongside the existing jsPDF one-pager.
+- **Protection Score Badge** (`advisor.py _protection_score`): roster returns protection_score (100 − 15/missing kind − 20/kind-with-gap) + protection_analyses; shown as a 4th stat column on Household Queue cards (color-coded).
+- **Insights History** (`insights.py`): generate now appends (keeps last 10 per household+actor); GET /api/plan/insights/history returns newest-first; AI Insights page has a collapsible history (date + count + AI/Offline badge).
+- **Estate Waterfall** (Tax→Estate tab): segmented bar + legend showing gross estate → probate → terminal tax → net to heirs, province-reactive.
+- Tests: iteration_31.json — backend 7/7, frontend 4/4, no issues. reportlab added to requirements.txt.
+
+### Phase 1 COMPLETE. Next: Phase 2 (Documents Hub uploads, Voice input + Meeting recorder, Assumption editor).

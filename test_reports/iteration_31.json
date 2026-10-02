@@ -1,0 +1,37 @@
+{
+  "summary": "Phase 1d (PDF export, protection score badge on advisor roster, insights history, estate waterfall) end-to-end tested. 7/7 backend tests pass. All 4 frontend features verified via Playwright. No issues found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase1d_pdf_protection_history.py",
+    "/app/test_reports/pytest/phase1d_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Nice: insights.py append-with-cap-10 and GET /plan/insights/history both resolve correctly now that insights.router is included before planning.router (prior iteration's shadowing fix held).",
+    "report_pdf endpoint recomputes protection_score inline (planning.py:413-420) while advisor.py uses _protection_score helper — consider centralising into one helper (engine/protection.py) so the heuristic can't drift between advisor roster and PDF.",
+    "/report/pdf streams a single-chunk iter([pdf]); for larger plans consider chunked streaming to lower peak memory.",
+    "AdvisorClients.jsx protection column renders '—' when protection_score is null — good; but visually '40/100' badge for client_a1 has no color-coding (low score = red). Minor UX polish, not a bug.",
+    "Tax.jsx estate-waterfall uses hardcoded legend colors — consider pulling from a shared palette constant so the segmented bar colors always match the legend swatches."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase1d_pdf_protection_history.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (7/7)",
+    "frontend": "100% (4/4 features verified)"
+  },
+  "test_credentials": "advisor@compass.ca / Compass2026! + TOTP JBSWY3DPEHPK3PXP; scott@sweston.ca (enterprise) for 403 check. See /app/memory/test_credentials.md. Note: auth login appears rate-limited when hit from the browser-automation container IP (returned 403), but succeeds from the pytest/bash container. Workaround for Playwright scripts: login via bash first, inject the resulting bearer into localStorage.compass_token.",
+  "seed_data_creation": "Added one TEST_life_seed plan_protection row (life, life_gap=0) under client_a1 to ensure protection_score is non-null for the roster assertion. Generated 2 extra AI insights for client_a1 (now 5 history entries).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 1d is clean. GET /api/report/pdf (200 + %PDF + filename), GET /api/advisor/clients (protection_score+protection_analyses fields), GET /api/plan/insights/history (newest-first, cap 10), and all four UI pieces (/clients protection stat, /ai insights-history toggle, /tax Estate waterfall legend, /report download-full-plan) all working. Backend test lives at /app/backend/tests/test_phase1d_pdf_protection_history.py. Rate-limiter note above re: browser-automation container IP.",
+  "rca of the issue": "N/A — no failures this iteration."
+}
