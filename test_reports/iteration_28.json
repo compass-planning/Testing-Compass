@@ -1,0 +1,42 @@
+{
+  "summary": "Phase 0 retirement engine depth tested end-to-end. 17/17 pure-engine golden tests pass (test_phase0_retirement.py) + 9/9 new HTTP endpoint tests pass against the public preview URL (test_phase0_retirement_api.py), covering projection, montecarlo (percentiles ordered + reproducible + no raw paths), guardrails (health+flexibility+triggerTable+recommendation), cpp/oas timing (at70>at65>at60, breakeven, oas 65-70 map), rrsp-vs-tfsa, pension-split, scenarios CRUD + advisor-needs-household + enterprise-blocked. Frontend Retirement hub (/retirement) verified via Playwright with advisor token+active_household='client_a1': all 6 tabs render; projection shows portfolio $1,953,571 + chart + 51-row table; montecarlo returns 100% success with band+chart; guardrails shows EXCELLENT health + recommendation + triggers table; timing auto-loads CPP+breakeven+OAS rows; decisions returns rrsp-result (Favour BALANCED) and split-result ($42 savings, 10% optimal split) after fix below; scenarios save+appear in list+delete via scenario-del-<id>.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "DecisionsTab (Retirement.jsx)", "issue": "FIXED: rrsp-result and split-result never rendered because the component read `rrspQ.data?.data` / `splitQ.data?.data`, but retirementApi functions already unwrap axios `.data`. Changed to `rrspQ.data` / `splitQ.data`.", "selector": "[data-testid=rrsp-result], [data-testid=split-result]", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "tests_performed": [
+    {"name": "pytest backend/tests/test_phase0_retirement.py (unit, pure engines)", "result": "PASS 17/17"},
+    {"name": "pytest backend/tests/test_phase0_retirement_api.py (HTTP against preview URL)", "result": "PASS 9/9"},
+    {"name": "Frontend Retirement hub Playwright flow (projection -> montecarlo -> guardrails -> timing -> decisions -> scenarios)", "result": "PASS after Decisions fix"},
+    {"name": "Enterprise user POST /api/plan/retirement/scenarios returns 403", "result": "PASS"},
+    {"name": "Advisor without household_id POST scenarios returns 400", "result": "PASS"},
+    {"name": "Scenario save+list+delete via UI (data-testid=scenario-save-btn / scenario-del-<id>)", "result": "PASS - saved, visible in scenario-list, deleted successfully"}
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_phase0_retirement.py",
+    "/app/backend/tests/test_phase0_retirement_api.py",
+    "/app/test_reports/pytest/phase0_api.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "FIXED by testing agent: DecisionsTab was double-unwrapping axios responses (`rrspQ.data?.data`) causing the Decisions tab to silently show nothing after Compare/Optimize. All other tabs use the correct single-unwrap `q.data` pattern.",
+    "Retirement.jsx is 546 lines and bundles 6 tab components + helpers; consider splitting ProjectionTab / MonteCarloTab / GuardrailsTab / TimingTab / DecisionsTab / ScenariosTab into /pages/retirement/*.jsx for maintainability.",
+    "retirement.py router: `planner_scope` return value `read` is unused in list_scenarios (variable kept but never referenced since repo.list already uses scope-based read) — safe but noisy; consider dropping the alias.",
+    "ScenarioInput.inputs is `dict` with no schema validation — any payload persisted. For an advisor product consider at least key whitelisting to avoid storing PII inadvertently from the frontend form.",
+    "MonteCarloInput.numberOfPaths capped at 5000, but guardrails indirectly runs run_monte_carlo twice (base + flex) via run_guardrail_check; worst-case takes ~5s with paths=5000. Could add latency note or lower cap for guardrails."
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/Retirement.jsx (DecisionsTab double-data access fix)",
+    "/app/backend/tests/test_phase0_retirement_api.py (new HTTP integration tests)"
+  ],
+  "success_rate": {"backend": "100% (26/26: 17 unit + 9 HTTP)", "frontend": "100% (6/6 tabs after Decisions fix)"},
+  "test_credentials": "advisor@compass.ca / Compass2026! + TOTP JBSWY3DPEHPK3PXP; scott@sweston.ca (enterprise) for 403 scenario test. Household: client_a1.",
+  "seed_data_creation": "Created transient scenarios named TEST_* via API and UI; all deleted at end of each test. No lingering data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 0 retirement is green. New HTTP regression suite at /app/backend/tests/test_phase0_retirement_api.py uses pyotp + public URL and is safe to re-run (self-cleans scenarios). To reproduce the frontend flow quickly, mint a token via /api/auth/login + /api/auth/mfa/verify, inject localStorage keys compass_token/compass_tier='advisor'/compass_active_household='client_a1', then navigate to /retirement. The retirementApi functions in /app/frontend/src/lib/planning.js already unwrap axios .data — consumers must NOT re-access .data on query results (see DecisionsTab fix)."
+}

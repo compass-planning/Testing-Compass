@@ -439,8 +439,8 @@ function DecisionsTab({ inp, owners }) {
   const rrspQ = useMutation({ mutationFn: () => retirementApi.rrspVsTfsa({ currentIncome: rt.current, expectedRetirementIncome: rt.retire, province: inp.province }) });
   const splitQ = useMutation({ mutationFn: () => retirementApi.pensionSplit({ selfIncome: ps.self, eligiblePensionIncome: ps.pension, spouseIncome: ps.spouse, province: inp.province }) });
   const REC = { rrsp: { c: "#0052FF", bg: "rgba(0,82,255,0.08)" }, tfsa: { c: "#00DF89", bg: "rgba(0,223,137,0.12)" }, balanced: { c: "#FFB800", bg: "rgba(255,184,0,0.14)" } };
-  const r = rrspQ.data?.data;
-  const sp = splitQ.data?.data;
+  const r = rrspQ.data;
+  const sp = splitQ.data;
 
   return (
     <div className="grid lg:grid-cols-2 gap-6">

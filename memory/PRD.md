@@ -254,3 +254,16 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - **Notification Preferences summary** (`TaskBoard.jsx` `NotificationSummary`): a new `SettingsPanel` with a tab switcher (`settings-tab-notifications` / `settings-tab-analytics`). The Notifications tab prepends an at-a-glance table (data-testid `notification-summary`) showing each of the 3 digests' status (On/Off), fires-at hour, and last-sent timestamp (derived from digest-history).
 - **Review Analytics** (`routers/advisor.py` `GET /advisor/review-analytics?days=7|30`): append-only `review_events` log (kinds `reviewed`/`snoozed`/`unsnoozed`) written by mark_reviewed (manual w/ duration), snooze_bulk, and unmark_reviewed. Endpoint returns `{days, totals, series[len=days], follow_through%}`. `TaskBoard.jsx` `ReviewAnalytics` tab: 3 stat cards + 7/30-day toggle + reviewed-vs-snoozed bar chart. `reviewed_this_week` on `/advisor/today` now derives from `review_events` (manual reviews only; bulk snoozes no longer inflate it).
 - Testing: iter27 — backend 3/3 endpoints + frontend 13/13 assertions pass (100%), no regressions. Report `/app/test_reports/iteration_27.json`.
+
+## Phase 0 — Retirement Engine Depth (added 2026-06, iter28) ✅
+Ported the original Compass retirement engines to Python under `/app/backend/engine/` and exposed via `/app/backend/routers/retirement.py`; rebuilt `/app/frontend/src/pages/Retirement.jsx` as a 6-tab hub. Available to all tiers (advisor/enterprise need a household open; enterprise read-only).
+- **engine/reference.py**: CRA RRIF factors, CPP/OAS actuarial factors, OAS clawback, 2024 federal + 13 provincial/territorial tax brackets w/ credits + ON surtax, marginal/combined tax, cap-gains inclusion (50%/66.67%).
+- **engine/retirement_ca.py**: deterministic year-by-year projection (RRSP→RRIF@71, draw-order TFSA→nonreg→RRSP, non-reg tax treatments + ACB, CPP/OAS adj + clawback, summary metrics).
+- **engine/simulation.py**: Monte Carlo (Cholesky + correlated 5-asset returns, preset allocations, p10–p90, success prob, goal events) + Guyton-Klinger spending-flexibility guardrails + plan-health check.
+- **engine/optimizers.py**: RRIF/withdrawal optimizer, CPP timing (break-even), OAS deferral, RRSP-vs-TFSA, pension-split optimizer.
+- **Endpoints**: POST /api/plan/retirement/{projection,montecarlo,guardrails,withdrawals,cpp-timing,rrsp-vs-tfsa,pension-split}; scenarios CRUD (GET/POST/DELETE /api/plan/retirement/scenarios, enterprise-blocked, advisor needs household).
+- **UI tabs**: Projection (inputs + summary + area chart + year table), Monte Carlo (percentile fan + success gauge), Guardrails (health + base-vs-adjusted + trigger table + recommendation), CPP/OAS Timing, Decisions (RRSP-vs-TFSA + pension split), Scenarios (save/list/delete; also writes a plan_retirement record for overview compatibility).
+- **Tests**: `tests/test_phase0_retirement.py` (17 golden unit), `tests/test_phase0_retirement_api.py` (9 HTTP). All pass. Report iteration_28.json.
+- Bug fixed during QA: DecisionsTab double-unwrapped axios `.data` (retirementApi already unwraps) — consumers must use `q.data` not `q.data.data`.
+
+### Next: Phase 1 (Protection + Tax engines + AI/PDF) per /app/memory/PORTING_ROADMAP.md
