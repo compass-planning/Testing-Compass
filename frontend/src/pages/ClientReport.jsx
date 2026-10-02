@@ -58,6 +58,7 @@ export default function ClientReport() {
   const vault = useQuery({ queryKey: ["doc-files"], queryFn: docsApi.list });
   const crossborder = useQuery({ queryKey: ["crossborder-saved"], queryFn: crossBorderApi.saved });
   const education = useQuery({ queryKey: ["education-saved"], queryFn: educationApi.saved });
+  const protection = useQuery({ queryKey: ["plan", "protection"], queryFn: () => planApi.list("protection") });
 
   const data = useMemo(() => {
     const o = overview.data || {};
@@ -207,6 +208,12 @@ export default function ClientReport() {
     }
   };
 
+  const latestRet = (retirement.data || []).slice(-1)[0];
+  const cb = crossborder.data?.result;
+  const ed = education.data;
+  const protRows = protection.data || [];
+  const gap = (kind) => protRows.find((p) => p.kind === kind) || {};
+
   return (
     <div>
       <PageHeader title="Client Report" subtitle="A branded one-page household summary you can download and share.">
@@ -226,7 +233,9 @@ export default function ClientReport() {
             </div>
           </div>
 
-          {brand.cover_note && <p className="text-sm text-compass-navy bg-compass-bg rounded-xl p-4 mb-6" data-testid="cover-note-preview">{brand.cover_note}</p>}
+          {brand.cover_note && <p className="text-sm text-compass-navy bg-compass-bg rounded-xl p-4 mb-4" data-testid="cover-note-preview">{brand.cover_note}</p>}
+
+          <div className="text-xs text-compass-muted mb-5 flex items-center gap-1.5" data-testid="preview-caption"><FileBarChart size={13} /> Live preview — reflects your selected sections ({activeSections().length} on)</div>
 
           <div className="grid grid-cols-3 gap-4 mb-6">
             <Stat label="Net worth" value={money(data.netWorth)} accent />
@@ -234,21 +243,52 @@ export default function ClientReport() {
             <Stat label="Retirement success" value={data.success != null ? `${data.success}%` : "Not run"} />
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <div className="muted-label mb-2">Balance sheet</div>
-              <Row label="Total assets" value={money(data.assets)} />
-              <Row label="Total liabilities" value={money(data.liabilities)} />
-              <Row label="Monthly expenses" value={money(data.monthlyExpenses)} />
+          <div className="mb-6">
+            <div className="muted-label mb-2">Balance sheet</div>
+            <Row label="Total assets" value={money(data.assets)} />
+            <Row label="Total liabilities" value={money(data.liabilities)} />
+            <Row label="Monthly expenses" value={money(data.monthlyExpenses)} />
+          </div>
+
+          {sections.retirement && (
+            <div className="mb-6" data-testid="report-retirement-section">
+              <div className="muted-label mb-2">Retirement</div>
+              {latestRet ? (
+                <>
+                  <Row label="Scenario" value={latestRet.name || "Latest"} />
+                  <Row label="Projected portfolio at retirement" value={money(latestRet.nest_egg)} />
+                  <Row label="Target monthly income" value={latestRet.monthly_income_goal ? `${money(latestRet.monthly_income_goal)}/mo` : "—"} />
+                  <Row label="Retirement age" value={latestRet.retire_age || "—"} />
+                  <Row label="Success probability" value={latestRet.success_prob != null ? `${latestRet.success_prob}%` : "Not run"} />
+                </>
+              ) : <div className="text-sm text-compass-muted">No retirement scenario saved yet.</div>}
             </div>
-            <div>
+          )}
+
+          {sections.protection && (
+            <div className="mb-6" data-testid="report-protection-section">
+              <div className="muted-label mb-2">Protection gaps</div>
+              <Row label="Protection score" value={<Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{data.protection}/100</Badge>} />
+              {protRows.length ? (
+                <>
+                  <Row label="Life insurance gap" value={money(gap("life").life_gap || 0)} />
+                  <Row label="Disability monthly gap" value={`${money(gap("di").di_monthly_gap || 0)}/mo`} />
+                  <Row label="Long-term care gap" value={`${money(gap("ltc").ltc_gap || 0)}/day`} />
+                </>
+              ) : <div className="text-sm text-compass-muted">No protection analyses saved yet.</div>}
+            </div>
+          )}
+
+          {sections.goals && (
+            <div className="mb-6" data-testid="report-goals-section">
               <div className="muted-label mb-2">Top goals</div>
               {data.goals.length === 0 ? <div className="text-sm text-compass-muted">No goals on file.</div> :
                 data.goals.map((g) => { const p = g.target_amount ? Math.round((g.current_amount / g.target_amount) * 100) : 0; return <Row key={g.id} label={g.title} value={<Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{p}%</Badge>} />; })}
             </div>
-          </div>
+          )}
 
-          <div data-testid="report-estate-section">
+          {sections.estate && (
+          <div className="mb-6" data-testid="report-estate-section">
             <div className="muted-label mb-2 flex items-center gap-1.5"><Scale size={13} /> Estate ({data.province})</div>
             <div className="grid grid-cols-3 gap-4 mb-3">
               <Row label="Probate fees" value={money(data.estEstimate.probate)} />
@@ -262,9 +302,31 @@ export default function ClientReport() {
               </div>
             ) : <div className="text-sm text-compass-muted">No estate register entries.</div>}
           </div>
+          )}
 
-          {attached.length > 0 && (
-            <div className="mt-6" data-testid="report-attached-docs">
+          {sections.crossborder && cb && (
+            <div className="mb-6" data-testid="report-crossborder-section">
+              <div className="muted-label mb-2">US / cross-border</div>
+              <Row label="Jurisdiction" value={cb.jurisdiction?.label || "—"} />
+              {cb.us_tax && <>
+                <Row label="US federal tax" value={money(cb.us_tax.federal_tax)} />
+                <Row label={`US state tax (${cb.us_tax.state || "—"})`} value={money(cb.us_tax.state_tax)} />
+                <Row label="Total US tax" value={money(cb.us_tax.total_us_tax)} />
+              </>}
+              {cb.social_security && <Row label="Social Security at 67" value={`${money(cb.social_security.fra_monthly)}/mo`} />}
+            </div>
+          )}
+
+          {sections.education && ed && ed.per_child?.length > 0 && (
+            <div className="mb-6" data-testid="report-education-section">
+              <div className="muted-label mb-2">Education funding (RESP)</div>
+              {ed.per_child.map((c, i) => <Row key={i} label={c.name} value={`${money(c.projectedValue)} · ${c.coveragePct}% covered`} />)}
+              <Row label="Combined projected value" value={money(ed.combined?.projectedValue)} />
+            </div>
+          )}
+
+          {sections.documents && attached.length > 0 && (
+            <div className="mb-6" data-testid="report-attached-docs">
               <div className="muted-label mb-2 flex items-center gap-1.5"><FileText size={13} /> Attached documents</div>
               {(vault.data || []).filter((f) => attached.includes(f.id)).map((f) => (
                 <Row key={f.id} label={f.name} value={<Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{f.category}</Badge>} />

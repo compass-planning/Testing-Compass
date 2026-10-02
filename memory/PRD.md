@@ -132,6 +132,9 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - **Multi-Household Report** (`pages/AdvisorClients.jsx`): a "Book report" button on the Household Queue downloads a combined book-level PDF (every household with score, status, net worth, top alert) via jsPDF.
 - Testing: iter10 — backend 2/2 pass; frontend 100% (branded email header, history modal, nudge apply flips goal on-track, book-review.pdf downloads). Report `/app/test_reports/iteration_10.json`.
 
+## Phase 3f — Live Report Preview (added 2026-06, iter39) ✅
+- **Live Report Preview** (`pages/ClientReport.jsx`): the preview pane now re-renders live as section toggles flip, mirroring exactly what the client receives. Every section is gated by its toggle (retirement/protection/estate/crossborder/education/goals/documents; net worth always on). Added on-screen blocks that previously only existed in the PDF/email: **Retirement** (scenario name, projected portfolio, target monthly income, retirement age, success %), **Protection** (score + life/DI/LTC gaps from saved `plan_protection`), **US/Cross-border** (jurisdiction, US federal/state/total tax, SS@67), **Education (RESP)** (per-child projected + coverage, combined). Added a "Live preview — reflects your selected sections (N on)" caption. Logo + cover note already updated live. New query: `planApi.list("protection")`. Verified via screenshot (advisor, Nguyen household): all-on vs toggled states render correctly, caption count updates.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.
