@@ -1,0 +1,26 @@
+{
+  "summary": "Iter37 end-to-end testing of 4 new features: (1) Cross-Border one-pager PDF (GET /api/report/crossborder-pdf) — advisor on client_a1, after cb-save, cb-onepager returns 200 PDF; enterprise tier gets 403; (2) RESP family save — POST /api/plan/education/save with 2 children + family_income=48000 returns ok=true, per_child=[2 entries], combined.projectedValue>0; GET /api/plan/education/saved returns the stored record with 2 children; /report/pdf (full plan) returns 200 PDF (>2KB); client-side one-pager PDF also downloads (data-testid=download-report → The-Nguyen-Household-summary.pdf); (3) OH progressive state tax verified via POST /api/plan/crossborder (us_green_card=true, state=OH, income=120000) → state_tax=2223, 'Progressive state tax'; TX → 0 / 'No state income tax'; NY → progressive >0; UI /crossborder with cb-ca-resident OFF + cb-green-card ON + state=OH shows STATE (OH) $2,223 and 'Progressive state tax' note; TX shows $0 and 'No state income tax'; (4) Enterprise invite_status pill — scott@sweston.ca /enterprise/overview returns households_list with invite_status; after POST /api/enterprise/clients/invite with a fresh email on hid 2648ea35..., the dashboard re-renders row's data-testid=invite-status-<hid> pill with text 'Invite pending'. Regression: /report, /education, /crossborder, /dashboard all load; /report/pdf and client-side jsPDF both succeed; enterprise overview loads. Pytest: 9/9 pass (/app/backend/tests/test_iter37_onepager_resp_oh_invite.py).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter37_onepager_resp_oh_invite.py",
+    "/app/test_reports/pytest/iter37.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routers/planning.py enterprise_overview: invite_status detection relies on repo.all_users() scan + must_change_password flag — fine functionally but O(users) per overview call; cache or index by client_id for scale.",
+    "routers/education.py: 'existing[0]' upsert replaces only the first existing row — safe today (one plan per household) but if multiple accidentally exist (data drift), later ones remain stale. Consider also deleting duplicates in save handler.",
+    "crossborder OH bracket uses $26,050/0% then 2.75% then 3.5% top rate — matches 2024 OH schedule; good. Note: STATE_BRACKETS now diverges from STATE_FLAT so progression message is accurate.",
+    "/report/crossborder-pdf correctly 403s enterprise and 404s before save; nicely enforces 'Save first' UX contract."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter37_onepager_resp_oh_invite.py"
+  ],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% (all 4 features + regression)"},
+  "test_credentials": "advisor@compass.ca & scott@sweston.ca — Compass2026!; TOTP JBSWY3DPEHPK3PXP. Active household compass_active_household=client_a1 (Nguyen) for advisor.",
+  "seed_data_creation": "Created: (a) plan_education record for client_a1 with 2 children (name 'First child', 'Child 2' default) + family_income=48000 (upserted, idempotent). (b) plan_crossborder saved record for client_a1 (dual CA-resident+US-citizen, CA/OH states — upserted). (c) 1 enterprise invited portal user TEST_iter37_<hex>@example.com for first household in corp_sweston from pytest run; and 1 iter37_<hex>@example.com for enterprise hid 2648ea35-8bc3-4fe5-818a-454a0c817d71 from UI run (tier=solo, must_change_password=True, mfa_enabled=False). Harmless but accumulate.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend regression file: /app/backend/tests/test_iter37_onepager_resp_oh_invite.py. Note: analyze endpoint is POST /api/plan/crossborder (not /plan/crossborder/analyze). To get US-person OH state tax on UI, must toggle cb-ca-resident OFF + cb-green-card ON (ca_resident defaults to true in UI). cb-onepager/cb-save are only rendered when user.tier !== 'enterprise'. download-report (one-pager) is client-side jsPDF; download-full-plan hits GET /api/report/pdf. The enterprise invite endpoint accepts {hid,email,full_name,base_url}. After invite, enterprise_overview sets invite_status='pending' for that household's self-owner id while the invited user still has must_change_password=true. If repeating invite tests, note that household da821ecb-... already has a pending invite from previous iterations; pick a hid with invite_status null (we used 2648ea35- in this run; 89afe6ba- still open).",
+  "rca of the issue": "No issues found. All four iter37 features (CB one-pager PDF, RESP family save-to-file + report inclusion, OH progressive state tax, enterprise invite_status pill) are working end-to-end on backend + frontend."
+}
