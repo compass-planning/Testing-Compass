@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Building2, Users, Gauge, AlertTriangle, UserPlus, Pencil } from "lucide-react";
-import { formatApiError } from "@/lib/api";
+import { Building2, Users, Gauge, AlertTriangle, UserPlus, Pencil, Plus } from "lucide-react";
+import api, { formatApiError } from "@/lib/api";
 import { enterpriseApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
 import { useHousehold } from "@/context/HouseholdContext";
-import { Card, Stat, Badge, Modal, Button, Input, Field } from "@/components/ui-kit";
+import { Card, Stat, Badge, Modal, Button, Input, Field, Select } from "@/components/ui-kit";
 import { money } from "@/lib/format";
 
 const STATUS_COLOR = { "On Track": "#00DF89", "Needs Review": "#FFB800", "At Risk": "#EE5D50", "Needs Setup": "#A3AED0" };
@@ -93,11 +93,31 @@ const Empty = () => <div className="text-sm text-compass-muted py-1.5">None on f
 export default function EnterpriseOverview() {
   const q = useQuery({ queryKey: ["enterprise-overview"], queryFn: enterpriseApi.overview });
   const [drill, setDrill] = useState(null);
+  const [newOpen, setNewOpen] = useState(false);
   const { user } = useAuth();
-  const { setActive } = useHousehold();
+  const { setActive, clear } = useHousehold();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const canWrite = !!user.enterprise_write;
   const openHousehold = (h) => { setActive(h.id, h.primary || h.id); navigate("/profile"); };
+
+  const createHousehold = async (form) => {
+    clear(); // a fresh 'self' owner starts a brand-new corp household
+    const { data: self } = await api.post("/owners", { full_name: form.full_name, relationship: "self", province: form.province, annual_income: Number(form.income || 0) });
+    const hid = self.id;
+    if (form.spouse_name && form.spouse_name.trim()) {
+      await api.post("/owners", { full_name: form.spouse_name.trim(), relationship: "spouse", province: form.province, annual_income: Number(form.spouse_income || 0) });
+    }
+    if (form.seed_goal) {
+      await api.post("/goals", { title: "Retirement", category: "retirement", target_amount: 1000000, current_amount: 0, target_year: new Date().getFullYear() + 30, owner_id: hid, linked_asset_ids: [], monthly_contribution: 0, growth_rate: 5 }, { params: { household_id: hid } });
+    }
+    qc.invalidateQueries({ queryKey: ["enterprise-overview"] });
+    setNewOpen(false);
+    setActive(hid, form.full_name);
+    toast.success(`Created ${form.full_name}'s household`);
+    navigate("/profile");
+  };
+
   const d = q.data;
   if (!d) return null;
 
@@ -111,7 +131,10 @@ export default function EnterpriseOverview() {
       </div>
 
       <Card className="p-0 overflow-hidden" data-testid="enterprise-households">
-        <div className="px-6 py-4 border-b border-compass-border font-heading font-bold text-compass-navy flex items-center gap-2"><Building2 size={16} className="text-compass-blue" /> Corp book — click a household to inspect{canWrite && <Badge color="#FFB800" bg="rgba(255,184,0,0.14)">Edit mode (testing)</Badge>}</div>
+        <div className="px-6 py-4 border-b border-compass-border flex items-center justify-between gap-2">
+          <span className="font-heading font-bold text-compass-navy flex items-center gap-2"><Building2 size={16} className="text-compass-blue" /> Corp book — click a household to inspect{canWrite && <Badge color="#FFB800" bg="rgba(255,184,0,0.14)">Edit mode (testing)</Badge>}</span>
+          {canWrite && <Button size="sm" onClick={() => setNewOpen(true)} data-testid="add-household-button"><Plus size={14} /> Add household</Button>}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-compass-bg/60"><tr className="text-left text-[11px] uppercase tracking-wide text-compass-muted">
@@ -186,7 +209,42 @@ export default function EnterpriseOverview() {
       </div>
 
       <HouseholdDrill hid={drill} onClose={() => setDrill(null)} />
+      <NewCorpHouseholdModal open={newOpen} onClose={() => setNewOpen(false)} onSubmit={createHousehold} />
     </div>
+  );
+}
+
+const PROVINCES = ["ON", "BC", "AB", "QC", "MB", "SK", "NS", "NB", "NL", "PE", "NT", "YT", "NU"];
+
+function NewCorpHouseholdModal({ open, onClose, onSubmit }) {
+  const [f, setF] = useState({ full_name: "", province: "ON", income: "", spouse_name: "", spouse_income: "", seed_goal: true });
+  const [saving, setSaving] = useState(false);
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const submit = async () => {
+    setSaving(true);
+    try { await onSubmit(f); setF({ full_name: "", province: "ON", income: "", spouse_name: "", spouse_income: "", seed_goal: true }); }
+    catch (e) { toast.error(formatApiError(e.response?.data?.detail) || "Could not create household"); }
+    finally { setSaving(false); }
+  };
+  return (
+    <Modal open={open} onClose={onClose} title="Add corp household" testid="new-corp-household-modal">
+      <div className="space-y-4">
+        <Field label="Primary member name"><Input value={f.full_name} onChange={set("full_name")} placeholder="e.g. Jordan Blake" data-testid="corp-household-name" /></Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Province"><Select value={f.province} onChange={set("province")} data-testid="corp-household-province">{PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}</Select></Field>
+          <Field label="Annual income"><Input type="number" min="0" value={f.income} onChange={set("income")} placeholder="e.g. 95000" data-testid="corp-household-income" /></Field>
+        </div>
+        <Field label="Spouse name (optional)"><Input value={f.spouse_name} onChange={set("spouse_name")} placeholder="e.g. Sam Blake" data-testid="corp-household-spouse" /></Field>
+        <label className="flex items-center gap-2.5 text-sm text-compass-navy cursor-pointer">
+          <input type="checkbox" checked={f.seed_goal} onChange={(e) => setF({ ...f, seed_goal: e.target.checked })} className="h-4 w-4 accent-compass-blue" data-testid="corp-household-seed-goal" />
+          Seed a starter retirement goal
+        </label>
+        <div className="flex gap-2 justify-end pt-2">
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={submit} disabled={!f.full_name.trim() || saving} data-testid="corp-household-save">Create household</Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
