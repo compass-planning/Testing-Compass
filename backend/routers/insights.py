@@ -50,7 +50,7 @@ def _rule_based(ctx: dict) -> list:
 
 
 async def _gather_context(user, household_id):
-    store, read, _, hid = planner_scope(user, household_id)
+    store, read, ws, hid = planner_scope(user, household_id)
 
     def hh(rows):
         return [r for r in rows if (not hid or r.get("household_id") == hid)]
@@ -69,7 +69,7 @@ async def _gather_context(user, household_id):
         "debtCount": len(debts),
         "goals": [{"title": g.get("title"), "current": g.get("current_amount"), "target": g.get("target_amount"), "status": g.get("status")} for g in goals],
         "atRiskGoals": [{"title": g.get("title"), "current": g.get("current_amount"), "target": g.get("target_amount")} for g in goals if g.get("status") in ("at_risk", "behind")],
-    }, store, hid
+    }, store, read, ws, hid
 
 
 @router.get("/plan/insights")
@@ -84,7 +84,7 @@ async def get_insights(user: dict = Depends(get_current_user), household_id: str
 
 @router.post("/plan/insights/generate")
 async def generate_insights(user: dict = Depends(get_current_user), household_id: str = None):
-    ctx, store, hid = await _gather_context(user, household_id)
+    ctx, store, read, ws, hid = await _gather_context(user, household_id)
     insights, generated_by = None, "ai"
     key = os.environ.get("EMERGENT_LLM_KEY", "")
     if key:
@@ -106,10 +106,10 @@ async def generate_insights(user: dict = Depends(get_current_user), household_id
         insights, generated_by = _rule_based(ctx), "fallback"
 
     # persist latest per household (replace previous)
-    for r in repo.list(store, "plan_ai_insights", {}):
+    for r in repo.list(store, "plan_ai_insights", read):
         if r.get("household_id") == hid and r.get("actor_email") == user["email"]:
-            repo.delete(store, "plan_ai_insights", r["id"], {})
-    rec = {"id": _id(), "store": store, "scope": user.get("scope", {}), "household_id": hid,
+            repo.delete(store, "plan_ai_insights", r["id"], read)
+    rec = {"id": _id(), "store": store, "scope": ws, "household_id": hid,
            "insights": insights, "generated_by": generated_by, "actor_email": user["email"],
            "generated_at": datetime.now(timezone.utc).isoformat()}
     repo.create(store, "plan_ai_insights", rec)

@@ -278,3 +278,13 @@ Ported the original Compass retirement engines to Python under `/app/backend/eng
 ### STILL PENDING in Phase 1 (per PORTING_ROADMAP.md)
 - **1b** Server-side tax & estate: move tax math server-side + terminal-tax + per-province probate calculator (engine/estate.py partially scoped; estate engine logic already read from original: probate schedules all provinces, terminal tax RRSP/RRIF inclusion + cap-gains, province normalizer).
 - **1c** Real AI insights: replace mock AIInsights with Emergent LLM narrative advice (requires integration_expert playbook for Emergent LLM key before coding).
+
+## Phase 1b + 1c + Protection persistence/report (added 2026-06, iter30) ✅
+- **1b Server-side tax & estate** (`engine/estate.py`, `routers/estate.py`): per-province probate fee schedules (all 13) + terminal/deemed-disposition tax (RRSP/RRIF fully taxable + 50% cap-gains inclusion) → POST /api/plan/estate/analysis (probateFee, terminalTax, totalSettlementCost, netToHeirs). General server-side income tax at POST /api/plan/tax/calc. Tax page Estate tab now server-calculated (province-aware, shows Net to heirs).
+- **1c Real AI insights** (`routers/insights.py`): POST /api/plan/insights/generate uses Emergent LLM key (Claude claude-sonnet-5-5 via emergentintegrations) to produce 4-6 narrative insights; robust JSON bracket-slice parse; deterministic rule-based fallback so it never 500s. GET /api/plan/insights returns last saved set (persisted in plan_ai_insights, keyed by household+actor). AIInsights page (/ai) rebuilt with Generate/Regenerate + source badge.
+- **Save Protection Analyses**: Insurance page (Life/DI/LTC) "Save to household" buttons → plan_protection collection ("protection" added to PLAN_COLLECTIONS). overview now returns protectionAnalyses; Financial Plan completeness shows a Protection analysis tile.
+- **Protection in Client Report**: /api/report/email accepts life_gap/di_monthly_gap/ltc_gap → "Protection gaps" section in the emailed summary (render_report_html).
+- **Route-ordering fix**: specific routers (retirement/protection/estate/insights) are now registered BEFORE the generic /plan/{collection} catch-all in server.py, so GET /plan/insights resolves (was 404). Lesson: any new specific /plan/<name> GET must be registered before planning.router.
+- Tests: iteration_30.json — backend 9/10 then HIGH route-shadow bug fixed + self-verified (GET /plan/insights returns 6 'ai' insights; all generic /plan/* routes still 200; estate QC=0/AB=525/ON caps verified). Frontend 100%.
+
+### Phase 1 remaining: 1d PDF report export.

@@ -43,14 +43,14 @@ async def root():
 
 
 api.include_router(auth.router)
-api.include_router(planning.router)
-api.include_router(advisor.router)
-api.include_router(tasks.router)
-api.include_router(compliance.router)
 api.include_router(retirement.router)
 api.include_router(protection.router)
 api.include_router(estate.router)
 api.include_router(insights.router)
+api.include_router(planning.router)
+api.include_router(advisor.router)
+api.include_router(tasks.router)
+api.include_router(compliance.router)
 
 app.include_router(api)
 app.add_middleware(

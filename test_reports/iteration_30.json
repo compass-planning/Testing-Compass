@@ -1,0 +1,44 @@
+{
+  "summary": "Phase 1b/1c (estate+tax engines, AI insights, Save Protection, report email) tested end-to-end. 9/10 backend tests pass; 1 failing — GET /api/plan/insights is shadowed by the generic /plan/{collection} route (returns 404 'Unknown collection'). All UI flows (AI Insights page, Tax→Estate tab, Insurance save buttons on all 3 tabs, Financial Plan completeness showing Protection analysis) work correctly.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/plan/insights",
+        "issue": "Returns 404 {detail:'Unknown collection'} because the generic planning router (/plan/{collection}) is registered BEFORE the insights router in server.py (lines 46 then 53). FastAPI matches /plan/{collection} first with collection='insights' which is not in PLAN_COLLECTIONS. The frontend's AIInsights page therefore cannot hydrate the last saved set on load — it only works after clicking Regenerate (which POSTs to /plan/insights/generate — a 2-segment path that doesn't collide).",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase1b_estate_ai_insights.py",
+    "/app/test_reports/pytest/phase1b_results.xml"
+  ],
+  "action_items": [
+    "Fix route shadowing: in /app/backend/server.py move `api.include_router(insights.router)` BEFORE `api.include_router(planning.router)`, OR explicitly skip reserved names ('insights') in the /plan/{collection} GET/POST handlers, OR move the specific /plan/insights handler onto a distinct path (e.g. /plan/ai_insights). Preferred: reorder include_router (lowest-risk one-line fix)."
+  ],
+  "critical_code_review_comments": [
+    "Route-ordering fragility: planning.py defines /plan/{collection} as a catch-all; any future specific /plan/<name> endpoint will be shadowed unless included before planning.router. Consider adding an explicit RESERVED={'insights'} guard that falls through, or move the generic CRUD under /plan/collections/{collection}.",
+    "server.py include order: insights.router is included last — any specific /plan/* route defined there is unreachable by GET. This is the root cause of the only failing test.",
+    "engine/estate.py AB probate formula uses ceil-via-neg-floor trick (`-(-(v-10000)//1000)`) — correct but non-obvious; add a short comment.",
+    "insights.py — the delete-then-create pattern (per-user + per-household) will leak insights for other users of the same household; consider upserting by (household_id, actor_email) or storing a single row keyed by household_id."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase1b_estate_ai_insights.py (new)"
+  ],
+  "success_rate": {
+    "backend": "90% (9/10 tests passing)",
+    "frontend": "100% (AI Insights, Estate tab, Save Life/DI/LTC, Financial Plan Protection section all verified)"
+  },
+  "test_credentials": "advisor@compass.ca / Compass2026! + TOTP JBSWY3DPEHPK3PXP; scott@sweston.ca for enterprise 403 check. See /app/memory/test_credentials.md.",
+  "seed_data_creation": "Created a few plan_protection records (life/di/ltc) under client_a1 via the UI Save-to-household buttons and backend tests (prefixed names 'TEST_*'). Also regenerated AI insights for client_a1 (returns 6 'ai' insights).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests live in /app/backend/tests/test_phase1b_estate_ai_insights.py and use pyotp + python-dotenv to load REACT_APP_BACKEND_URL from /app/frontend/.env. All verified: estate ON 1.5M → probate=22000, terminalTax>0; QC probate=0; AB capped at 525; tax 95k ON ~20k with marginal ~0.3148; POST /plan/protection + GET /plan/protection + overview protectionAnalyses count all work; enterprise POST /plan/protection returns 403; /report/email accepts life_gap/di_monthly_gap/ltc_gap without 422. The only remaining issue is GET /plan/insights returning 404 due to router ordering. UI tested on /ai, /tax (Estate), /insurance (all tabs save), /plan (Protection analysis completeness tile).",
+  "rca of the issue": "GET /api/plan/insights returns 404 'Unknown collection'. RCA: In /app/backend/server.py, api.include_router(planning.router) runs at line 46, then api.include_router(insights.router) runs at line 53. planning.py registers GET '/plan/{collection}' which validates collection ∈ PLAN_COLLECTIONS. Since 'insights' is NOT in PLAN_COLLECTIONS and FastAPI resolves routes in registration order, the planning catch-all wins and short-circuits with 404 before insights.py's specific GET '/plan/insights' is reached. Reproduction: curl -H 'Authorization: Bearer <token>' '$BACKEND/api/plan/insights?household_id=client_a1' → 404 {detail:'Unknown collection'}. Mitigation (any one): (1) Move api.include_router(insights.router) above planning.router in server.py; (2) Add `if collection in {'insights'}: raise HTTPException(status_code=404)` → actually better: skip reserved names and let the specific route handle (requires router order change anyway); (3) Rename the specific route to /plan/ai-insights."
+}
