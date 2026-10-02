@@ -1,192 +1,184 @@
-import React, { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import React, { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Shield, Plus, Pencil, Trash2, Heart, Activity, HeartPulse } from "lucide-react";
+import { Shield, HeartPulse, Home, Play, Umbrella } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
-import { planApi } from "@/lib/planning";
-import { useAuth } from "@/context/AuthContext";
-import { Card, Button, Input, Field, Select, Badge, Modal, Stat, Empty, Progress } from "@/components/ui-kit";
+import { protectionApi } from "@/lib/planning";
+import { Card, Button, Input, Field, Select, Badge, Stat } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
+import { TAX_PROVINCES } from "@/lib/tax";
 
-const POLICY_TYPES = ["Term Life", "Whole Life", "Disability", "Critical Illness", "Long-Term Care", "Health", "Other"];
-const LIFE = ["Term Life", "Whole Life"];
-const DI = ["Disability"];
-const LTC = ["Critical Illness", "Long-Term Care", "Health"];
+const TABS = [
+  { key: "life", label: "Life Needs", icon: Shield },
+  { key: "di", label: "Disability", icon: HeartPulse },
+  { key: "ltc", label: "Long-Term Care", icon: Home },
+];
 
-const EDU_PER_DEPENDANT = 100000;
-const LIFE_INCOME_MULT = 10;
-const DI_REPLACEMENT = 0.65;
-const LTC_BENCHMARK = 300000; // $100k/yr x 3 yrs
+function Row({ label, value, strong }) {
+  return <div className="flex justify-between text-sm"><span className="text-compass-muted">{label}</span><span className={strong ? "font-bold text-compass-navy" : "font-semibold text-compass-navy"}>{value}</span></div>;
+}
 
 export default function Insurance() {
-  const { user } = useAuth();
-  const qc = useQueryClient();
-  const readOnly = user.tier === "enterprise";
   const [tab, setTab] = useState("life");
-  const [modal, setModal] = useState(null);
-
-  const policies = useQuery({ queryKey: ["plan", "insurance"], queryFn: () => planApi.list("insurance") });
-  const owners = useQuery({ queryKey: ["owners"], queryFn: async () => (await api.get("/owners")).data });
-  const debts = useQuery({ queryKey: ["plan", "debts"], queryFn: () => planApi.list("debts") });
-
-  const invalidate = () => { qc.invalidateQueries({ queryKey: ["plan", "insurance"] }); qc.invalidateQueries({ queryKey: ["plan", "overview"] }); };
-  const save = useMutation({
-    mutationFn: (b) => (b.id ? planApi.update("insurance", b.id, strip(b)) : planApi.create("insurance", strip(b))),
-    onSuccess: () => { toast.success("Saved"); setModal(null); invalidate(); },
-    onError: (e) => toast.error(formatApiError(e.response?.data?.detail)),
-  });
-  const del = useMutation({ mutationFn: (id) => planApi.remove("insurance", id), onSuccess: () => { toast.success("Deleted"); invalidate(); } });
-
-  const analysis = useMemo(() => {
-    const pol = policies.data || [];
-    const owns = owners.data || [];
-    const income = owns.reduce((s, o) => s + Number(o.annual_income || 0), 0);
-    const dependants = owns.filter((o) => ["dependent", "child"].includes(o.relationship)).length;
-    const totalDebt = (debts.data || []).reduce((s, d) => s + Number(d.balance || 0), 0);
-    const cover = (types) => pol.filter((p) => types.includes(p.policy_type)).reduce((s, p) => s + Number(p.coverage || 0), 0);
-
-    const lifeRec = LIFE_INCOME_MULT * income + totalDebt + EDU_PER_DEPENDANT * dependants;
-    const lifeHave = cover(LIFE);
-    const diRecMonthly = (DI_REPLACEMENT * income) / 12;
-    const diHave = cover(DI); // treat coverage as monthly benefit
-    const ltcRec = LTC_BENCHMARK;
-    const ltcHave = cover(LTC);
-
-    const pct = (have, rec) => (rec > 0 ? Math.min(100, Math.round((have / rec) * 100)) : (have > 0 ? 100 : 0));
-    const life = { rec: lifeRec, have: lifeHave, gap: Math.max(0, lifeRec - lifeHave), adequacy: pct(lifeHave, lifeRec) };
-    const di = { rec: diRecMonthly, have: diHave, gap: Math.max(0, diRecMonthly - diHave), adequacy: pct(diHave, diRecMonthly), monthly: true };
-    const ltc = { rec: ltcRec, have: ltcHave, gap: Math.max(0, ltcRec - ltcHave), adequacy: pct(ltcHave, ltcRec) };
-    const score = Math.round(0.5 * life.adequacy + 0.3 * di.adequacy + 0.2 * ltc.adequacy);
-    return { income, dependants, totalDebt, life, di, ltc, score };
-  }, [policies.data, owners.data, debts.data]);
-
-  const band = analysis.score >= 80 ? { label: "Well protected", color: "#00DF89", bg: "rgba(0,223,137,0.12)" }
-    : analysis.score >= 50 ? { label: "Partial gaps", color: "#FFB800", bg: "rgba(255,184,0,0.14)" }
-    : { label: "Significant gaps", color: "#EE5D50", bg: "rgba(238,93,80,0.12)" };
-
-  const TABS = [
-    { key: "life", label: "Life", icon: Heart, data: analysis.life, types: LIFE },
-    { key: "ltc", label: "Long-Term Care", icon: HeartPulse, data: analysis.ltc, types: LTC },
-    { key: "di", label: "Disability", icon: Activity, data: analysis.di, types: DI },
-  ];
-  const active = TABS.find((t) => t.key === tab);
-  const bucketPolicies = (policies.data || []).filter((p) => active.types.includes(p.policy_type));
-
   return (
-    <div>
-      <PageHeader title="Insurance" subtitle="Protection score and coverage-gap analysis across Life, LTC and Disability.">
-        {readOnly ? <Badge color="#A3AED0" bg="rgba(163,174,208,0.15)">CRM-managed</Badge>
-          : <Button onClick={() => setModal({})} data-testid="add-insurance-button"><Plus size={16} /> Add policy</Button>}
+    <div data-testid="insurance-page">
+      <PageHeader title="Insurance & Protection" subtitle="Life-insurance needs analysis, disability and long-term-care planning.">
+        <Badge color="#A3AED0" bg="rgba(163,174,208,0.15)">Illustrative</Badge>
       </PageHeader>
-
-      <div className="grid lg:grid-cols-4 gap-4 mb-6">
-        <Card className="p-6 flex flex-col items-center justify-center" data-testid="protection-score">
-          <div className="muted-label">Protection Score</div>
-          <div className="font-heading text-5xl font-extrabold gradient-text mt-1" data-testid="protection-score-value">{analysis.score}</div>
-          <div className="text-xs text-compass-muted mb-2">out of 100</div>
-          <Badge color={band.color} bg={band.bg} data-testid="protection-band">{band.label}</Badge>
-        </Card>
-        <Stat label="Household income" value={money(analysis.income)} />
-        <Stat label="Dependants" value={analysis.dependants} />
-        <Stat label="Total debt" value={money(analysis.totalDebt)} />
-      </div>
-
-      <div className="flex gap-1 mb-5 border-b border-compass-border">
+      <div className="flex gap-1 mb-6 border-b border-compass-border overflow-x-auto">
         {TABS.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)} data-testid={`ins-tab-${t.key}`}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === t.key ? "border-compass-blue text-compass-blue" : "border-transparent text-compass-muted hover:text-compass-navy"}`}>
+          <button key={t.key} onClick={() => setTab(t.key)} data-testid={`insurance-tab-${t.key}`}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap transition-colors ${tab === t.key ? "border-compass-blue text-compass-blue" : "border-transparent text-compass-muted hover:text-compass-navy"}`}>
             <t.icon size={16} /> {t.label}
-            <span className={`text-xs ${t.data.adequacy >= 80 ? "text-compass-green" : t.data.adequacy >= 50 ? "text-compass-amber" : "text-compass-red"}`}>{t.data.adequacy}%</span>
           </button>
         ))}
       </div>
-
-      <Card className="p-6 mb-8" data-testid={`ins-analysis-${tab}`}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-heading font-bold text-compass-navy flex items-center gap-2"><active.icon size={18} className="text-compass-blue" /> {active.label} coverage</h3>
-          <Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{active.data.adequacy}% adequate</Badge>
-        </div>
-        <Progress value={active.data.adequacy} color={active.data.adequacy >= 80 ? "#00DF89" : active.data.adequacy >= 50 ? "#FFB800" : "#EE5D50"} />
-        <div className="grid grid-cols-3 gap-4 mt-5">
-          <div><div className="muted-label">Recommended</div><div className="font-heading font-bold text-compass-navy mt-1">{money(active.data.rec)}{active.data.monthly ? "/mo" : ""}</div></div>
-          <div><div className="muted-label">Current coverage</div><div className="font-heading font-bold text-compass-navy mt-1">{money(active.data.have)}{active.data.monthly ? "/mo" : ""}</div></div>
-          <div><div className="muted-label">Gap</div><div className={`font-heading font-bold mt-1 ${active.data.gap > 0 ? "text-compass-red" : "text-compass-green"}`} data-testid={`${tab}-gap`}>{active.data.gap > 0 ? money(active.data.gap) + (active.data.monthly ? "/mo" : "") : "No gap"}</div></div>
-        </div>
-        <p className="text-xs text-compass-muted mt-4">
-          {tab === "life" && `Recommended = ${LIFE_INCOME_MULT}× income + total debt + ${money(EDU_PER_DEPENDANT)}/dependant.`}
-          {tab === "di" && `Recommended = ${Math.round(DI_REPLACEMENT * 100)}% of monthly income replaced.`}
-          {tab === "ltc" && `Benchmark = ${money(LTC_BENCHMARK)} ($100k/yr × 3 yrs of care).`} Illustrative only.
-        </p>
-      </Card>
-
-      <h3 className="font-heading font-bold text-compass-navy mb-3">{active.label} policies</h3>
-      {bucketPolicies.length === 0 ? (
-        <Empty icon={Shield} title={`No ${active.label.toLowerCase()} policies`}>Add a policy to improve the protection score.</Empty>
-      ) : (
-        <Card className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead><tr className="text-left border-b border-compass-border">
-              <th className="muted-label px-5 py-3.5">Policy</th>
-              <th className="muted-label px-5 py-3.5">Carrier</th>
-              <th className="muted-label px-5 py-3.5">Insured</th>
-              <th className="muted-label px-5 py-3.5 text-right">Coverage</th>
-              <th className="muted-label px-5 py-3.5 text-right">Premium</th>
-              {!readOnly && <th className="px-5 py-3.5" />}
-            </tr></thead>
-            <tbody>
-              {bucketPolicies.map((p) => (
-                <tr key={p.id} className="border-b border-compass-border last:border-0 hover:bg-compass-bg/40" data-testid={`insurance-row-${p.id}`}>
-                  <td className="px-5 py-3.5 font-semibold text-compass-navy">{p.policy_type}</td>
-                  <td className="px-5 py-3.5 text-compass-muted">{p.carrier || "—"}</td>
-                  <td className="px-5 py-3.5 text-compass-muted">{p.insured || "—"}</td>
-                  <td className="px-5 py-3.5 text-right font-heading font-bold text-compass-navy">{money(p.coverage)}</td>
-                  <td className="px-5 py-3.5 text-right text-compass-muted">{money(p.premium)}/mo</td>
-                  {!readOnly && (
-                    <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                      <button onClick={() => setModal(p)} className="text-compass-blue hover:bg-compass-blue/10 rounded-lg p-1.5"><Pencil size={15} /></button>
-                      <button onClick={() => del.mutate(p.id)} className="text-compass-red hover:bg-compass-red/10 rounded-lg p-1.5 ml-1" data-testid={`delete-${p.id}`}><Trash2 size={15} /></button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
-      )}
-
-      <PolicyModal open={modal !== null} initial={modal} defaultType={active.types[0]} onClose={() => setModal(null)} onSubmit={(b) => save.mutate(b)} loading={save.isPending} />
+      {tab === "life" && <LifeTab />}
+      {tab === "di" && <DiTab />}
+      {tab === "ltc" && <LtcTab />}
     </div>
   );
 }
 
-function strip(body) { const { id, store, scope, household_id, created_at, ...rest } = body; return rest; }
-
-function PolicyModal({ open, initial, defaultType, onClose, onSubmit, loading }) {
-  const [f, setF] = useState({});
-  React.useEffect(() => {
-    if (open) setF({ id: initial?.id, policy_type: initial?.policy_type || defaultType, carrier: initial?.carrier || "",
-      insured: initial?.insured || "", coverage: initial?.coverage ?? "", premium: initial?.premium ?? "" });
-  }, [open, initial]); // eslint-disable-line
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
-  const submit = () => onSubmit({ ...f, coverage: Number(f.coverage || 0), premium: Number(f.premium || 0) });
+function LifeTab() {
+  const [f, setF] = useState({ annualIncome: 100000, personalConsumptionRate: 0.30, workingYearsRemaining: 20,
+    mortgageBalance: 300000, totalDebts: 40000, educationFundTarget: 100000, finalExpenses: 25000,
+    existingLifeCoverage: 250000, existingAssets: 150000, discountRate: 0.04, withdrawalRate: 0.04,
+    diReplacementRate: 0.70, cppDisabilityBenefit: 0, existingDisabilityCoverage: 0,
+    existingCriticalIllnessCoverage: 0, uncoveredTreatmentCosts: 50000, preferredMethod: "dime" });
+  const n = (k) => (e) => setF({ ...f, [k]: Number(e.target.value || 0) });
+  const run = useMutation({ mutationFn: () => protectionApi.life(f), onError: (e) => toast.error(formatApiError(e.response?.data?.detail) || "Analysis failed") });
+  const r = run.data;
+  const METHODS = [{ v: "dime", l: "DIME" }, { v: "humanLifeValue", l: "Human Life Value" }, { v: "capitalRetention", l: "Capital Retention" }];
   return (
-    <Modal open={open} onClose={onClose} title={`${f.id ? "Edit" : "Add"} policy`} testid="insurance-modal">
-      <div className="space-y-4">
-        <Field label="Policy type"><Select value={f.policy_type || ""} onChange={set("policy_type")} data-testid="field-policy_type">{POLICY_TYPES.map((p) => <option key={p}>{p}</option>)}</Select></Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Carrier"><Input value={f.carrier || ""} onChange={set("carrier")} data-testid="field-carrier" /></Field>
-          <Field label="Insured"><Input value={f.insured || ""} onChange={set("insured")} data-testid="field-insured" /></Field>
+    <div className="grid lg:grid-cols-3 gap-6">
+      <Card className="p-6 lg:col-span-2">
+        <h3 className="font-heading font-bold text-compass-navy mb-4 flex items-center gap-2"><Umbrella size={18} className="text-compass-blue" /> Household & coverage</h3>
+        <div className="grid sm:grid-cols-3 gap-4">
+          <Field label="Annual income"><Input type="number" value={f.annualIncome} onChange={n("annualIncome")} data-testid="life-income" /></Field>
+          <Field label="Working years remaining"><Input type="number" value={f.workingYearsRemaining} onChange={n("workingYearsRemaining")} data-testid="life-years" /></Field>
+          <Field label="Personal consumption rate"><Input type="number" step="0.05" value={f.personalConsumptionRate} onChange={n("personalConsumptionRate")} data-testid="life-consumption" /></Field>
+          <Field label="Mortgage balance"><Input type="number" value={f.mortgageBalance} onChange={n("mortgageBalance")} data-testid="life-mortgage" /></Field>
+          <Field label="Other debts"><Input type="number" value={f.totalDebts} onChange={n("totalDebts")} data-testid="life-debts" /></Field>
+          <Field label="Education fund target"><Input type="number" value={f.educationFundTarget} onChange={n("educationFundTarget")} data-testid="life-education" /></Field>
+          <Field label="Final expenses"><Input type="number" value={f.finalExpenses} onChange={n("finalExpenses")} data-testid="life-final" /></Field>
+          <Field label="Existing life coverage"><Input type="number" value={f.existingLifeCoverage} onChange={n("existingLifeCoverage")} data-testid="life-existing" /></Field>
+          <Field label="Liquid assets"><Input type="number" value={f.existingAssets} onChange={n("existingAssets")} data-testid="life-assets" /></Field>
+          <Field label="Discount rate (HLV)"><Input type="number" step="0.005" value={f.discountRate} onChange={n("discountRate")} data-testid="life-discount" /></Field>
+          <Field label="Withdrawal rate (Cap. Retention)"><Input type="number" step="0.005" value={f.withdrawalRate} onChange={n("withdrawalRate")} data-testid="life-withdrawal" /></Field>
+          <Field label="Preferred method"><Select value={f.preferredMethod} onChange={(e) => setF({ ...f, preferredMethod: e.target.value })} data-testid="life-method">{METHODS.map((m) => <option key={m.v} value={m.v}>{m.l}</option>)}</Select></Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Coverage (CAD)"><Input type="number" value={f.coverage ?? ""} onChange={set("coverage")} data-testid="field-coverage" /></Field>
-          <Field label="Monthly premium"><Input type="number" value={f.premium ?? ""} onChange={set("premium")} data-testid="field-premium" /></Field>
+        <Button className="mt-5" onClick={() => run.mutate()} disabled={run.isPending} data-testid="life-run"><Play size={16} /> {run.isPending ? "Analyzing…" : "Analyze needs"}</Button>
+      </Card>
+      <Card className="p-6" data-testid="life-result">
+        <div className="muted-label">Recommended life coverage</div>
+        <div className="font-heading text-4xl font-extrabold gradient-text mt-1" data-testid="life-recommended">{r ? money(r.recommendedLifeCoverage) : "—"}</div>
+        {r && (
+          <div className="mt-5 space-y-2">
+            <Row label="Coverage gap" value={money(r.lifeCoverageGap)} strong />
+            <div className="border-t border-compass-border my-2 pt-2 muted-label">By method</div>
+            <Row label="DIME" value={money(r.dime.totalNeed)} />
+            <Row label="Human Life Value" value={money(r.humanLifeValue.totalNeed)} />
+            <Row label="Capital Retention" value={money(r.capitalRetention.totalNeed)} />
+            <div className="border-t border-compass-border my-2 pt-2 muted-label">Other gaps</div>
+            <Row label="Disability monthly gap" value={`${money(r.diGap.monthlyGap)}/mo`} />
+            <Row label="Critical illness gap" value={money(r.ciGap.gap)} />
+          </div>
+        )}
+        {!r && <p className="text-sm text-compass-muted mt-3">Enter the household profile and analyze to compare DIME, Human Life Value and Capital Retention.</p>}
+      </Card>
+    </div>
+  );
+}
+
+function DiTab() {
+  const [f, setF] = useState({ currentAge: 40, province: "ON", grossMonthlyIncome: 8000, occupationClass: "3A",
+    definition: "own_occ", waitingPeriodDays: 90, benefitPeriod: "age65", groupDiMonthly: 4000,
+    groupDiEmployerPaid: true, individualDiMonthly: 0, cppDisabilityMonthly: 0, partialDisabilityPct: 0.5, colaPct: 0.02 });
+  const n = (k) => (e) => setF({ ...f, [k]: Number(e.target.value || 0) });
+  const s = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const run = useMutation({ mutationFn: () => protectionApi.di(f), onError: () => toast.error("Analysis failed") });
+  const r = run.data;
+  return (
+    <div className="grid lg:grid-cols-3 gap-6">
+      <Card className="p-6 lg:col-span-2">
+        <h3 className="font-heading font-bold text-compass-navy mb-4">Disability income inputs</h3>
+        <div className="grid sm:grid-cols-3 gap-4">
+          <Field label="Current age"><Input type="number" value={f.currentAge} onChange={n("currentAge")} data-testid="di-age" /></Field>
+          <Field label="Province"><Select value={f.province} onChange={s("province")} data-testid="di-province">{TAX_PROVINCES.map((p) => <option key={p}>{p}</option>)}</Select></Field>
+          <Field label="Gross monthly income"><Input type="number" value={f.grossMonthlyIncome} onChange={n("grossMonthlyIncome")} data-testid="di-income" /></Field>
+          <Field label="Occupation class"><Select value={f.occupationClass} onChange={s("occupationClass")} data-testid="di-occ">{["4A", "3A", "2A", "A", "B"].map((o) => <option key={o}>{o}</option>)}</Select></Field>
+          <Field label="Definition"><Select value={f.definition} onChange={s("definition")} data-testid="di-def"><option value="own_occ">Own occupation</option><option value="any_occ">Any occupation</option></Select></Field>
+          <Field label="Benefit period"><Select value={f.benefitPeriod} onChange={s("benefitPeriod")} data-testid="di-period">{["2yr", "5yr", "10yr", "age65", "age70"].map((b) => <option key={b}>{b}</option>)}</Select></Field>
+          <Field label="Group DI ($/mo)"><Input type="number" value={f.groupDiMonthly} onChange={n("groupDiMonthly")} data-testid="di-group" /></Field>
+          <Field label="Group employer-paid?"><Select value={f.groupDiEmployerPaid ? "yes" : "no"} onChange={(e) => setF({ ...f, groupDiEmployerPaid: e.target.value === "yes" })} data-testid="di-employer"><option value="yes">Yes (taxable)</option><option value="no">No (tax-free)</option></Select></Field>
+          <Field label="Individual DI ($/mo)"><Input type="number" value={f.individualDiMonthly} onChange={n("individualDiMonthly")} data-testid="di-individual" /></Field>
         </div>
-        <div className="flex gap-2 justify-end pt-2">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={loading} data-testid="insurance-save">Save</Button>
+        <Button className="mt-5" onClick={() => run.mutate()} disabled={run.isPending} data-testid="di-run"><Play size={16} /> {run.isPending ? "Analyzing…" : "Analyze DI gap"}</Button>
+      </Card>
+      <Card className="p-6" data-testid="di-result">
+        <div className="muted-label">Monthly coverage gap</div>
+        <div className="font-heading text-4xl font-extrabold gradient-text mt-1" data-testid="di-gap">{r ? `${money(r.coverageGap)}/mo` : "—"}</div>
+        {r && (
+          <div className="mt-2">
+            <Badge color={r.isAdequate ? "#00DF89" : "#EE5D50"} bg={r.isAdequate ? "rgba(0,223,137,0.12)" : "rgba(238,93,80,0.12)"}>{r.replacementRatio}% replacement</Badge>
+            <div className="mt-4 space-y-2">
+              <Row label="Target (70%)" value={`${money(r.targetMonthlyBenefit)}/mo`} />
+              <Row label="Existing after-tax" value={`${money(r.existing.totalAfterTax)}/mo`} />
+              <Row label="Group after tax" value={`${money(r.existing.groupAfterTax)}/mo`} />
+              <Row label="Own-occ claim prob" value={`${Math.round(r.claimProbability.ownOcc * 100)}%`} />
+              <p className="text-xs text-compass-muted mt-2">{r.taxTreatment.recommendation}</p>
+            </div>
+          </div>
+        )}
+        {!r && <p className="text-sm text-compass-muted mt-3">Analyze to see your income-replacement gap and the tax treatment of group vs individual DI.</p>}
+      </Card>
+    </div>
+  );
+}
+
+function LtcTab() {
+  const [f, setF] = useState({ currentAge: 55, province: "ON", dailyBenefit: 200, poolYears: 5,
+    eliminationDays: 90, inflationProtection: "3pct", estAnnualPremium: 0, careCostInflation: 0.04,
+    estClaimAge: 82, careLevel: "semi_private" });
+  const n = (k) => (e) => setF({ ...f, [k]: Number(e.target.value || 0) });
+  const s = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const run = useMutation({ mutationFn: () => protectionApi.ltc(f), onError: () => toast.error("Analysis failed") });
+  const r = run.data;
+  return (
+    <div className="grid lg:grid-cols-3 gap-6">
+      <Card className="p-6 lg:col-span-2">
+        <h3 className="font-heading font-bold text-compass-navy mb-4">Long-term care inputs</h3>
+        <div className="grid sm:grid-cols-3 gap-4">
+          <Field label="Current age"><Input type="number" value={f.currentAge} onChange={n("currentAge")} data-testid="ltc-age" /></Field>
+          <Field label="Province"><Select value={f.province} onChange={s("province")} data-testid="ltc-province">{TAX_PROVINCES.map((p) => <option key={p}>{p}</option>)}</Select></Field>
+          <Field label="Care level"><Select value={f.careLevel} onChange={s("careLevel")} data-testid="ltc-level"><option value="basic">Basic</option><option value="semi_private">Semi-private</option><option value="private">Private</option></Select></Field>
+          <Field label="Daily benefit ($)"><Input type="number" value={f.dailyBenefit} onChange={n("dailyBenefit")} data-testid="ltc-daily" /></Field>
+          <Field label="Benefit pool (years)"><Select value={String(f.poolYears)} onChange={(e) => setF({ ...f, poolYears: Number(e.target.value) })} data-testid="ltc-pool">{[3, 5, 10].map((p) => <option key={p} value={p}>{p}</option>)}</Select></Field>
+          <Field label="Elimination (days)"><Select value={String(f.eliminationDays)} onChange={(e) => setF({ ...f, eliminationDays: Number(e.target.value) })} data-testid="ltc-elim">{[0, 30, 60, 90, 180, 365].map((d) => <option key={d} value={d}>{d}</option>)}</Select></Field>
+          <Field label="Inflation protection"><Select value={f.inflationProtection} onChange={s("inflationProtection")} data-testid="ltc-inflation"><option value="none">None</option><option value="3pct">3%</option><option value="5pct">5%</option><option value="cpi">CPI</option></Select></Field>
+          <Field label="Est. claim age"><Input type="number" value={f.estClaimAge} onChange={n("estClaimAge")} data-testid="ltc-claim-age" /></Field>
+          <Field label="Est. annual premium (0=auto)"><Input type="number" value={f.estAnnualPremium} onChange={n("estAnnualPremium")} data-testid="ltc-premium" /></Field>
         </div>
-      </div>
-    </Modal>
+        <Button className="mt-5" onClick={() => run.mutate()} disabled={run.isPending} data-testid="ltc-run"><Play size={16} /> {run.isPending ? "Analyzing…" : "Analyze LTC plan"}</Button>
+      </Card>
+      <Card className="p-6" data-testid="ltc-result">
+        <div className="muted-label">Total benefit pool</div>
+        <div className="font-heading text-4xl font-extrabold gradient-text mt-1" data-testid="ltc-pool-value">{r ? money(r.totalPoolDollars) : "—"}</div>
+        {r && (
+          <div className="mt-5 space-y-2">
+            <Row label="Daily benefit at claim" value={`${money(r.dailyBenefitAtClaim)}/day`} />
+            <Row label="Pool lasts (80% util)" value={`${r.poolDuration.at80pctRate} yrs`} />
+            <Row label="Elimination out-of-pocket" value={money(r.eliminationCost)} />
+            <Row label="Est. annual premium" value={money(r.estAnnualPremium)} />
+            <Row label="Premiums to claim age" value={money(r.totalPremiumsToClaimAge)} />
+            <Row label="Break-even age" value={r.breakEvenAge < 999 ? r.breakEvenAge : "—"} strong />
+            {r.adequacyGap > 0 && <Row label="Adequacy gap (vs provincial)" value={`${money(r.adequacyGap)}/day`} />}
+          </div>
+        )}
+        {!r && <p className="text-sm text-compass-muted mt-3">Model the benefit pool, elimination-period cost and self-insure break-even for long-term care.</p>}
+      </Card>
+    </div>
   );
 }

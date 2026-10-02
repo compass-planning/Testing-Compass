@@ -507,6 +507,19 @@ function ScenariosTab({ inp, readOnly }) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["ret-scenarios"] }); toast.success("Scenario removed"); },
   });
   const rows = list.data || [];
+  const [pinned, setPinned] = useState([]);
+  const togglePin = (id) => setPinned((p) => p.includes(id) ? p.filter((x) => x !== id) : (p.length >= 2 ? [p[1], id] : [...p, id]));
+  const pinnedRows = pinned.map((id) => rows.find((r) => r.id === id)).filter(Boolean);
+  const CMP = [
+    ["Portfolio @ retirement", (s) => money(s.summary?.portfolioAtRetirement || 0)],
+    ["Estate at plan end", (s) => money(s.summary?.estateValueAtDeath || 0)],
+    ["Guaranteed income", (s) => `${money(s.summary?.guaranteedIncomeAtRet || 0)}/yr`],
+    ["Lifetime tax", (s) => money(s.summary?.lifetimeTaxPaid || 0)],
+    ["Retirement age", (s) => s.inputs?.retirement_age],
+    ["Province", (s) => s.inputs?.province],
+    ["Expected return", (s) => `${s.inputs?.expected_return_pct}%`],
+    ["Desired income", (s) => `${money(s.inputs?.desired_retirement_income || 0)}/yr`],
+  ];
 
   return (
     <div>
@@ -519,15 +532,35 @@ function ScenariosTab({ inp, readOnly }) {
         </Card>
       )}
 
+      {pinnedRows.length === 2 && (
+        <Card className="p-0 mb-6 overflow-hidden" data-testid="scenario-compare">
+          <div className="px-6 py-4 border-b border-compass-border font-heading font-bold text-compass-navy">Comparing: {pinnedRows[0].name} vs {pinnedRows[1].name}</div>
+          <table className="w-full text-sm">
+            <tbody>
+              {CMP.map(([label, fn]) => (
+                <tr key={label} className="border-t border-compass-border/60">
+                  <td className="px-4 py-2 text-compass-muted">{label}</td>
+                  <td className="px-4 py-2 font-semibold text-compass-navy">{fn(pinnedRows[0])}</td>
+                  <td className="px-4 py-2 font-semibold text-compass-navy">{fn(pinnedRows[1])}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
       {rows.length === 0 ? (
         <Empty icon={Layers} title="No saved scenarios">Save a projection to compare retirement strategies side by side.</Empty>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="scenario-list">
           {rows.map((s) => (
-            <Card key={s.id} className="p-5" data-testid={`scenario-${s.id}`}>
+            <Card key={s.id} className={`p-5 ${pinned.includes(s.id) ? "ring-2 ring-compass-blue" : ""}`} data-testid={`scenario-${s.id}`}>
               <div className="flex items-start justify-between">
                 <div className="font-heading font-bold text-compass-navy">{s.name}</div>
-                {!readOnly && <button onClick={() => del.mutate(s.id)} className="text-compass-red hover:bg-compass-red/10 rounded-lg p-1.5" data-testid={`scenario-del-${s.id}`}><Trash2 size={15} /></button>}
+                <div className="flex items-center gap-1">
+                  <button onClick={() => togglePin(s.id)} className={`text-xs font-semibold rounded-lg px-2 py-1 ${pinned.includes(s.id) ? "bg-compass-blue text-white" : "text-compass-blue hover:bg-compass-blue/10"}`} data-testid={`scenario-pin-${s.id}`}>{pinned.includes(s.id) ? "Pinned" : "Compare"}</button>
+                  {!readOnly && <button onClick={() => del.mutate(s.id)} className="text-compass-red hover:bg-compass-red/10 rounded-lg p-1.5" data-testid={`scenario-del-${s.id}`}><Trash2 size={15} /></button>}
+                </div>
               </div>
               <div className="text-xs text-compass-muted mb-3">Retire @ {s.inputs?.retirement_age} · {s.inputs?.province} · {s.inputs?.expected_return_pct}% return</div>
               <div className="space-y-1.5">

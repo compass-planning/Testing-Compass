@@ -23,3 +23,9 @@ export const retirementApi = {
   removeScenario: (id) => api.delete(`/plan/retirement/scenarios/${id}`).then((r) => r.data),
 };
 
+export const protectionApi = {
+  life: (body) => api.post(`/plan/protection/life`, body).then((r) => r.data),
+  ltc: (body) => api.post(`/plan/protection/ltc`, body).then((r) => r.data),
+  di: (body) => api.post(`/plan/protection/di`, body).then((r) => r.data),
+};
+
