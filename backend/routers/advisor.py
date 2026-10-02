@@ -492,6 +492,18 @@ def _app_base_url() -> str:
 _REVIEW_DURATIONS = {"week": 7, "month": 30, "quarter": 90}
 
 
+def log_review_event(user: dict, client_id: str, kind: str):
+    """Append-only log of follow-through actions (reviewed|snoozed|unsnoozed) for analytics."""
+    store, _ = scope_context(user)
+    sc = user.get("scope", {})
+    repo.create(store, "review_events", {
+        "id": _id(), "store": store,
+        "scope": {"org_id": sc.get("org_id"), "advisor_id": sc.get("advisor_id"), "client_id": client_id},
+        "kind": kind, "client_id": client_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+
 def _reviewed_set(user: dict) -> set:
     store, flt = scope_context(user)
     now = datetime.now(timezone.utc).isoformat()
@@ -513,6 +525,7 @@ async def mark_reviewed(client_id: str, body: ReviewInput | None = None, user: d
     now_dt = datetime.now(timezone.utc)
     now = now_dt.isoformat()
     existing = next((r for r in repo.list(store, "reviews", flt) if r.get("client_id") == client_id), None)
+    logged = False
     if existing:
         patch = {"reviewed_at": now}
         if body.note is not None:
@@ -520,6 +533,7 @@ async def mark_reviewed(client_id: str, body: ReviewInput | None = None, user: d
         if body.duration:
             patch["duration"] = body.duration
             patch["expires_at"] = (now_dt + timedelta(days=_REVIEW_DURATIONS.get(body.duration, 7))).isoformat()
+            logged = True
         repo.update(store, "reviews", existing["id"], patch, flt)
         res_expires = patch.get("expires_at", existing.get("expires_at"))
         res_dur = patch.get("duration", existing.get("duration"))
@@ -527,10 +541,13 @@ async def mark_reviewed(client_id: str, body: ReviewInput | None = None, user: d
         duration = body.duration or "week"
         res_expires = (now_dt + timedelta(days=_REVIEW_DURATIONS.get(duration, 7))).isoformat()
         res_dur = duration
+        logged = True
         sc = user.get("scope", {})
         repo.create(store, "reviews", {"id": _id(), "store": store, "client_id": client_id,
                                        "scope": {"org_id": sc.get("org_id"), "advisor_id": sc.get("advisor_id"), "client_id": client_id},
                                        "reviewed_at": now, "expires_at": res_expires, "duration": duration, "note": body.note or ""})
+    if logged:
+        log_review_event(user, client_id, "reviewed")
     audit(user, "household.review", "reviews", f"{client_id} ({res_dur})")
     return {"client_id": client_id, "expires_at": res_expires, "duration": res_dur, "note": body.note}
 
@@ -563,6 +580,7 @@ async def snooze_bulk(body: BulkSnoozeInput | None = None, user: dict = Depends(
                                            "scope": {"org_id": sc.get("org_id"), "advisor_id": sc.get("advisor_id"), "client_id": cid},
                                            "reviewed_at": now, "expires_at": expires, "duration": body.duration, "note": ""})
         applied.append(cid)
+        log_review_event(user, cid, "snoozed")
     if applied:
         audit(user, "household.snooze_bulk", "reviews", f"Snoozed {len(applied)} household(s) ({', '.join(body.statuses)})")
     return {"count": len(applied), "applied": applied}
@@ -578,8 +596,57 @@ async def unmark_reviewed(client_id: str, user: dict = Depends(get_current_user)
         if r.get("client_id") == client_id:
             removed += repo.delete(store, "reviews", r["id"], flt)
     if removed:
+        log_review_event(user, client_id, "unsnoozed")
         audit(user, "household.unreview", "reviews", client_id)
     return {"ok": True, "client_id": client_id}
+
+
+@router.post("/advisor/households/{client_id}/ack-return")
+async def ack_return(client_id: str, user: dict = Depends(get_current_user)):
+    """Dismiss the 'snooze ended' cue by clearing the expired review record (no event logged)."""
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    store, flt = scope_context(user)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    removed = 0
+    for r in repo.list(store, "reviews", flt):
+        if r.get("client_id") == client_id and r.get("expires_at", "") <= now_iso:
+            removed += repo.delete(store, "reviews", r["id"], flt)
+    return {"ok": True, "client_id": client_id, "removed": removed}
+
+
+@router.get("/advisor/review-analytics")
+async def review_analytics(days: int = 7, user: dict = Depends(get_current_user)):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    days = 30 if days == 30 else 7
+    store, flt = scope_context(user)
+    tz = ZoneInfo("America/Toronto")
+    today = datetime.now(tz).date()
+    start = today - timedelta(days=days - 1)
+    buckets = {(start + timedelta(days=i)).isoformat(): {"date": (start + timedelta(days=i)).isoformat(),
+               "reviewed": 0, "snoozed": 0, "unsnoozed": 0} for i in range(days)}
+    totals = {"reviewed": 0, "snoozed": 0, "unsnoozed": 0}
+    for e in repo.list(store, "review_events", flt):
+        kind = e.get("kind")
+        ts = e.get("timestamp")
+        if kind not in totals or not ts:
+            continue
+        try:
+            dt = datetime.fromisoformat(ts)
+        except ValueError:
+            continue
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        d = dt.astimezone(tz).date()
+        if d < start or d > today:
+            continue
+        buckets[d.isoformat()][kind] += 1
+        totals[kind] += 1
+    series = [buckets[k] for k in sorted(buckets)]
+    acted = totals["reviewed"] + totals["snoozed"]
+    follow_through = round(totals["reviewed"] / acted * 100) if acted else None
+    return {"days": days, "totals": totals, "series": series, "follow_through": follow_through}
 
 
 def _book_stats(user: dict) -> dict:
@@ -681,13 +748,18 @@ async def advisor_today(user: dict = Depends(get_current_user)):
                 "expires_at": r.get("expires_at"), "note": r.get("note", "")}
                for r in all_reviews if r.get("client_id") and r.get("expires_at", "") > now_iso]
     snoozed.sort(key=lambda x: x["primary"])
-    reviewed_this_week = sum(1 for r in all_reviews if r.get("reviewed_at", "") >= week_ago)
+    expired_returns = {r["client_id"]: r.get("expires_at") for r in all_reviews
+                       if r.get("client_id") and r.get("expires_at") and r.get("expires_at", "") <= now_iso}
+    reviewed_this_week = sum(1 for e in repo.list(store, "review_events", flt)
+                             if e.get("kind") == "reviewed" and e.get("timestamp", "") >= week_ago)
     return {
         "overdue": overdue,
         "due_today": due_today,
         "snoozed": snoozed,
         "reviewed_this_week": reviewed_this_week,
         "attention": [{"client_id": c["client_id"], "primary": c.get("primary") or c["client_id"],
-                       "status": c["status"], "score": c.get("score"), "next_action": c.get("next_action")}
+                       "status": c["status"], "score": c.get("score"), "next_action": c.get("next_action"),
+                       "returned_from_snooze": c["client_id"] in expired_returns,
+                       "snoozed_until": expired_returns.get(c["client_id"])}
                       for c in attention[:6]],
     }

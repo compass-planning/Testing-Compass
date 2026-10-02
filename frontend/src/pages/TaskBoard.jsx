@@ -1,16 +1,19 @@
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Trash2, ClipboardList, Bell, CalendarIcon, Send, X } from "lucide-react";
+import { CheckCircle2, Trash2, ClipboardList, Bell, CalendarIcon, Send, X, BarChart3 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import api, { formatApiError } from "@/lib/api";
-import { Card, Button, Empty, Badge, Toggle, Select } from "@/components/ui-kit";
+import { Card, Button, Empty, Badge, Toggle, Select, Stat } from "@/components/ui-kit";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { PageHeader } from "@/components/PageHeader";
 
 const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const fromISO = (s) => { if (!s) return undefined; const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const fmtHour = (h) => { const am = h < 12; const base = h % 12 === 0 ? 12 : h % 12; return `${base}:00 ${am ? "AM" : "PM"}`; };
+const fmtTs = (ts) => new Date(ts).toLocaleString("en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
 function DueDatePicker({ value, onChange, testid }) {
   const [open, setOpen] = React.useState(false);
@@ -29,6 +32,30 @@ function DueDatePicker({ value, onChange, testid }) {
         </PopoverContent>
       </Popover>
       {value && <button onClick={() => onChange("")} title="Clear due date" className="px-1.5 py-1.5 text-compass-muted hover:text-compass-red border-l border-compass-border transition-colors" data-testid={`${testid}-clear`}><X size={13} /></button>}
+    </div>
+  );
+}
+
+function NotificationSummary({ s, history }) {
+  const lastSentOf = (kind) => { const row = (history || []).find((h) => h.kind === kind && h.sent); return row ? fmtTs(row.timestamp) : "—"; };
+  const rows = [
+    { kind: "daily", label: "Daily task digest", on: s.enabled, hour: s.daily_hour },
+    { kind: "weekly", label: "Weekly book-health", on: s.weekly_enabled, hour: s.weekly_hour },
+    { kind: "summary", label: "End-of-day recap", on: s.summary_enabled, hour: s.summary_hour },
+  ];
+  return (
+    <div className="rounded-xl border border-compass-border overflow-hidden mb-4" data-testid="notification-summary">
+      <div className="grid grid-cols-[1.4fr_0.7fr_0.9fr_1.2fr] bg-compass-bg/60 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-compass-muted">
+        <span>Digest</span><span>Status</span><span>Fires at</span><span>Last sent</span>
+      </div>
+      {rows.map((r) => (
+        <div key={r.kind} className="grid grid-cols-[1.4fr_0.7fr_0.9fr_1.2fr] items-center px-3 py-2.5 border-t border-compass-border text-sm" data-testid={`notif-summary-${r.kind}`}>
+          <span className="font-semibold text-compass-navy truncate pr-2">{r.label}</span>
+          <span>{r.on ? <Badge color="#00A36C" bg="rgba(0,163,108,0.12)">On</Badge> : <Badge color="#A3AED0" bg="rgba(163,174,208,0.16)">Off</Badge>}</span>
+          <span className="text-compass-navy">{r.on ? fmtHour(r.hour) : "—"}</span>
+          <span className="text-compass-muted truncate" data-testid={`notif-last-sent-${r.kind}`}>{lastSentOf(r.kind)}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -60,14 +87,12 @@ function DigestSettings() {
     onError: () => toast.error("Could not send recap"),
   });
   const retryFor = (kind) => (kind === "weekly" ? weeklyPreview : kind === "summary" ? summaryPreview : preview);
-  const fmtHour = (h) => { const am = h < 12; const base = h % 12 === 0 ? 12 : h % 12; return `${base}:00 ${am ? "AM" : "PM"}`; };
   const HourSelect = ({ value, onChange, disabled, testid }) => (
     <div className="w-28"><Select value={String(value)} disabled={disabled} onChange={(e) => onChange(Number(e.target.value))} data-testid={testid}>
       {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{fmtHour(h)}</option>)}
     </Select></div>
   );
   const history = historyQ.data || [];
-  const fmtTs = (ts) => new Date(ts).toLocaleString("en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   if (q.isLoading) return <Card className="p-5 mb-6 h-24 animate-pulse" data-testid="digest-settings-card" />;
   return (
     <Card className="p-5 mb-6" data-testid="digest-settings-card">
@@ -76,6 +101,7 @@ function DigestSettings() {
         <div className="flex-1 min-w-0">
           <div className="font-heading font-bold text-compass-navy">Email digests</div>
           <p className="text-sm text-compass-muted mt-0.5 mb-3">We only email you when there's something to see, and never ask for passwords or card details.</p>
+          <NotificationSummary s={s} history={history} />
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-3 justify-between rounded-lg bg-compass-bg/50 px-3 py-2.5">
               <div>
@@ -138,6 +164,83 @@ function DigestSettings() {
   );
 }
 
+function ReviewAnalytics() {
+  const [days, setDays] = React.useState(7);
+  const q = useQuery({ queryKey: ["review-analytics", days], queryFn: async () => (await api.get(`/advisor/review-analytics?days=${days}`)).data });
+  const d = q.data;
+  const fmtDay = (s) => { const p = s.split("-"); return `${p[2]}/${p[1]}`; };
+  const totals = d?.totals || { reviewed: 0, snoozed: 0, unsnoozed: 0 };
+  const hasData = (d?.series || []).some((x) => x.reviewed || x.snoozed || x.unsnoozed);
+  return (
+    <Card className="p-5 mb-6" data-testid="review-analytics-card">
+      <div className="flex items-start gap-3">
+        <div className="h-10 w-10 rounded-xl bg-compass-green/10 flex items-center justify-center shrink-0"><BarChart3 size={18} className="text-compass-green" /></div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <div className="font-heading font-bold text-compass-navy">Review follow-through</div>
+              <p className="text-sm text-compass-muted mt-0.5">How often you reviewed households vs snoozed them.</p>
+            </div>
+            <div className="inline-flex rounded-lg border border-compass-border overflow-hidden" data-testid="analytics-range-toggle">
+              {[7, 30].map((n) => (
+                <button key={n} onClick={() => setDays(n)} data-testid={`analytics-range-${n}`}
+                  className={`px-3 py-1.5 text-xs font-semibold transition-colors ${days === n ? "gradient-bg text-white" : "bg-white text-compass-navy hover:bg-compass-bg"}`}>
+                  {n} days
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3 mt-4">
+            <Stat label="Reviewed" value={totals.reviewed} />
+            <Stat label="Snoozed" value={totals.snoozed} />
+            <Stat label="Follow-through" value={d?.follow_through != null ? `${d.follow_through}%` : "—"} accent />
+          </div>
+          <div className="mt-4" data-testid="analytics-chart">
+            {q.isLoading ? (
+              <div className="h-56 animate-pulse rounded-xl bg-compass-bg/60" />
+            ) : hasData ? (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={d.series} margin={{ left: 0, right: 8, top: 8 }} barGap={2}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#EDF1F7" vertical={false} />
+                  <XAxis dataKey="date" tickFormatter={fmtDay} tick={{ fill: "#A3AED0", fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis allowDecimals={false} tick={{ fill: "#A3AED0", fontSize: 11 }} axisLine={false} tickLine={false} width={28} />
+                  <Tooltip labelFormatter={fmtDay} contentStyle={{ borderRadius: 12, border: "1px solid #E2E8F0" }} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="reviewed" name="Reviewed" fill="#00DF89" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="snoozed" name="Snoozed" fill="#FFB800" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-sm text-compass-muted py-10 text-center">No review activity in this window yet. Mark households reviewed or snoozed from your dashboard to build your trend.</div>
+            )}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function SettingsPanel() {
+  const [tab, setTab] = React.useState("notifications");
+  const tabs = [
+    { id: "notifications", label: "Notifications", icon: Bell },
+    { id: "analytics", label: "Review analytics", icon: BarChart3 },
+  ];
+  return (
+    <div>
+      <div className="inline-flex rounded-xl border border-compass-border bg-white p-1 mb-4" data-testid="settings-tabs">
+        {tabs.map((tb) => (
+          <button key={tb.id} onClick={() => setTab(tb.id)} data-testid={`settings-tab-${tb.id}`}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors ${tab === tb.id ? "gradient-bg text-white" : "text-compass-navy hover:bg-compass-bg"}`}>
+            <tb.icon size={15} /> {tb.label}
+          </button>
+        ))}
+      </div>
+      {tab === "notifications" ? <DigestSettings /> : <ReviewAnalytics />}
+    </div>
+  );
+}
+
 export default function TaskBoard() {
   const qc = useQueryClient();
   const tasksQ = useQuery({ queryKey: ["tasks"], queryFn: async () => (await api.get("/advisor/tasks")).data });
@@ -170,7 +273,7 @@ export default function TaskBoard() {
   return (
     <div data-testid="task-board-page">
       <PageHeader title="Task Board" subtitle="Follow-ups logged from your household queue, in one place." />
-      <DigestSettings />
+      <SettingsPanel />
       {tasks.length === 0 ? (
         <Empty icon={ClipboardList} title="No tasks yet">Log a task from any Opportunities row to see it here.</Empty>
       ) : (
