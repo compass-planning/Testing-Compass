@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui-kit";
 import { TIER_META } from "@/lib/format";
 import CommandPalette from "@/components/CommandPalette";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
+import SessionWarningModal from "@/components/SessionWarningModal";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 
 function LangToggle() {
@@ -51,6 +52,7 @@ function getNav(tier, active, isClient) {
   const gov = { label: "Governance", tabs: [
     { to: "/privacy", label: "Privacy & PIPEDA", icon: ShieldCheck },
     { to: "/audit", label: "Audit Log", icon: ScrollText },
+    { to: "/security", label: "Security", icon: KeyRound },
   ]};
   if (tier === "solo" && isClient) {
     return [
@@ -111,9 +113,17 @@ export default function Shell() {
     nav("/login");
   };
 
-  useIdleLogout(() => {
-    doLogout();
-    toast("Signed out due to inactivity", { description: "Please sign in again to continue." });
+  const [warnOpen, setWarnOpen] = useState(false);
+  const idleMin = (user.security_settings && user.security_settings.idle_minutes) || 15;
+  const { stay } = useIdleLogout({
+    timeoutMs: idleMin * 60000,
+    warnMs: 60000,
+    onWarn: () => setWarnOpen(true),
+    onIdle: () => {
+      setWarnOpen(false);
+      doLogout();
+      toast("Signed out due to inactivity", { description: "Please sign in again to continue." });
+    },
   });
 
   const SidebarInner = (
@@ -248,6 +258,12 @@ export default function Shell() {
       </div>
       {user.tier === "advisor" && <CommandPalette />}
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
+      <SessionWarningModal
+        open={warnOpen}
+        seconds={60}
+        onStay={() => { setWarnOpen(false); stay(); }}
+        onLogout={() => { setWarnOpen(false); doLogout(); }}
+      />
     </div>
   );
 }

@@ -157,6 +157,24 @@ async def change_password(body: ChangePasswordInput):
     return _issue_session(repo.find_user_by_id(user["id"]))
 
 
+import time
+
+# --- brute-force guard for self-service password change (5 fails / 15 min per user) ---
+_PW_FAILS: dict = {}
+_PW_LIMIT, _PW_WINDOW = 5, 900
+
+
+def _pw_rate_blocked(uid: str) -> bool:
+    now = time.time()
+    hist = [t for t in _PW_FAILS.get(uid, []) if now - t < _PW_WINDOW]
+    _PW_FAILS[uid] = hist
+    return len(hist) >= _PW_LIMIT
+
+
+def _pw_record_fail(uid: str):
+    _PW_FAILS.setdefault(uid, []).append(time.time())
+
+
 class SelfChangePasswordInput(BaseModel):
     current_password: str
     new_password: str = Field(min_length=8)
@@ -164,14 +182,42 @@ class SelfChangePasswordInput(BaseModel):
 
 @router.post("/auth/change-password-self")
 async def change_password_self(body: SelfChangePasswordInput, user: dict = Depends(get_current_user)):
+    if _pw_rate_blocked(user["id"]):
+        raise HTTPException(status_code=429, detail="Too many attempts. Please try again in 15 minutes.")
     u = repo.find_user_by_id(user["id"])
     if not u or not verify_password(body.current_password, u["password_hash"]):
+        _pw_record_fail(user["id"])
         raise HTTPException(status_code=401, detail="Current password is incorrect")
     if verify_password(body.new_password, u["password_hash"]):
         raise HTTPException(status_code=400, detail="Choose a password different from your current one")
     repo.update_user(u["id"], {"password_hash": hash_password(body.new_password)})
+    _PW_FAILS.pop(user["id"], None)
     audit(u, "auth.password_change", "account", "Self-service password change")
     return {"ok": True}
+
+
+ALLOWED_IDLE = [5, 15, 30]
+
+
+class SecuritySettingsInput(BaseModel):
+    idle_minutes: int
+
+
+@router.get("/auth/security-settings")
+async def get_security_settings(user: dict = Depends(get_current_user)):
+    ss = user.get("security_settings") or {}
+    return {"idle_minutes": ss.get("idle_minutes", 15)}
+
+
+@router.put("/auth/security-settings")
+async def put_security_settings(body: SecuritySettingsInput, user: dict = Depends(get_current_user)):
+    if body.idle_minutes not in ALLOWED_IDLE:
+        raise HTTPException(status_code=400, detail="Inactivity window must be 5, 15 or 30 minutes")
+    ss = dict(user.get("security_settings") or {})
+    ss["idle_minutes"] = body.idle_minutes
+    repo.update_user(user["id"], {"security_settings": ss})
+    audit(user, "auth.security_settings", "account", f"Idle timeout set to {body.idle_minutes}m")
+    return {"idle_minutes": body.idle_minutes}
 
 
 class ActivateInput(BaseModel):

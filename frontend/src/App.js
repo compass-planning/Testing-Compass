@@ -35,6 +35,7 @@ import MyPlan from "@/pages/MyPlan";
 import TaskBoard from "@/pages/TaskBoard";
 import Education from "@/pages/Education";
 import CrossBorder from "@/pages/CrossBorder";
+import SecuritySettings from "@/pages/SecuritySettings";
 
 function TierRoute({ tiers, children }) {
   const { user } = useAuth();
@@ -91,6 +92,7 @@ function App() {
               <Route path="/report" element={<RequireHousehold><ClientReport /></RequireHousehold>} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/audit" element={<AuditLog />} />
+              <Route path="/security" element={<SecuritySettings />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
