@@ -20,8 +20,15 @@ const PROVINCES = ["ON", "BC", "AB", "QC"];
 
 export default function ClientReport() {
   const { user } = useAuth();
-  const { t } = useLang();
+  const { t, lang, setLang } = useLang();
   const qc = useQueryClient();
+  const printAs = (l) => {
+    const prev = lang;
+    setLang(l);
+    const restore = () => { setLang(prev); window.removeEventListener("afterprint", restore); };
+    window.addEventListener("afterprint", restore);
+    setTimeout(() => window.print(), 350);
+  };
   const brandKey = `compass_brand_${user.id}`;
   const [brand, setBrand] = useState({ firm_name: "Compass Planning", cover_note: "", logo: "", logo_url: "" });
   const [recipient, setRecipient] = useState("");
@@ -219,7 +226,8 @@ export default function ClientReport() {
   return (
     <div>
       <PageHeader title="Client Report" subtitle="A branded one-page household summary you can download and share.">
-        <Button variant="outline" onClick={() => window.print()} data-testid="print-preview"><Printer size={16} /> Print preview</Button>
+        <Button variant="outline" onClick={() => printAs("en")} data-testid="print-en"><Printer size={16} /> Print (EN)</Button>
+        <Button variant="outline" onClick={() => printAs("fr")} data-testid="print-fr"><Printer size={16} /> Print (FR)</Button>
         <Button variant="outline" onClick={downloadFullPlan} data-testid="download-full-plan"><FileText size={16} /> Full plan PDF</Button>
         <Button onClick={download} data-testid="download-report"><Download size={16} /> Download PDF</Button>
       </PageHeader>

@@ -11,7 +11,7 @@ from models import (
 )
 from deps import (
     get_current_user, scope_context, write_scope, audit, _block_enterprise_write,
-    _eff_hh, _clean, planner_scope, PLAN_COLLECTIONS,
+    _eff_hh, _clean, planner_scope, PLAN_COLLECTIONS, ALLOW_ENTERPRISE_WRITE,
 )
 from email_service import send_email, render_report_html, rate_ok
 from engine.report_pdf import build_plan_pdf, build_crossborder_pdf
@@ -692,6 +692,36 @@ def _ent_group(user):
         else:
             current["owners"].append(o)
     return store, flt, households
+
+
+@router.delete("/enterprise/household/{hid}")
+async def delete_enterprise_household(hid: str, user: dict = Depends(get_current_user)):
+    if user["tier"] != "enterprise":
+        raise HTTPException(status_code=403, detail="Enterprise tier only")
+    if not ALLOW_ENTERPRISE_WRITE:
+        raise HTTPException(status_code=403, detail="CRM (Salesforce) is the source of truth for Enterprise records.")
+    store, flt, households = _ent_group(user)
+    hh = next((h for h in households if h["id"] == hid), None)
+    if not hh:
+        raise HTTPException(status_code=404, detail="Household not found")
+    owner_ids = {o["id"] for o in hh["owners"]}
+    removed = {"owners": 0, "accounts": 0, "goals": 0, "plan": 0}
+    for a in repo.list(store, "accounts", flt):
+        if a.get("owner_id") in owner_ids and repo.delete(store, "accounts", a["id"], flt):
+            removed["accounts"] += 1
+    for g in repo.list(store, "goals", flt):
+        if (g.get("owner_id") in owner_ids or g.get("household_id") == hid) and repo.delete(store, "goals", g["id"], flt):
+            removed["goals"] += 1
+    for coll in PLAN_COLLECTIONS:
+        for r in repo.list(store, f"plan_{coll}", flt):
+            if r.get("household_id") == hid and repo.delete(store, f"plan_{coll}", r["id"], flt):
+                removed["plan"] += 1
+    for oid in owner_ids:
+        if repo.delete(store, "owners", oid, flt):
+            removed["owners"] += 1
+    primary = next((o.get("full_name") for o in hh["owners"] if o.get("relationship") == "self"), None) or (hh["owners"][0].get("full_name") if hh["owners"] else hid)
+    audit(user, "enterprise.household.delete", "owners", f"Deleted household {primary} ({hid})")
+    return {"ok": True, "removed": removed}
 
 
 @router.get("/enterprise/household/{hid}")

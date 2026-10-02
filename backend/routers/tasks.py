@@ -233,6 +233,53 @@ async def cron_task_digest(background: BackgroundTasks, authorization: str = Hea
     return {"status": "accepted"}
 
 
+RENEWAL_LEAD_DAYS = 60
+
+
+async def _run_renewal_reminders():
+    """Create advisor tasks for insurance policies renewing within the lead window (de-duplicated)."""
+    today = datetime.now(ZoneInfo("America/Toronto")).date()
+    horizon = today + timedelta(days=RENEWAL_LEAD_DAYS)
+    created = 0
+    for u in repo.all_users():
+        if u.get("tier") != "advisor":
+            continue
+        store, flt = scope_context(u)
+        policies = repo.list(store, "plan_insurance", flt)
+        refs = {t.get("renewal_ref") for t in repo.list(store, "tasks", flt) if t.get("renewal_ref")}
+        owners = {o["id"]: o for o in repo.list(store, "owners", flt)}
+        for p in policies:
+            rd = (p.get("renewal_date") or "").strip()[:10]
+            if not rd or p["id"] in refs:
+                continue
+            try:
+                d = datetime.strptime(rd, "%Y-%m-%d").date()
+            except Exception:
+                continue
+            if not (today <= d <= horizon):
+                continue
+            insured = p.get("insured") or (owners.get(p.get("owner_id")) or {}).get("full_name") or "client"
+            title = f"Policy renewal: {p.get('carrier') or 'Policy'} {p.get('policy_type') or ''} for {insured} on {rd}".replace("  ", " ").strip()
+            rec = {"id": _id(), "store": store, "scope": write_scope(u, client_id=p.get("scope", {}).get("client_id")),
+                   "title": title, "done": False, "due_date": rd, "actor_email": u["email"],
+                   "renewal_ref": p["id"], "source": "renewal-reminder",
+                   "created_at": datetime.now(timezone.utc).isoformat()}
+            repo.create(store, "tasks", rec)
+            created += 1
+    logger.info(f"Renewal reminders run: created {created} task(s)")
+    return created
+
+
+@router.post("/cron/renewal-reminders")
+async def cron_renewal_reminders(background: BackgroundTasks, authorization: str = Header(default="")):
+    secret = os.environ.get("WEBHOOK_CRON_SECRET", "")
+    token = authorization[7:] if authorization.startswith("Bearer ") else ""
+    if not secret or not token or not _secrets.compare_digest(token, secret):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    background.add_task(_run_renewal_reminders)
+    return {"status": "accepted"}
+
+
 @router.post("/advisor/digest-preview")
 async def digest_preview(user: dict = Depends(get_current_user)):
     if user["tier"] != "advisor":

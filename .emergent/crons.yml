@@ -30,3 +30,11 @@ crons:
     method: POST
     # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
     enabled: true
+  - name: renewal-reminders
+    description: "Daily scan of insurance policies renewing within 60 days; creates a de-duplicated advisor task per policy"
+    cron: "0 12 * * *"
+    timezone: "America/Toronto"
+    endpoint: "{{BASE_URL}}/api/cron/renewal-reminders"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true

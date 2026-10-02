@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Building2, Users, Gauge, AlertTriangle, UserPlus, Pencil, Plus } from "lucide-react";
+import { Building2, Users, Gauge, AlertTriangle, UserPlus, Pencil, Plus, Trash2 } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { enterpriseApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
@@ -94,6 +94,7 @@ export default function EnterpriseOverview() {
   const q = useQuery({ queryKey: ["enterprise-overview"], queryFn: enterpriseApi.overview });
   const [drill, setDrill] = useState(null);
   const [newOpen, setNewOpen] = useState(false);
+  const [delHh, setDelHh] = useState(null);
   const { user } = useAuth();
   const { setActive, clear } = useHousehold();
   const navigate = useNavigate();
@@ -120,6 +121,18 @@ export default function EnterpriseOverview() {
 
   const d = q.data;
   if (!d) return null;
+
+  const delMut = {
+    run: async () => {
+      try {
+        await enterpriseApi.deleteHousehold(delHh.id);
+        qc.invalidateQueries({ queryKey: ["enterprise-overview"] });
+        toast.success(`Deleted ${delHh.primary}'s household`);
+      } catch (e) {
+        toast.error(formatApiError(e.response?.data?.detail) || "Could not delete household");
+      } finally { setDelHh(null); }
+    },
+  };
 
   return (
     <div className="mt-6 space-y-6" data-testid="enterprise-overview">
@@ -150,7 +163,7 @@ export default function EnterpriseOverview() {
                   <td className="px-5 py-2.5">{h.goals}</td>
                   <td className="px-5 py-2.5"><Badge color={sev(h.score)} bg="rgba(0,82,255,0.06)">{h.score ?? "—"}</Badge></td>
                   <td className="px-5 py-2.5"><span className="text-xs font-semibold" style={{ color: STATUS_COLOR[h.status] }}>{h.status}</span>{h.invite_status && <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ color: h.invite_status === "accepted" ? "#00A36C" : "#FFB800", background: h.invite_status === "accepted" ? "rgba(0,163,108,0.12)" : "rgba(255,184,0,0.14)" }} data-testid={`invite-status-${h.id}`}>{h.invite_status === "accepted" ? "Portal active" : "Invite pending"}</span>}</td>
-                  {canWrite && <td className="px-5 py-2.5 text-right"><Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); openHousehold(h); }} data-testid={`open-household-${h.id}`}><Pencil size={13} /> Open &amp; edit</Button></td>}
+                  {canWrite && <td className="px-5 py-2.5 text-right whitespace-nowrap"><div className="inline-flex items-center gap-1.5"><Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); openHousehold(h); }} data-testid={`open-household-${h.id}`}><Pencil size={13} /> Open &amp; edit</Button><button onClick={(e) => { e.stopPropagation(); setDelHh(h); }} data-testid={`delete-household-${h.id}`} className="text-compass-red hover:bg-compass-red/10 rounded-lg p-2"><Trash2 size={15} /></button></div></td>}
                 </tr>
               ))}
             </tbody>
@@ -210,6 +223,15 @@ export default function EnterpriseOverview() {
 
       <HouseholdDrill hid={drill} onClose={() => setDrill(null)} />
       <NewCorpHouseholdModal open={newOpen} onClose={() => setNewOpen(false)} onSubmit={createHousehold} />
+      <Modal open={!!delHh} onClose={() => setDelHh(null)} title="Delete household?" testid="delete-household-modal">
+        <div className="space-y-4">
+          <p className="text-sm text-compass-navy">This permanently removes <span className="font-semibold">{delHh?.primary}</span>'s household — all members, accounts, goals and plan data. This cannot be undone.</p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" onClick={() => setDelHh(null)}>Cancel</Button>
+            <Button variant="danger" onClick={delMut.run} data-testid="confirm-delete-household"><Trash2 size={15} /> Delete household</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

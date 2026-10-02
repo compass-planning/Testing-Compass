@@ -62,6 +62,7 @@ export const enterpriseApi = {
   overview: () => api.get(`/enterprise/overview`).then((r) => r.data),
   household: (hid) => api.get(`/enterprise/household/${hid}`).then((r) => r.data),
   invite: (body) => api.post(`/enterprise/clients/invite`, body).then((r) => r.data),
+  deleteHousehold: (hid) => api.delete(`/enterprise/household/${hid}`).then((r) => r.data),
 };
 
 export const crossBorderApi = {

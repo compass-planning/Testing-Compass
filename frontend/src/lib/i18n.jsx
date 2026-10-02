@@ -73,6 +73,58 @@ const DICT = {
 const Ctx = createContext(null);
 const KEY = "compass_lang";
 
+// English-keyed FR map for the global advisor-screen pass (nav, page headers, chrome, empties).
+const EN2FR = {
+  // nav + groups
+  "Net Worth": "Valeur nette", "Goals": "Objectifs", "Debt": "Dettes", "Retirement": "Retraite",
+  "Education": "Études", "Insurance": "Assurance", "Cross-Border": "Transfrontalier",
+  "Cash Flow": "Flux de trésorerie", "Tax & Estate": "Fiscalité et succession",
+  "AI Insights": "Analyses IA", "Documents": "Documents", "Client Report": "Rapport client",
+  "Financial Plan": "Plan financier", "Privacy & PIPEDA": "Confidentialité et LPRPDE",
+  "Audit Log": "Journal d'audit", "My Plan": "Mon plan", "Insights": "Analyses", "My Goals": "Mes objectifs",
+  "My Profile": "Mon profil", "My Dashboard": "Mon tableau de bord", "Dashboard": "Tableau de bord",
+  "Client Profile": "Profil du client", "Clients": "Clients", "Tasks": "Tâches", "Households": "Ménages",
+  "CRM Sync": "Synchro CRM", "Work with an Advisor": "Travailler avec un conseiller",
+  "Activity Log": "Journal d'activité",
+  "Financial Planning Suite": "Suite de planification financière", "Reports": "Rapports",
+  "Governance": "Gouvernance", "Overview": "Vue d'ensemble", "Privacy": "Confidentialité",
+  // chrome
+  "Active client": "Client actif", "Change client": "Changer de client", "Sign out": "Se déconnecter",
+  "MFA On": "AMF activée", "MFA Off": "AMF désactivée", "Tier": "Palier",
+  "Enterprise": "Entreprise", "Advisor": "Conseiller", "Solo": "Solo",
+  // page titles
+  "Documents & Meetings": "Documents et réunions", "Education (RESP)": "Études (REEE)",
+  "Financial Goals": "Objectifs financiers", "Household Queue": "File des ménages",
+  "Insurance & Protection": "Assurance et protection", "Task Board": "Tableau des tâches",
+  "US / Cross-Border": "É.-U. / transfrontalier",
+  // page subtitles
+  "A branded one-page household summary you can download and share.": "Un sommaire d'une page à votre image, à télécharger et à partager.",
+  "A consolidated snapshot of your household plan across every module.": "Un aperçu consolidé du plan du ménage, tous modules confondus.",
+  "A secure vault for plans, statements and wills — plus recorded meeting notes.": "Un coffre sécurisé pour les plans, relevés et testaments — avec les notes de réunion enregistrées.",
+  "An insight-led view of where your household stands today.": "Une vue axée sur les analyses de la situation actuelle du ménage.",
+  "Append-only record of activity within your tenant scope. Foundation for PIPEDA breach/audit reporting.": "Registre en ajout seul de l'activité dans votre périmètre. Base des rapports d'audit et d'atteinte LPRPDE.",
+  "Balances, rates and payoff strategy for the household.": "Soldes, taux et stratégie de remboursement du ménage.",
+  "Canadian projection, Monte Carlo stress-testing and drawdown strategy.": "Projection canadienne, simulations Monte-Carlo et stratégie de décaissement.",
+  "Canadian tax projection, registered-account room and estate planning (illustrative).": "Projection fiscale canadienne, droits de cotisation et planification successorale (à titre indicatif).",
+  "Classify tax jurisdiction and estimate US federal + state tax and Social Security for cross-border households.": "Déterminez la juridiction fiscale et estimez l'impôt fédéral et d'État américain ainsi que la Sécurité sociale pour les ménages transfrontaliers.",
+  "Every household in your book, scored and triaged by what needs attention.": "Chaque ménage de votre portefeuille, noté et trié selon ce qui requiert votre attention.",
+  "Follow-ups logged from your household queue, in one place.": "Les suivis consignés depuis votre file de ménages, au même endroit.",
+  "Household balance sheet — assets, liabilities and education savings.": "Bilan du ménage — actifs, passifs et épargne-études.",
+  "Household details that power your plan: income, retirement age and spouse.": "Les renseignements du ménage qui alimentent votre plan : revenu, âge de la retraite et conjoint.",
+  "Household members, income and retirement details that power the plan.": "Membres du ménage, revenu et détails de retraite qui alimentent le plan.",
+  "Life-insurance needs analysis, disability and long-term-care planning.": "Analyse des besoins en assurance vie, invalidité et soins de longue durée.",
+  "Manage consent, exercise your right to access and erasure, and review your retention policy.": "Gérez le consentement, exercez vos droits d'accès et d'effacement, et consultez votre politique de conservation.",
+  "Monthly household income versus expenses.": "Revenus mensuels du ménage par rapport aux dépenses.",
+  "Plain-language, plan-aware guidance generated from your household data.": "Des conseils en langage clair, adaptés au plan, générés à partir des données du ménage.",
+  "Plan an RESP for each child with CESG and CLB grants, then save them as goals.": "Planifiez un REEE pour chaque enfant avec les subventions SCEE et BEC, puis enregistrez-les comme objectifs.",
+  "Promote your Solo plan to an advisor-managed household. Your explicit consent is re-captured and the migration is fully audited.": "Faites passer votre plan Solo à un ménage géré par un conseiller. Votre consentement explicite est recueilli de nouveau et la migration est entièrement auditée.",
+  "Salesforce is the authoritative source of truth. Compass pulls from it — deletions never propagate back.": "Salesforce est la source de vérité. Compass s'y synchronise — les suppressions ne sont jamais propagées en retour.",
+  "Track progress toward retirement, income, legacy and major-purchase goals.": "Suivez la progression vers vos objectifs de retraite, de revenu, d'héritage et d'achats importants.",
+  // common empties
+  "No clients yet": "Aucun client pour l'instant", "No household members yet": "Aucun membre du ménage",
+  "No goals yet": "Aucun objectif pour l'instant", "No goals on file.": "Aucun objectif au dossier.",
+};
+
 export function LanguageProvider({ children }) {
   const [lang, setLangState] = useState(() => localStorage.getItem(KEY) || "en");
   const setLang = (l) => { localStorage.setItem(KEY, l); setLangState(l); };
@@ -81,7 +133,9 @@ export function LanguageProvider({ children }) {
     if (vars) Object.keys(vars).forEach((k) => { s = s.replace(`{${k}}`, vars[k]); });
     return s;
   }, [lang]);
-  return <Ctx.Provider value={{ lang, setLang, t }}>{children}</Ctx.Provider>;
+  const tr = useCallback((s) => (lang === "fr" && typeof s === "string" ? (EN2FR[s] || s) : s), [lang]);
+  return <Ctx.Provider value={{ lang, setLang, t, tr }}>{children}</Ctx.Provider>;
 }
 
-export const useLang = () => useContext(Ctx) || { lang: "en", setLang: () => {}, t: (k) => k };
+export const useLang = () => useContext(Ctx) || { lang: "en", setLang: () => {}, t: (k) => k, tr: (s) => s };
+export const useTr = () => (useContext(Ctx) || { tr: (s) => s }).tr;

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTr } from "@/lib/i18n";
 
 export function Button({ variant = "primary", size = "md", className = "", children, ...props }) {
   const sizes = { sm: "px-3 py-1.5 text-sm", md: "px-5 py-2.5 text-sm", lg: "px-7 py-3 text-base" };
@@ -127,11 +128,12 @@ export function Toggle({ checked, onChange, testid }) {
 }
 
 export function Empty({ icon: Icon, title, children }) {
+  const tr = useTr();
   return (
     <Card className="p-10 text-center">
       {Icon && <Icon className="mx-auto mb-3 text-compass-muted" size={40} strokeWidth={1.5} />}
-      <div className="font-heading font-bold text-compass-navy">{title}</div>
-      {children && <div className="text-sm text-compass-muted mt-1">{children}</div>}
+      <div className="font-heading font-bold text-compass-navy">{tr(title)}</div>
+      {children && <div className="text-sm text-compass-muted mt-1">{typeof children === "string" ? tr(children) : children}</div>}
     </Card>
   );
 }

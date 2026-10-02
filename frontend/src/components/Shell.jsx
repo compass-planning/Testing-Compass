@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useHousehold } from "@/context/HouseholdContext";
-import { useLang } from "@/lib/i18n";
+import { useLang, useTr } from "@/lib/i18n";
 import { Logo, CompassMark } from "@/components/Logo";
 import { Badge } from "@/components/ui-kit";
 import { TIER_META } from "@/lib/format";
@@ -97,6 +97,7 @@ export default function Shell() {
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
   const items = getNav(user.tier, active, user.is_client);
+  const tr = useTr();
   const TierIcon = TIER_ICON[user.tier];
   const backTo = user.tier === "enterprise" ? "/owners" : "/clients";
 
@@ -115,17 +116,17 @@ export default function Shell() {
         <div className="flex items-center gap-2 rounded-xl bg-compass-bg px-3 py-2.5">
           <TierIcon size={18} className="text-compass-blue" />
           <div className="leading-tight">
-            <div className="text-sm font-bold text-compass-navy">{TIER_META[user.tier].label} Tier</div>
+            <div className="text-sm font-bold text-compass-navy">{tr(TIER_META[user.tier].label)} {tr("Tier")}</div>
             <div className="text-[10px] text-compass-muted uppercase tracking-wide">{TIER_META[user.tier].sub}</div>
           </div>
         </div>
         {user.tier !== "solo" && active && (
           <div className="rounded-xl border border-compass-blue/30 bg-compass-blue/5 px-3 py-2.5" data-testid="active-client-banner">
-            <div className="text-[10px] text-compass-muted uppercase tracking-wide">Active client</div>
+            <div className="text-[10px] text-compass-muted uppercase tracking-wide">{tr("Active client")}</div>
             <div className="text-sm font-bold text-compass-navy truncate">{hhName || active}</div>
             <button onClick={() => { clear(); setOpen(false); nav(backTo); }} data-testid="change-client"
               className="mt-1 flex items-center gap-1 text-xs font-semibold text-compass-blue hover:underline">
-              <ArrowLeft size={13} /> Change client
+              <ArrowLeft size={13} /> {tr("Change client")}
             </button>
           </div>
         )}
@@ -134,7 +135,7 @@ export default function Shell() {
         {items.map((group, gi) => (
           <div key={gi} className="pb-1">
             {group.label && (
-              <div className="px-4 pt-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-compass-muted">{group.label}</div>
+              <div className="px-4 pt-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-compass-muted">{tr(group.label)}</div>
             )}
             {group.tabs.map((it) => (
               <NavLink
@@ -149,7 +150,7 @@ export default function Shell() {
                 }
               >
                 <it.icon size={18} />
-                {it.label}
+                {tr(it.label)}
               </NavLink>
             ))}
           </div>
@@ -170,7 +171,7 @@ export default function Shell() {
           data-testid="logout-button"
           className="flex w-full items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-compass-red hover:bg-compass-red/10 transition-colors"
         >
-          <LogOut size={16} /> Sign out
+          <LogOut size={16} /> {tr("Sign out")}
         </button>
       </div>
     </div>
@@ -214,14 +215,14 @@ export default function Shell() {
             <LangToggle />
             {user.mfa_enabled ? (
               <Badge color="#00DF89" bg="rgba(0,223,137,0.12)" data-testid="mfa-badge">
-                <ShieldCheck size={13} /> MFA On
+                <ShieldCheck size={13} /> {tr("MFA On")}
               </Badge>
             ) : (
               <Badge color="#FFB800" bg="rgba(255,184,0,0.14)" data-testid="mfa-badge">
-                <ShieldCheck size={13} /> MFA Off
+                <ShieldCheck size={13} /> {tr("MFA Off")}
               </Badge>
             )}
-            <Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{TIER_META[user.tier].label}</Badge>
+            <Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{tr(TIER_META[user.tier].label)}</Badge>
           </div>
         </header>
 
