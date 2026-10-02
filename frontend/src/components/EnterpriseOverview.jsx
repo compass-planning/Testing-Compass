@@ -117,7 +117,7 @@ export default function EnterpriseOverview() {
                   <td className="px-5 py-2.5">{money(h.assets)}</td>
                   <td className="px-5 py-2.5">{h.goals}</td>
                   <td className="px-5 py-2.5"><Badge color={sev(h.score)} bg="rgba(0,82,255,0.06)">{h.score ?? "—"}</Badge></td>
-                  <td className="px-5 py-2.5"><span className="text-xs font-semibold" style={{ color: STATUS_COLOR[h.status] }}>{h.status}</span></td>
+                  <td className="px-5 py-2.5"><span className="text-xs font-semibold" style={{ color: STATUS_COLOR[h.status] }}>{h.status}</span>{h.invite_status && <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ color: h.invite_status === "accepted" ? "#00A36C" : "#FFB800", background: h.invite_status === "accepted" ? "rgba(0,163,108,0.12)" : "rgba(255,184,0,0.14)" }} data-testid={`invite-status-${h.id}`}>{h.invite_status === "accepted" ? "Portal active" : "Invite pending"}</span>}</td>
                 </tr>
               ))}
             </tbody>

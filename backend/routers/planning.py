@@ -14,7 +14,7 @@ from deps import (
     _eff_hh, _clean, planner_scope, PLAN_COLLECTIONS,
 )
 from email_service import send_email, render_report_html, rate_ok
-from engine.report_pdf import build_plan_pdf
+from engine.report_pdf import build_plan_pdf, build_crossborder_pdf
 from engine.estate import calculate_estate
 from engine.insurance import protection_score
 from fastapi.responses import StreamingResponse
@@ -485,7 +485,11 @@ async def email_report(body: ReportEmailInput, user: dict = Depends(get_current_
     if cb_saved:
         r = cb_saved[-1].get("result") or {}
         crossborder = {"label": (r.get("jurisdiction") or {}).get("label"), "us_tax": r.get("us_tax"), "social_security": r.get("social_security")}
-    html = render_report_html(household_name, body.net_worth, body.protection_score, body.retirement_success, goals, branding.get("firm_name"), logo_url=branding.get("logo_url"), protection=protection, documents=documents, crossborder=crossborder)
+    ed_saved = repo.list(store, "plan_education", read)
+    if hid:
+        ed_saved = [c for c in ed_saved if c.get("household_id") == hid]
+    education = ed_saved[-1] if ed_saved else None
+    html = render_report_html(household_name, body.net_worth, body.protection_score, body.retirement_success, goals, branding.get("firm_name"), logo_url=branding.get("logo_url"), protection=protection, documents=documents, crossborder=crossborder, education=education)
     email_id = await send_email(to=str(body.recipient), subject=f"{household_name} — financial summary", html=html)
     repo.create(store, "report_log", {
         "id": _id(), "store": store, "scope": ws, "household_id": hid,
@@ -537,18 +541,40 @@ async def report_pdf(user: dict = Depends(get_current_user), household_id: str =
     if cb_saved:
         r = cb_saved[-1].get("result") or {}
         crossborder = {"label": (r.get("jurisdiction") or {}).get("label"), "us_tax": r.get("us_tax"), "social_security": r.get("social_security")}
+    ed_saved = hh(repo.list(store, "plan_education", read))
+    education = ed_saved[-1] if ed_saved else None
 
     data = {
         "household_name": household_name, "firm_name": (user.get("branding") or {}).get("firm_name"),
         "net_worth": assets - liabilities, "total_assets": assets, "total_liabilities": liabilities,
         "protection_score": ps, "protection": protection, "retirement": retirement,
-        "retirement_success": None, "estate": estate, "goals": goals, "crossborder": crossborder,
+        "retirement_success": None, "estate": estate, "goals": goals, "crossborder": crossborder, "education": education,
     }
     pdf = build_plan_pdf(data)
     audit(user, "report.pdf", "report", household_name)
     fname = "".join(c for c in household_name if c.isalnum() or c in " -_").strip().replace(" ", "_") + "_Plan.pdf"
     return StreamingResponse(iter([pdf]), media_type="application/pdf",
                              headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+@router.get("/report/crossborder-pdf")
+async def crossborder_pdf(user: dict = Depends(get_current_user), household_id: str = None):
+    if user["tier"] == "enterprise":
+        raise HTTPException(status_code=403, detail="Not available for this tier")
+    store, read, _, hid = planner_scope(user, household_id)
+    if user["tier"] == "advisor" and not hid:
+        raise HTTPException(status_code=400, detail="Open a household first")
+    rows = [r for r in repo.list(store, "plan_crossborder", read) if (not hid or r.get("household_id") == hid)]
+    if not rows:
+        raise HTTPException(status_code=404, detail="Save a cross-border analysis first")
+    owners = repo.list(store, "owners", read)
+    primary = next((o for o in owners if o.get("relationship") == "self"), owners[0] if owners else None)
+    household_name = f"The {primary['full_name'].split()[-1]} Household" if primary else "Household"
+    pdf = build_crossborder_pdf({"firm_name": (user.get("branding") or {}).get("firm_name"),
+                                 "household_name": household_name, "result": rows[-1].get("result") or {}})
+    audit(user, "report.crossborder_pdf", "report", household_name)
+    return StreamingResponse(iter([pdf]), media_type="application/pdf",
+                             headers={"Content-Disposition": 'attachment; filename="CrossBorder_Summary.pdf"'})
 
 
 # ---------------- Enterprise corp roll-up ----------------
@@ -602,6 +628,15 @@ async def enterprise_overview(user: dict = Depends(get_current_user)):
         h["id"] = h["owner_ids"][0]
         h.update(_ent_household_score(accs, gls))
 
+    invites = {}
+    for u in repo.all_users():
+        if u.get("invited_by") and u.get("scope", {}).get("corp_id") == user.get("scope", {}).get("corp_id"):
+            cid = u.get("scope", {}).get("client_id")
+            if cid:
+                invites[cid] = "accepted" if not u.get("must_change_password") else "pending"
+    for h in households:
+        h["invite_status"] = invites.get(h["id"])
+
     scored = [h for h in households if h.get("score") is not None]
     avg_score = round(sum(h["score"] for h in scored) / len(scored)) if scored else None
     counts = {"On Track": 0, "Needs Review": 0, "At Risk": 0, "Needs Setup": 0}
@@ -637,7 +672,8 @@ async def enterprise_overview(user: dict = Depends(get_current_user)):
         "households_per_planner": round(len(households) / len(planners), 1) if planners else None,
         "households_list": [
             {"id": h["id"], "primary": h["primary"], "province": h.get("province"),
-             "assets": h["assets"], "goals": h["goals"], "score": h.get("score"), "status": h["status"]}
+             "assets": h["assets"], "goals": h["goals"], "score": h.get("score"), "status": h["status"],
+             "invite_status": h.get("invite_status")}
             for h in households
         ],
     }

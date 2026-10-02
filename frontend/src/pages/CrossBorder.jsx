@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Globe, Play, Flag, Landmark, PiggyBank, FileWarning, Save } from "lucide-react";
-import { formatApiError } from "@/lib/api";
+import { Globe, Play, Flag, Landmark, PiggyBank, FileWarning, Save, Download } from "lucide-react";
+import api, { formatApiError } from "@/lib/api";
 import { crossBorderApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
 import { Card, Button, Input, Field, Select, Badge, Stat } from "@/components/ui-kit";
@@ -39,6 +39,15 @@ export default function CrossBorder() {
     onSuccess: (d) => { setRes(d.result); toast.success("Saved to client file — it will appear in the report"); },
     onError: (e) => toast.error(formatApiError(e.response?.data?.detail) || "Could not save"),
   });
+  const downloadOnePager = async () => {
+    try {
+      const r = await api.get("/report/crossborder-pdf", { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([r.data], { type: "application/pdf" }));
+      const a = document.createElement("a"); a.href = url; a.download = "CrossBorder-Summary.pdf";
+      document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+      toast.success("Cross-border summary downloaded");
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail) || "Save the analysis first"); }
+  };
   const j = res?.jurisdiction;
   const ut = res?.us_tax;
   const ss = res?.social_security;
@@ -65,6 +74,7 @@ export default function CrossBorder() {
           </div>
           <Button className="mt-5 w-full" onClick={() => run.mutate()} disabled={run.isPending} data-testid="cb-run"><Play size={16} /> {run.isPending ? "Analyzing…" : "Analyze jurisdiction"}</Button>
           {user.tier !== "enterprise" && <Button variant="outline" className="mt-2 w-full" onClick={() => save.mutate()} disabled={save.isPending} data-testid="cb-save"><Save size={15} /> Save to client file</Button>}
+          {user.tier !== "enterprise" && <Button variant="ghost" className="mt-2 w-full" onClick={downloadOnePager} data-testid="cb-onepager"><Download size={15} /> Download one-pager PDF</Button>}
         </Card>
 
         <div className="lg:col-span-2 space-y-6">

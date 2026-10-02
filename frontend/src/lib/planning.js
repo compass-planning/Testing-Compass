@@ -54,6 +54,8 @@ export const actionItemsApi = {
 
 export const educationApi = {
   resp: (body) => api.post(`/plan/education/resp`, body).then((r) => r.data),
+  save: (body) => api.post(`/plan/education/save`, body).then((r) => r.data),
+  saved: () => api.get(`/plan/education/saved`).then((r) => r.data),
 };
 
 export const enterpriseApi = {

@@ -108,6 +108,18 @@ def build_plan_pdf(data: dict) -> bytes:
             rows.append(("Social Security at FRA (67)", _money(ss.get("fra_monthly")) + "/mo"))
         el.append(_kv_table(rows))
 
+    # Education funding
+    if data.get("education"):
+        ed = data["education"]
+        el.append(Paragraph("Education funding (RESP)", h2))
+        rows = [(f"{c.get('name', 'Child')} — projected",
+                 _money(c.get("projectedValue")) + f" ({c.get('coveragePct', 0)}% covered)")
+                for c in ed.get("per_child", [])]
+        cb = ed.get("combined", {})
+        rows.append(("Combined projected value", _money(cb.get("projectedValue"))))
+        rows.append(("Combined grants (CESG+CLB)", _money(cb.get("totalGrants"))))
+        el.append(_kv_table(rows or [("No children on file", "—")]))
+
     # Goals
     el.append(Paragraph("Goals", h2))
     gdata = [["Goal", "Progress", "Status"]]
@@ -130,6 +142,61 @@ def build_plan_pdf(data: dict) -> bytes:
 
     el.append(Spacer(1, 18))
     el.append(Paragraph(f"Prepared with {firm}. Illustrative summary only. We never ask for your password or card details.", small))
+    doc.build(el)
+    return buf.getvalue()
+
+
+def build_crossborder_pdf(data: dict) -> bytes:
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=letter, topMargin=0.7 * inch, bottomMargin=0.7 * inch,
+                            leftMargin=0.8 * inch, rightMargin=0.8 * inch,
+                            title=f"{data.get('household_name', 'Household')} — Cross-Border Summary")
+    ss = getSampleStyleSheet()
+    h1 = ParagraphStyle("h1", parent=ss["Title"], textColor=NAVY, fontSize=22, spaceAfter=2)
+    sub = ParagraphStyle("sub", parent=ss["Normal"], textColor=MUTED, fontSize=10, spaceAfter=14)
+    h2 = ParagraphStyle("h2", parent=ss["Heading2"], textColor=NAVY, fontSize=13, spaceBefore=16, spaceAfter=6)
+    body = ParagraphStyle("body", parent=ss["Normal"], textColor=NAVY, fontSize=10, leading=15)
+    small = ParagraphStyle("small", parent=ss["Normal"], textColor=MUTED, fontSize=8, leading=11)
+    el = []
+    firm = data.get("firm_name") or "Compass Planning"
+    r = data.get("result") or {}
+    jur = r.get("jurisdiction") or {}
+    el.append(Paragraph(firm, ParagraphStyle("firm", parent=ss["Normal"], textColor=BLUE, fontSize=11, spaceAfter=2)))
+    el.append(Paragraph(data.get("household_name", "Household"), h1))
+    el.append(Paragraph("US / cross-border summary — illustrative, not tax or legal advice.", sub))
+
+    el.append(Paragraph("Jurisdiction", h2))
+    el.append(Paragraph(f"<b>{jur.get('label', '—')}</b>", body))
+    if jur.get("summary"):
+        el.append(Paragraph(jur["summary"], body))
+    for f in (jur.get("flags") or []):
+        el.append(Paragraph(f"• {f}", body))
+
+    ut = r.get("us_tax")
+    if ut:
+        el.append(Paragraph("US income tax estimate", h2))
+        el.append(_kv_table([
+            ("Gross income", _money(ut.get("gross_income"))),
+            ("FEIE excluded", _money(ut.get("feie_excluded"))),
+            ("Taxable income", _money(ut.get("taxable_income"))),
+            ("US federal tax", _money(ut.get("federal_tax"))),
+            (f"US state tax ({ut.get('state', '—')})", _money(ut.get("state_tax"))),
+            ("Total US tax", _money(ut.get("total_us_tax"))),
+            ("Effective rate", f"{ut.get('effective_rate', 0)}%"),
+        ]))
+
+    ss_ = r.get("social_security")
+    if ss_:
+        el.append(Paragraph("US Social Security estimate", h2))
+        el.append(_kv_table([(f"At age {s['age']}", _money(s['monthly']) + "/mo") for s in ss_.get("schedule", [])]))
+
+    if r.get("treaty_notes"):
+        el.append(Paragraph("Canada–US treaty notes", h2))
+        for n in r["treaty_notes"]:
+            el.append(Paragraph(f"• {n}", body))
+
+    el.append(Spacer(1, 18))
+    el.append(Paragraph(f"Prepared with {firm}. Illustrative — not tax or legal advice.", small))
     doc.build(el)
     return buf.getvalue()
 

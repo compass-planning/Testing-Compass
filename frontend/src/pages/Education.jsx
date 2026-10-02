@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { GraduationCap, Play, Gift, PiggyBank, Target, Plus, Trash2, Users } from "lucide-react";
+import { GraduationCap, Play, Gift, PiggyBank, Target, Plus, Trash2, Users, Save } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import api, { formatApiError } from "@/lib/api";
 import { educationApi } from "@/lib/planning";
@@ -55,6 +55,12 @@ export default function Education() {
     onError: (e) => toast.error(formatApiError(e.response?.data?.detail) || "Could not save goals"),
   });
 
+  const saveFile = useMutation({
+    mutationFn: () => educationApi.save({ family_income: familyIncome, children: children.map((c) => ({ name: c.name, child_age: c.child_age, current_savings: c.current_savings, monthly_contribution: c.monthly_contribution, growth_pct: c.growth_pct, tuition_goal: c.tuition_goal })) }),
+    onSuccess: () => toast.success("Saved to client file — it will appear in the report"),
+    onError: (e) => toast.error(formatApiError(e.response?.data?.detail) || "Could not save"),
+  });
+
   const resList = children.map((c) => results[c.id]).filter(Boolean);
   const combined = resList.length ? {
     projectedValue: resList.reduce((s, r) => s + r.summary.projectedValue, 0),
@@ -83,6 +89,7 @@ export default function Education() {
           <div className="flex gap-2">
             <Button className="flex-1" onClick={() => run.mutate()} disabled={run.isPending} data-testid="resp-run"><Play size={16} /> {run.isPending ? "Projecting…" : `Project ${children.length} child${children.length === 1 ? "" : "ren"}`}</Button>
             {resList.length > 0 && <Button variant="outline" onClick={() => saveGoals.mutate()} disabled={saveGoals.isPending} data-testid="resp-save-goals"><Target size={15} /> Save as goals</Button>}
+            {resList.length > 0 && <Button variant="outline" onClick={() => saveFile.mutate()} disabled={saveFile.isPending} data-testid="resp-save-file"><Save size={15} /> Save to client file</Button>}
           </div>
         </div>
         <p className="text-xs text-compass-muted mt-3">CESG matches 20% of contributions (max $500/yr, $7,200 lifetime per child). CLB adds up to $2,000 for eligible lower-income families. Illustrative — not financial advice.</p>

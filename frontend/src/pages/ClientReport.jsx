@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 import { FileBarChart, Download, Upload, Mail, Palette, History, Scale, FileText } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
-import { planApi, docsApi, crossBorderApi } from "@/lib/planning";
+import { planApi, docsApi, crossBorderApi, educationApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
 import { Card, Button, Stat, Badge, Field, Input, Empty, Modal } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
@@ -54,6 +54,7 @@ export default function ClientReport() {
   const history = useQuery({ queryKey: ["report-history"], queryFn: async () => (await api.get("/report/history")).data });
   const vault = useQuery({ queryKey: ["doc-files"], queryFn: docsApi.list });
   const crossborder = useQuery({ queryKey: ["crossborder-saved"], queryFn: crossBorderApi.saved });
+  const education = useQuery({ queryKey: ["education-saved"], queryFn: educationApi.saved });
 
   const data = useMemo(() => {
     const o = overview.data || {};
@@ -165,6 +166,13 @@ export default function ClientReport() {
       line("Jurisdiction", cb.jurisdiction?.label || "—");
       if (cb.us_tax) { line("US federal tax", money(cb.us_tax.federal_tax)); line(`US state tax (${cb.us_tax.state})`, money(cb.us_tax.state_tax)); line("Total US tax", money(cb.us_tax.total_us_tax)); }
       if (cb.social_security) line("Social Security at 67", `${money(cb.social_security.fra_monthly)}/mo`);
+    }
+
+    const ed = education.data;
+    if (ed && ed.per_child?.length) {
+      section("Education funding (RESP)");
+      ed.per_child.forEach((c) => line(c.name, `${money(c.projectedValue)} · ${c.coveragePct}% covered`));
+      line("Combined projected", money(ed.combined?.projectedValue));
     }
 
     const attachedList = (vault.data || []).filter((f) => attached.includes(f.id));
