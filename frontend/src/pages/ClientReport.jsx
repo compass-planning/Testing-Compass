@@ -151,8 +151,8 @@ export default function ClientReport() {
     line("Total liabilities", money(data.liabilities));
     line("Monthly expenses", money(data.monthlyExpenses));
 
-    section("Top goals");
     if (sections.goals) {
+      section("Top goals");
       if (data.goals.length === 0) line("No goals on file.", "");
       data.goals.forEach((g) => { const p = g.target_amount ? Math.round((g.current_amount / g.target_amount) * 100) : 0; line(g.title, `${money(g.current_amount)} / ${money(g.target_amount)} · ${p}%`); });
     }
