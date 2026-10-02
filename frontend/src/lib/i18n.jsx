@@ -90,6 +90,10 @@ const EN2FR = {
   "Governance": "Gouvernance", "Overview": "Vue d'ensemble", "Privacy": "Confidentialité",
   // chrome
   "Active client": "Client actif", "Change client": "Changer de client", "Sign out": "Se déconnecter",
+  "Change password": "Changer le mot de passe", "Current password": "Mot de passe actuel",
+  "New password": "Nouveau mot de passe", "Confirm new password": "Confirmer le nouveau mot de passe",
+  "Update password": "Mettre à jour le mot de passe", "Cancel": "Annuler",
+  "At least 8 characters, different from your current one": "Au moins 8 caractères, différent de l'actuel",
   "MFA On": "AMF activée", "MFA Off": "AMF désactivée", "Tier": "Palier",
   "Enterprise": "Entreprise", "Advisor": "Conseiller", "Solo": "Solo",
   // page titles

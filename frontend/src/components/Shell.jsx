@@ -3,8 +3,9 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Target, ShieldCheck, ScrollText, RefreshCw,
   ArrowUpCircle, LogOut, Menu, X, Building2, UserCog, User as UserIcon,
-  Home, TrendingUp, Scale, CreditCard, PiggyBank, Shield, Receipt, Brain, FileText, Sparkles, ArrowLeft, FileBarChart, GraduationCap, Globe,
+  Home, TrendingUp, Scale, CreditCard, PiggyBank, Shield, Receipt, Brain, FileText, Sparkles, ArrowLeft, FileBarChart, GraduationCap, Globe, KeyRound,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useHousehold } from "@/context/HouseholdContext";
 import { useLang, useTr } from "@/lib/i18n";
@@ -12,6 +13,8 @@ import { Logo, CompassMark } from "@/components/Logo";
 import { Badge } from "@/components/ui-kit";
 import { TIER_META } from "@/lib/format";
 import CommandPalette from "@/components/CommandPalette";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
+import { useIdleLogout } from "@/hooks/useIdleLogout";
 
 function LangToggle() {
   const { lang, setLang } = useLang();
@@ -96,6 +99,7 @@ export default function Shell() {
   const { active, name: hhName, clear } = useHousehold();
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
   const items = getNav(user.tier, active, user.is_client);
   const tr = useTr();
   const TierIcon = TIER_ICON[user.tier];
@@ -106,6 +110,11 @@ export default function Shell() {
     logout();
     nav("/login");
   };
+
+  useIdleLogout(() => {
+    doLogout();
+    toast("Signed out due to inactivity", { description: "Please sign in again to continue." });
+  });
 
   const SidebarInner = (
     <div className="flex h-full flex-col">
@@ -166,6 +175,13 @@ export default function Shell() {
             <div className="text-xs text-compass-muted truncate">{user.email}</div>
           </div>
         </div>
+        <button
+          onClick={() => { setPwOpen(true); setOpen(false); }}
+          data-testid="change-password-button"
+          className="flex w-full items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-compass-navy hover:bg-compass-bg transition-colors mb-1"
+        >
+          <KeyRound size={16} /> {tr("Change password")}
+        </button>
         <button
           onClick={doLogout}
           data-testid="logout-button"
@@ -231,6 +247,7 @@ export default function Shell() {
         </main>
       </div>
       {user.tier === "advisor" && <CommandPalette />}
+      <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
     </div>
   );
 }

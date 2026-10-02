@@ -157,6 +157,23 @@ async def change_password(body: ChangePasswordInput):
     return _issue_session(repo.find_user_by_id(user["id"]))
 
 
+class SelfChangePasswordInput(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
+
+
+@router.post("/auth/change-password-self")
+async def change_password_self(body: SelfChangePasswordInput, user: dict = Depends(get_current_user)):
+    u = repo.find_user_by_id(user["id"])
+    if not u or not verify_password(body.current_password, u["password_hash"]):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    if verify_password(body.new_password, u["password_hash"]):
+        raise HTTPException(status_code=400, detail="Choose a password different from your current one")
+    repo.update_user(u["id"], {"password_hash": hash_password(body.new_password)})
+    audit(u, "auth.password_change", "account", "Self-service password change")
+    return {"ok": True}
+
+
 class ActivateInput(BaseModel):
     token: str
     new_password: str = Field(min_length=8)
