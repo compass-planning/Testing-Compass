@@ -63,6 +63,11 @@ async def dashboard(user: dict = Depends(get_current_user)):
     if user["tier"] == "solo":
         ret = repo.list("shared", "retention_schedule", flt)
         out["retention"] = ret[0] if ret else None
+    if user.get("invited_by"):
+        adv = next((u for u in repo.all_users()
+                    if u.get("tier") == "advisor" and u.get("scope", {}).get("advisor_id") == user["scope"].get("advisor_id")), None)
+        out["advisor_name"] = adv.get("name") if adv else None
+        out["advisor_firm"] = ((adv.get("branding") or {}).get("firm_name") if adv else None) or "Compass Planning"
     return out
 
 
@@ -582,6 +587,7 @@ async def enterprise_overview(user: dict = Depends(get_current_user)):
         gls = [g for oid in h["owner_ids"] for g in goal_by_owner.get(oid, [])]
         h["assets"] = sum(float(a.get("balance", 0)) for a in accs)
         h["goals"] = len(gls)
+        h["id"] = h["owner_ids"][0]
         h.update(_ent_household_score(accs, gls))
 
     scored = [h for h in households if h.get("score") is not None]
@@ -617,4 +623,49 @@ async def enterprise_overview(user: dict = Depends(get_current_user)):
         "attention": attention[:8],
         "planners": planner_rows,
         "households_per_planner": round(len(households) / len(planners), 1) if planners else None,
+        "households_list": [
+            {"id": h["id"], "primary": h["primary"], "province": h.get("province"),
+             "assets": h["assets"], "goals": h["goals"], "score": h.get("score"), "status": h["status"]}
+            for h in households
+        ],
+    }
+
+
+def _ent_group(user):
+    store, flt = scope_context(user)
+    owners = sorted(repo.list(store, "owners", flt), key=lambda o: o.get("created_at", ""))
+    households, current = [], None
+    for o in owners:
+        if o.get("relationship") == "self" or current is None:
+            current = {"id": o["id"], "owners": [o]}
+            households.append(current)
+        else:
+            current["owners"].append(o)
+    return store, flt, households
+
+
+@router.get("/enterprise/household/{hid}")
+async def enterprise_household(hid: str, user: dict = Depends(get_current_user)):
+    if user["tier"] != "enterprise":
+        raise HTTPException(status_code=403, detail="Enterprise tier only")
+    store, flt, households = _ent_group(user)
+    hh = next((h for h in households if h["id"] == hid), None)
+    if not hh:
+        raise HTTPException(status_code=404, detail="Household not found")
+    owner_ids = {o["id"] for o in hh["owners"]}
+    accounts = [a for a in repo.list(store, "accounts", flt) if a.get("owner_id") in owner_ids]
+    goals = [g for g in repo.list(store, "goals", flt) if g.get("owner_id") in owner_ids]
+    sc = _ent_household_score(accounts, goals)
+    return {
+        "id": hid, "primary": hh["owners"][0]["full_name"],
+        "score": sc["score"], "status": sc["status"],
+        "assets": sum(float(a.get("balance", 0)) for a in accounts),
+        "owners": [{"full_name": o["full_name"], "relationship": o.get("relationship"),
+                    "province": o.get("province"), "dob": o.get("dob"),
+                    "annual_income": o.get("annual_income"), "email": o.get("email")} for o in hh["owners"]],
+        "accounts": [{"account_type": a.get("account_type"), "institution": a.get("institution"),
+                      "balance": a.get("balance"), "annual_contribution": a.get("annual_contribution")} for a in accounts],
+        "goals": [{"title": g.get("title"), "category": g.get("category"), "target_amount": g.get("target_amount"),
+                   "current_amount": g.get("current_amount"), "target_year": g.get("target_year"),
+                   "status": g.get("status")} for g in goals],
     }

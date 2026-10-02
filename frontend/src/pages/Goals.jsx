@@ -8,7 +8,7 @@ import { Card, Button, Input, Field, Select, Badge, Progress, Modal, Empty } fro
 import { PageHeader } from "@/components/PageHeader";
 import { money, STATUS_META } from "@/lib/format";
 
-const CATEGORIES = ["retirement", "income", "legacy", "purchase"];
+const CATEGORIES = ["retirement", "income", "legacy", "purchase", "education"];
 
 // Months until `current` reaches `target` given monthly contribution + annual growth.
 function projectFunding(current, target, monthly, annualGrowth) {

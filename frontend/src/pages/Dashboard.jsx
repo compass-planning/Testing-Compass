@@ -12,6 +12,7 @@ import TodayPanel from "@/components/TodayPanel";
 import ActionItems from "@/components/ActionItems";
 import EnterpriseOverview from "@/components/EnterpriseOverview";
 import SoloOnboarding from "@/components/SoloOnboarding";
+import ClientWelcome from "@/components/ClientWelcome";
 import { planApi } from "@/lib/planning";
 import { money, compact, dateFmt, STATUS_META } from "@/lib/format";
 
@@ -47,6 +48,7 @@ export default function Dashboard() {
 
   return (
     <div>
+      {user.is_client && <ClientWelcome />}
       <PageHeader
         title={`${greeting()}, ${data.name.split(" ")[0]}`}
         subtitle={subtitleFor(user.tier)}

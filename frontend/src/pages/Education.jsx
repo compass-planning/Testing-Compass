@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { GraduationCap, Play, Gift, PiggyBank } from "lucide-react";
+import { GraduationCap, Play, Gift, PiggyBank, Target } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
-import { formatApiError } from "@/lib/api";
+import api, { formatApiError } from "@/lib/api";
 import { educationApi } from "@/lib/planning";
 import { Card, Button, Input, Field, Badge, Stat, Progress } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
@@ -31,6 +31,19 @@ export default function Education() {
     mutationFn: () => educationApi.resp(inp),
     onSuccess: (d) => setRes(d),
     onError: (e) => toast.error(formatApiError(e.response?.data?.detail) || "Projection failed"),
+  });
+  const saveGoal = useMutation({
+    mutationFn: () => api.post("/goals", {
+      title: `Education fund (child age ${inp.child_age})`,
+      category: "education",
+      target_amount: Number(inp.tuition_goal || 0),
+      current_amount: Number(inp.current_savings || 0),
+      target_year: new Date().getFullYear() + Math.max(0, 18 - Number(inp.child_age || 0)),
+      monthly_contribution: Number(inp.monthly_contribution || 0),
+      growth_rate: Number(inp.growth_pct || 0),
+    }),
+    onSuccess: () => toast.success("Saved as an education goal — view it in Goals"),
+    onError: (e) => toast.error(formatApiError(e.response?.data?.detail) || "Could not save goal"),
   });
   const s = res?.summary;
   const chart = (res?.yearByYear || []).map((y) => ({ age: y.age, Balance: y.balance }));
@@ -73,6 +86,7 @@ export default function Education() {
                 <Progress value={s.coveragePct} color={s.coveragePct >= 100 ? "#00DF89" : s.coveragePct >= 60 ? "#0052FF" : "#FFB800"} />
                 {s.shortfall > 0 && <div className="text-xs text-compass-muted mt-1">Projected shortfall {money(s.shortfall)}</div>}
               </div>
+              <Button variant="outline" className="mt-4 w-full" onClick={() => saveGoal.mutate()} disabled={saveGoal.isPending} data-testid="resp-save-goal"><Target size={15} /> Save as education goal</Button>
             </>
           )}
           {!s && <p className="text-sm text-compass-muted mt-4">Enter the child's details and project the plan to see grants and growth.</p>}
