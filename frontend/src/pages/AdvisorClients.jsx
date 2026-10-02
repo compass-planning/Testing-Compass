@@ -27,6 +27,7 @@ export default function AdvisorClients() {
   const [sort, setSort] = useState("score-asc");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [renewalsOnly, setRenewalsOnly] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const { setActive, clear } = useHousehold();
   const navigate = useNavigate();
@@ -138,16 +139,22 @@ export default function AdvisorClients() {
             <StatCard label="Need attention" value={needAttention} color={needAttention ? "#EE5D50" : "#00DF89"} />
           </div>
 
-          <div className="mb-4 relative max-w-sm">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-compass-muted" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search households by name…" data-testid="household-search" className="w-full rounded-xl border border-compass-border bg-white pl-9 pr-3 py-2 text-sm text-compass-navy placeholder:text-compass-muted focus:border-compass-blue focus:outline-none" />
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <div className="relative max-w-sm flex-1 min-w-[200px]">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-compass-muted" />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search households by name…" data-testid="household-search" className="w-full rounded-xl border border-compass-border bg-white pl-9 pr-3 py-2 text-sm text-compass-navy placeholder:text-compass-muted focus:border-compass-blue focus:outline-none" />
+            </div>
+            <button onClick={() => setRenewalsOnly((v) => !v)} data-testid="filter-renewals-soon"
+              className={`rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${renewalsOnly ? "border-amber-400 bg-amber-50 text-amber-700" : "border-compass-border text-compass-muted hover:text-compass-navy"}`}>
+              Renewing soon{renewalsOnly ? ` (${list.filter((c) => c.renewals_soon > 0).length})` : ""}
+            </button>
           </div>
 
           {view === "queue" && (
           <>
           <div className="grid md:grid-cols-2 gap-4">
-            {(() => { const term = search.trim().toLowerCase(); const filtered = term ? list.filter((c) => (c.primary || "").toLowerCase().includes(term) || (c.members || []).some((m) => m.toLowerCase().includes(term))) : list; return filtered.length === 0 ? (
-              <div className="md:col-span-2 text-sm text-compass-muted py-8 text-center" data-testid="household-search-empty">No households match "{search}".</div>
+            {(() => { const term = search.trim().toLowerCase(); let filtered = term ? list.filter((c) => (c.primary || "").toLowerCase().includes(term) || (c.members || []).some((m) => m.toLowerCase().includes(term))) : list; if (renewalsOnly) filtered = filtered.filter((c) => c.renewals_soon > 0); return filtered.length === 0 ? (
+              <div className="md:col-span-2 text-sm text-compass-muted py-8 text-center" data-testid="household-search-empty">No households match your filters.</div>
             ) : [...filtered].sort((a, b) => (a.score || 0) - (b.score || 0)).map((c) => {
               const meta = SCORE_META[c.status] || SCORE_META["Needs Review"];
               return (
@@ -163,7 +170,7 @@ export default function AdvisorClients() {
                     <div className="text-right">
                       <div className="font-heading text-2xl font-extrabold" style={{ color: scoreColor(c.score || 0) }} data-testid={`client-score-${c.client_id}`}>{c.score ?? "—"}</div>
                       <Badge color={meta.color} bg={meta.bg} data-testid={`client-status-${c.client_id}`}>{c.status || "—"}</Badge>
-                      {c.renewals_soon > 0 && <div className="mt-1 inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ color: "#B8860B", background: "rgba(255,184,0,0.14)" }} data-testid={`renewals-soon-${c.client_id}`}>{c.renewals_soon} policy renewal{c.renewals_soon === 1 ? "" : "s"} ≤ 60d</div>}
+                      {c.renewals_soon > 0 && <button onClick={(e) => { e.stopPropagation(); setActive(c.client_id, c.primary || c.client_id); navigate("/insurance"); }} className="mt-1 inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full hover:ring-1 hover:ring-amber-400 transition-shadow" style={{ color: "#B8860B", background: "rgba(255,184,0,0.14)" }} data-testid={`renewals-soon-${c.client_id}`}>{c.renewals_soon} policy renewal{c.renewals_soon === 1 ? "" : "s"} ≤ 60d →</button>}
                       {c.invite_pending && <div className="mt-1 text-[10px] font-semibold text-compass-amber" data-testid={`invite-pending-${c.client_id}`}>Invited · not activated</div>}
                       {c.invite_pending && <button onClick={() => resendInvite(c.client_id)} className="mt-0.5 text-[10px] font-semibold text-compass-blue hover:underline" data-testid={`resend-invite-${c.client_id}`}>Resend invite</button>}
                       {c.invite_pending && c.invite_expires_at && (() => { const d = Math.ceil((new Date(c.invite_expires_at) - Date.now()) / 86400000); return <div className={`text-[10px] font-semibold ${d <= 0 ? "text-compass-red" : "text-compass-muted"}`} data-testid={`invite-expiry-${c.client_id}`}>{d > 0 ? `Link expires in ${d}d` : "Link expired"}</div>; })()}

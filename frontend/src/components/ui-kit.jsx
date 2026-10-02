@@ -30,11 +30,12 @@ export function Card({ className = "", children, ...props }) {
 }
 
 export function Field({ label, hint, children }) {
+  const tr = useTr();
   return (
     <label className="block">
-      {label && <span className="muted-label block mb-1.5">{label}</span>}
+      {label && <span className="muted-label block mb-1.5">{tr(label)}</span>}
       {children}
-      {hint && <span className="text-xs text-compass-muted mt-1 block">{hint}</span>}
+      {hint && <span className="text-xs text-compass-muted mt-1 block">{tr(hint)}</span>}
     </label>
   );
 }
@@ -101,13 +102,14 @@ export function Modal({ open, onClose, title, children, testid }) {
 }
 
 export function Stat({ label, value, sub, accent = false }) {
+  const tr = useTr();
   return (
     <Card className="p-5">
-      <div className="muted-label">{label}</div>
+      <div className="muted-label">{tr(label)}</div>
       <div className={`font-heading text-2xl font-extrabold mt-2 ${accent ? "gradient-text" : "text-compass-navy"}`}>
         {value}
       </div>
-      {sub && <div className="text-xs text-compass-muted mt-1">{sub}</div>}
+      {sub && <div className="text-xs text-compass-muted mt-1">{typeof sub === "string" ? tr(sub) : sub}</div>}
     </Card>
   );
 }

@@ -163,6 +163,12 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - **OCR Review Queue**: importer saves `needs_review`/`review_fields` on policies that had low-confidence scanned fields; `Documents` Letters tab shows a "Needs review" list with per-field hints and a "Mark reviewed" action (`PUT /plan/insurance/{id}`).
 - **Reset Scope Choice**: `seed.reset_corp_demo(corp_id, scope)` + `POST /enterprise/reset-demo?scope=all|additions`; the reset modal offers "Wipe everything & reseed" vs "Only remove my test additions" (keeps CRM-sourced records, `source=="crm"`). Verified: additions-only removed just the test household, kept the 3 CRM households.
 
+## Phase 3k — 100% Planner French + Renewal Deep-Link + Batch Review + Expiring Filter (added 2026-06, iter44) ✅
+- **100% Planner French**: made the shared `Field` and `Stat` components (ui-kit) auto-translate their `label`/`hint`/`sub` via `useTr()` — this translates **every** field and stat label app-wide with no per-component edits. Added all remaining Retirement/Tax sub-tab field strings to `EN2FR`. Verified on screen: Retirement projection inputs fully FR (RENDEMENT PRÉVU, SOLDE REER, SOLDE CELI, TRAITEMENT FISCAL NON ENREGISTRÉ, PBR NON ENREGISTRÉ…).
+- **Renewal Deep-Link**: the Household Queue "N policy renewals ≤ 60d" pill is now a button that opens the client and routes to their Insurance page (`setActive` → `/insurance`).
+- **Batch Review Actions**: the OCR "Needs review" queue has an "Accept all" button that clears `needs_review` on every flagged policy in one click.
+- **Expiring Filter**: Household Queue has a "Renewing soon" toggle (`renewalsOnly`) that filters to households with `renewals_soon > 0`, with a live count.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.

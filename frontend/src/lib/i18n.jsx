@@ -184,6 +184,23 @@ const EN2FR = {
   "Estate": "Succession", "Expiring soon": "Expire bientôt", "Renews soon": "Renouvellement proche",
   "Life Needs": "Besoins vie", "CPP / OAS Timing": "Calendrier RPC / SV",
   "Tax Projection": "Projection fiscale", "RRSP Room": "Droits REER", "TFSA Room": "Droits CELI",
+  // Retirement sub-tab fields
+  "Desired income ($/yr, after-tax)": "Revenu souhaité ($/an, après impôt)", "RRSP balance": "Solde REER",
+  "TFSA balance": "Solde CELI", "Non-registered balance": "Solde non enregistré",
+  "Non-reg tax treatment": "Traitement fiscal non enregistré", "Non-reg ACB": "PBR non enregistré",
+  "Annual RRSP contribution": "Cotisation REER annuelle", "Annual TFSA contribution": "Cotisation CELI annuelle",
+  "DB pension ($/yr)": "Rente PD ($/an)", "CPP (monthly, today's $)": "RPC (mensuel, $ d'aujourd'hui)",
+  "CPP start age": "Âge de début du RPC", "OAS (monthly, today's $)": "SV (mensuel, $ d'aujourd'hui)",
+  "OAS start age": "Âge de début de la SV", "Portfolio allocation": "Répartition du portefeuille",
+  "Number of paths": "Nombre de trajectoires", "Current income": "Revenu actuel",
+  "Expected retirement income": "Revenu de retraite prévu", "Your income": "Votre revenu",
+  "Eligible pension": "Rente admissible", "Spouse income": "Revenu du conjoint", "Scenario name": "Nom du scénario",
+  // Tax sub-tab fields
+  "Other taxable income": "Autre revenu imposable", "Primary income": "Revenu principal",
+  "Estate value (net worth)": "Valeur de la succession (valeur nette)", "Registered assets (RRSP/RRIF)": "Actifs enregistrés (REER/FERR)",
+  "Entry type": "Type d'entrée", "Asset / policy": "Actif / police", "Beneficiary": "Bénéficiaire",
+  "Allocation (%)": "Répartition (%)", "Document name": "Nom du document", "Status": "Statut",
+  "Renewing soon": "Renouvellement proche", "Accept all": "Tout accepter",
 };
 
 export function LanguageProvider({ children }) {

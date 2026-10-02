@@ -235,6 +235,7 @@ function LettersImporter() {
   const reviewQ = useQuery({ queryKey: ["plan", "insurance"], queryFn: () => planApi.list("insurance") });
   const flagged = (reviewQ.data || []).filter((p) => p.needs_review);
   const markReviewed = useMutation({ mutationFn: (id) => planApi.update("insurance", id, { needs_review: false, review_fields: [] }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["plan", "insurance"] }); toast.success("Marked reviewed"); } });
+  const acceptAll = useMutation({ mutationFn: async () => { for (const p of flagged) await planApi.update("insurance", p.id, { needs_review: false, review_fields: [] }); return flagged.length; }, onSuccess: (n) => { qc.invalidateQueries({ queryKey: ["plan", "insurance"] }); toast.success(`${n} policies marked reviewed`); } });
 
   const parse = async (file) => {
     if (!file) return;
@@ -294,7 +295,9 @@ function LettersImporter() {
 
       {flagged.length > 0 && (
         <Card className="p-5 mb-6 border-amber-200" data-testid="ocr-review-queue">
-          <div className="flex items-center gap-2 mb-3 font-heading font-bold text-compass-navy"><AlertTriangle size={16} className="text-amber-500" /> Needs review ({flagged.length})</div>
+          <div className="flex items-center gap-2 mb-3 font-heading font-bold text-compass-navy"><AlertTriangle size={16} className="text-amber-500" /> Needs review ({flagged.length})
+            <button onClick={() => acceptAll.mutate()} disabled={acceptAll.isPending} className="ml-auto text-xs font-semibold text-compass-blue hover:underline inline-flex items-center gap-1" data-testid="accept-all-reviews"><Check size={14} /> Accept all</button>
+          </div>
           <p className="text-xs text-compass-muted mb-3">Imported policies with fields the scan read with low confidence. Verify the values on each, then mark reviewed.</p>
           <div className="space-y-2">
             {flagged.map((p) => (
