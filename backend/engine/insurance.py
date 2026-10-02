@@ -4,6 +4,20 @@ engine/insurance/*, ltcEngine.ts, diEngine.ts."""
 from __future__ import annotations
 
 # ── Life insurance needs ─────────────────────────────────────────────────────
+def protection_score(rows: list) -> dict:
+    """Protection readiness 0-100 from saved life/DI/LTC analyses (None if none saved).
+    Single source of truth used by both the advisor roster and the plan PDF."""
+    if not rows:
+        return {"protection_score": None, "protection_analyses": 0}
+    present = {r.get("kind") for r in rows}
+    score = 100
+    for kind in ("life", "di", "ltc"):
+        gapv = next((r.get("life_gap") if kind == "life" else r.get("di_monthly_gap") if kind == "di"
+                     else r.get("ltc_gap") for r in rows if r.get("kind") == kind), None)
+        score -= 15 if kind not in present else (20 if (gapv or 0) > 0 else 0)
+    return {"protection_score": max(0, min(100, score)), "protection_analyses": len(rows)}
+
+
 def calculate_dime(p: dict) -> dict:
     debt = p["totalDebts"]
     income = p["annualIncome"] * p["workingYearsRemaining"]

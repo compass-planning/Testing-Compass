@@ -16,6 +16,7 @@ from deps import (
 from email_service import send_email, render_report_html, rate_ok
 from engine.report_pdf import build_plan_pdf
 from engine.estate import calculate_estate
+from engine.insurance import protection_score
 from fastapi.responses import StreamingResponse
 
 router = APIRouter()
@@ -410,14 +411,7 @@ async def report_pdf(user: dict = Depends(get_current_user), household_id: str =
     assets = sum(float(r.get("value", 0)) for r in nw_rows if r.get("kind") == "asset") + sum(float(a.get("balance", 0)) for a in accounts)
     liabilities = sum(float(r.get("value", 0)) for r in nw_rows if r.get("kind") == "liability") + sum(float(d.get("balance", 0)) for d in debts)
     protection = hh(repo.list(store, "plan_protection", read))
-    ps = None
-    if protection:
-        present = {p.get("kind") for p in protection}
-        ps = 100
-        for k in ("life", "di", "ltc"):
-            gapv = next((p.get("life_gap") if k == "life" else p.get("di_monthly_gap") if k == "di" else p.get("ltc_gap") for p in protection if p.get("kind") == k), None)
-            ps -= 15 if k not in present else (20 if (gapv or 0) > 0 else 0)
-        ps = max(0, min(100, ps))
+    ps = protection_score(protection)["protection_score"]
     retirement_rows = hh(repo.list(store, "plan_retirement", read))
     retirement = retirement_rows[-1] if retirement_rows else None
     reg_balance = sum(float(a.get("balance", 0)) for a in accounts if a.get("account_type") in ("RRSP", "RRIF"))

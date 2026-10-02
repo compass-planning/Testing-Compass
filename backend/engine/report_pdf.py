@@ -88,6 +88,10 @@ def build_plan_pdf(data: dict) -> bytes:
                              ("Probate fees", _money(e.get("probate", {}).get("probateFee"))),
                              ("Terminal (deemed-disposition) tax", _money(e.get("terminalTax", {}).get("estimatedTax"))),
                              ("Net to heirs", _money(e.get("netToHeirs")))]))
+        wf = _estate_waterfall(e)
+        if wf:
+            el.append(Spacer(1, 6))
+            el.append(wf)
 
     # Goals
     el.append(Paragraph("Goals", h2))
@@ -131,4 +135,27 @@ def _kv_table(rows):
     t = Table(data, colWidths=[3.8 * inch, 2.7 * inch], hAlign="LEFT")
     t.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.5, BORDER), ("TOPPADDING", (0, 0), (-1, -1), 5),
                            ("BOTTOMPADDING", (0, 0), (-1, -1), 5), ("ALIGN", (1, 0), (1, -1), "RIGHT")]))
+    return t
+
+
+def _estate_waterfall(e):
+    net = max(0, e.get("netToHeirs", 0))
+    pr = max(0, e.get("probate", {}).get("probateFee", 0))
+    tt = max(0, e.get("terminalTax", {}).get("estimatedTax", 0))
+    total = net + pr + tt
+    if total <= 0:
+        return None
+    segs = [(lbl, v, c) for lbl, v, c in
+            [("Net to heirs", net, GREEN), ("Probate", pr, colors.HexColor("#FFB800")), ("Terminal tax", tt, RED)] if v > 0]
+    raw = [max(0.7 * inch, (v / total) * 6.0 * inch) for _, v, _ in segs]
+    scale = (6.0 * inch) / sum(raw) if sum(raw) > 6.0 * inch else 1.0
+    widths = [w * scale for w in raw]
+    row = [Paragraph(f'<font color="white" size=7><b>{lbl}<br/>{_money(v)}</b></font>', getSampleStyleSheet()["Normal"]) for lbl, v, _ in segs]
+    t = Table([row], colWidths=widths, hAlign="LEFT")
+    style = [("ALIGN", (0, 0), (-1, -1), "CENTER"), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+             ("LEFTPADDING", (0, 0), (-1, -1), 2), ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+             ("TOPPADDING", (0, 0), (-1, -1), 9), ("BOTTOMPADDING", (0, 0), (-1, -1), 9)]
+    for i, (_, _, c) in enumerate(segs):
+        style.append(("BACKGROUND", (i, 0), (i, 0), c))
+    t.setStyle(TableStyle(style))
     return t

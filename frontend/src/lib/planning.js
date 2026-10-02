@@ -29,3 +29,16 @@ export const protectionApi = {
   di: (body) => api.post(`/plan/protection/di`, body).then((r) => r.data),
 };
 
+export const docsApi = {
+  list: () => api.get(`/plan/documents/files`).then((r) => r.data),
+  upload: (form) => api.post(`/plan/documents/upload`, form).then((r) => r.data),
+  remove: (id) => api.delete(`/plan/documents/files/${id}`).then((r) => r.data),
+  downloadUrl: (id) => `/plan/documents/files/${id}/download`,
+};
+
+export const meetingsApi = {
+  list: () => api.get(`/plan/meetings`).then((r) => r.data),
+  transcribe: (form) => api.post(`/plan/meetings/transcribe`, form).then((r) => r.data),
+  remove: (id) => api.delete(`/plan/meetings/${id}`).then((r) => r.data),
+};
+

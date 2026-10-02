@@ -81,22 +81,8 @@ def _household_score(c, nw, debts, insurance, retirement, goals, estate=None):
 
 
 def _protection_score(protection_rows: list) -> dict:
-    """Protection readiness 0-100 from saved life/DI/LTC analyses (None if none saved)."""
-    if not protection_rows:
-        return {"protection_score": None, "protection_analyses": 0}
-    present = {r.get("kind") for r in protection_rows}
-    gap_by_kind = {}
-    for r in protection_rows:
-        k = r.get("kind")
-        g = r.get("life_gap") if k == "life" else r.get("di_monthly_gap") if k == "di" else r.get("ltc_gap") if k == "ltc" else 0
-        gap_by_kind[k] = gap_by_kind.get(k, 0) or (g or 0)
-    score = 100
-    for kind in ("life", "di", "ltc"):
-        if kind not in present:
-            score -= 15
-        elif (gap_by_kind.get(kind) or 0) > 0:
-            score -= 20
-    return {"protection_score": max(0, min(100, score)), "protection_analyses": len(protection_rows)}
+    from engine.insurance import protection_score
+    return protection_score(protection_rows)
 
 
 def _build_roster(user: dict) -> list[dict]:
