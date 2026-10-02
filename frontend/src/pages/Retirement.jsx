@@ -12,6 +12,7 @@ import {
 import api, { formatApiError } from "@/lib/api";
 import { retirementApi, planApi, assumptionsApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
+import { useHousehold } from "@/context/HouseholdContext";
 import { Card, Button, Input, Field, Select, Badge, Stat, Empty } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
@@ -64,14 +65,15 @@ function band(prob) {
 
 export default function Retirement() {
   const { user } = useAuth();
+  const { active } = useHousehold() || {};
   const [tab, setTab] = useState("projection");
   const [inp, setInp] = useState(DEFAULTS);
   const owners = useQuery({ queryKey: ["owners"], queryFn: async () => (await api.get("/owners")).data });
-  const assumptions = useQuery({ queryKey: ["assumptions"], queryFn: assumptionsApi.get });
-  const seeded = React.useRef(false);
+  const assumptions = useQuery({ queryKey: ["assumptions", active], queryFn: assumptionsApi.get });
+  const seeded = React.useRef(null);
   React.useEffect(() => {
-    if (assumptions.data && !seeded.current) {
-      seeded.current = true;
+    if (assumptions.data && seeded.current !== active) {
+      seeded.current = active;
       setInp((s) => ({
         ...s,
         expected_return_pct: assumptions.data.expected_return_pct,
@@ -80,7 +82,7 @@ export default function Retirement() {
         retirement_age: assumptions.data.retirement_age,
       }));
     }
-  }, [assumptions.data]);
+  }, [assumptions.data, active]);
 
   const num = (k) => (e) => setInp((s) => ({ ...s, [k]: Number(e.target.value || 0) }));
   const str = (k) => (e) => setInp((s) => ({ ...s, [k]: e.target.value }));

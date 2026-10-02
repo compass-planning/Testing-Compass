@@ -99,7 +99,7 @@ export default function ClientReport() {
 
   const emailMut = useMutation({
     mutationFn: () => api.post("/report/email", { recipient, net_worth: data.netWorth, protection_score: data.protection, retirement_success: data.success, document_ids: attached }),
-    onSuccess: () => { toast.success(`Summary emailed to ${recipient}`); qc.invalidateQueries({ queryKey: ["report-history"] }); },
+    onSuccess: () => { toast.success(`Summary emailed to ${recipient}`); setAttached([]); qc.invalidateQueries({ queryKey: ["report-history"] }); },
     onError: (e) => toast.error(formatApiError(e.response?.data?.detail)),
   });
 

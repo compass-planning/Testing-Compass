@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { UserCog, Pencil, Plus, Users, Wallet, Shield, PiggyBank } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { planApi, actionItemsApi } from "@/lib/planning";
+import { useHousehold } from "@/context/HouseholdContext";
 import { Card, Button, Input, Field, Select, Badge, Modal, Stat } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
@@ -26,12 +27,13 @@ const FIELDS = [
 
 export default function ClientProfile() {
   const qc = useQueryClient();
+  const { active } = useHousehold() || {};
   const [edit, setEdit] = useState(null); // owner being edited
   const [adding, setAdding] = useState(false);
 
   const owners = useQuery({ queryKey: ["owners"], queryFn: async () => (await api.get("/owners")).data });
   const overview = useQuery({ queryKey: ["plan", "overview"], queryFn: planApi.overview });
-  const actionItems = useQuery({ queryKey: ["action-items"], queryFn: actionItemsApi.list });
+  const actionItems = useQuery({ queryKey: ["action-items", active], queryFn: actionItemsApi.list });
 
   const list = owners.data || [];
   const primary = list.find((o) => o.relationship === "self") || list[0];

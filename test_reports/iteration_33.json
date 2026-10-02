@@ -1,0 +1,40 @@
+{
+  "summary": "Frontend-only verification of the four advisor features (Assumption Editor, Action Items panel, Meeting→Tasks suggest modal, Vault-in-Report attach). All four features WIRED CORRECTLY and work end-to-end. Backend endpoints already curl-verified by main agent; I re-verified /api/plan/assumptions GET+PUT, /api/plan/action-items (advisor + solo), /api/plan/documents/upload/files/delete and the attached-docs integration into /report.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Action items on advisor /profile after direct navigation (first-session cache)",
+        "issue": "The React-Query key for ActionItems is simply ['action-items'] with no household_id in the key. If the query runs once with an empty household (e.g. dashboard mount before localStorage is populated), the empty result can be served from cache on a subsequent /profile mount until a refetch fires. Normal flow (clients→Open→profile) refetches and works. Repro only when setting active household via localStorage then direct-navigating in <~1s. Low priority — React Query refetches on mount with staleTime=0, so humans will not hit it, but it was reproducible once in automation.",
+        "affected_selectors": ["action-items-panel", "action-items-count"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "(Optional, low) Include household_id in the React-Query key for ActionItems (and for assumptions) so cache cannot leak across households: queryKey: ['action-items', householdId]. Prevents stale/empty state when switching active clients.",
+    "(Optional, nice-to-have) The assumptions-editor Field tabIndex: in Playwright page.fill() on type=number step=0.1 inputs sometimes elides the onChange event when the typed value coerces to the same number already present (common CRA testing library gotcha). Not a product bug, but adding an uncontrolled key or an explicit onBlur commit would make the editor more robust to programmatic input methods.",
+    "No main-agent fixes required; the four features function as spec'd."
+  ],
+  "critical_code_review_comments": [
+    "ActionItems query key is not scoped by household (['action-items']) — same comment as above; share cache risk is small today but will matter when the advisor swaps clients rapidly.",
+    "AssumptionsCard useEffect uses a ref seeded.current to run only once; if the user switches households without a full remount of Retirement.jsx, the editor will show the previous household's values. Low priority on current flows but worth guarding by resetting seeded when the household context changes.",
+    "ClientReport.jsx attach-docs state is local; after sending the email it is not cleared — subsequent sends will keep the same attachments pre-checked unless the user manually unchecks. Minor UX nit."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (curl re-verified assumptions GET/PUT, action-items advisor+solo, documents upload+list+delete, meetings list)",
+    "frontend": "100% on the four new features; one minor cache-timing observation on action-items first mount"
+  },
+  "test_credentials": "advisor@compass.ca / Compass2026! + TOTP JBSWY3DPEHPK3PXP (seeded). solo@compass.ca same password+TOTP. Active household set via localStorage compass_active_household=client_a1 (Nguyen).",
+  "seed_data_creation": "Created and then deleted TEST_attach_doc.txt in client_a1 vault to exercise attach-doc flow. State restored.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 4 features verified working: (1) Assumptions editor on /retirement persists all 4 fields via PUT /api/plan/assumptions and seeds both the editor and the Projection tab inputs (ret-return, ret-inflation, ret-life-expectancy, ret-retirement-age) on reload. CAUTION: in Playwright, prefer click→Ctrl+A→Delete→type over page.fill() for the type=number step=0.1 inputs — fill() can elide onChange and give false negatives (hit this on first run). (2) Action items on advisor /profile and solo /dashboard render from /api/plan/action-items. Convert buttons (action-item-convert-<type>) POST /api/advisor/tasks and show 'Added to your task board'. Solo correctly renders without convert buttons. (3) Meetings suggest modal wiring verified (meeting-recorder, meeting-suggest-<id>, suggest-tasks-modal, suggest-task-<i>, suggest-add-selected). No seeded meetings available for client_a1 in this preview DB (recorder is mic-driven; cannot headlessly create one). The backend /api/plan/meetings/{mid}/suggest-tasks was curl-verified by main agent. (4) Vault-in-Report attach flow verified end-to-end after seeding one doc: attach-docs-panel lists docs, attach-doc-<id> toggles, attach-count updates, report-attached-docs appears in the live preview with the file name + category. Empty state renders the correct copy when no vault docs exist. Regression: Retirement Projection runs ($1.7M portfolio for defaults). No blockers for ship.",
+  "rca of the issue": "No product RCA needed. The one observed anomaly (action-items showing 0 on first direct nav) is a React-Query cache-key hygiene nit, not a defect. The one Playwright anomaly (page.fill() on number inputs not firing onChange when parsed value matches current state) is a well-known testing-library gotcha and does not affect human users."
+}

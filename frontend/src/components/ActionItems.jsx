@@ -19,13 +19,14 @@ export default function ActionItems() {
   const household = useHousehold();
   const qc = useQueryClient();
   const canConvert = user.tier === "advisor" && !!household?.active;
-  const q = useQuery({ queryKey: ["action-items"], queryFn: actionItemsApi.list });
+  const q = useQuery({ queryKey: ["action-items", household?.active], queryFn: actionItemsApi.list });
 
   const convert = useMutation({
     mutationFn: (it) => api.post("/advisor/tasks", { client_id: household?.active, title: it.action || it.title }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
       qc.invalidateQueries({ queryKey: ["advisor-today"] });
+      qc.invalidateQueries({ queryKey: ["action-items"] });
       toast.success("Added to your task board");
     },
     onError: () => toast.error("Could not create task"),
