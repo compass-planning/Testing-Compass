@@ -452,6 +452,7 @@ class ReportEmailInput(BaseModel):
     di_monthly_gap: Optional[float] = None
     ltc_gap: Optional[float] = None
     document_ids: Optional[list[str]] = None
+    sections: Optional[list[str]] = None
 
 
 @router.post("/report/email")
@@ -489,7 +490,7 @@ async def email_report(body: ReportEmailInput, user: dict = Depends(get_current_
     if hid:
         ed_saved = [c for c in ed_saved if c.get("household_id") == hid]
     education = ed_saved[-1] if ed_saved else None
-    html = render_report_html(household_name, body.net_worth, body.protection_score, body.retirement_success, goals, branding.get("firm_name"), logo_url=branding.get("logo_url"), protection=protection, documents=documents, crossborder=crossborder, education=education)
+    html = render_report_html(household_name, body.net_worth, body.protection_score, body.retirement_success, goals, branding.get("firm_name"), logo_url=branding.get("logo_url"), protection=protection, documents=documents, crossborder=crossborder, education=education, sections=body.sections)
     email_id = await send_email(to=str(body.recipient), subject=f"{household_name} — financial summary", html=html)
     repo.create(store, "report_log", {
         "id": _id(), "store": store, "scope": ws, "household_id": hid,
@@ -512,7 +513,7 @@ async def report_history(user: dict = Depends(get_current_user), household_id: s
 
 
 @router.get("/report/pdf")
-async def report_pdf(user: dict = Depends(get_current_user), household_id: str = None):
+async def report_pdf(user: dict = Depends(get_current_user), household_id: str = None, sections: str = None):
     if user["tier"] == "enterprise":
         raise HTTPException(status_code=403, detail="Not available for this tier")
     store, read, _, hid = planner_scope(user, household_id)
@@ -549,6 +550,7 @@ async def report_pdf(user: dict = Depends(get_current_user), household_id: str =
         "net_worth": assets - liabilities, "total_assets": assets, "total_liabilities": liabilities,
         "protection_score": ps, "protection": protection, "retirement": retirement,
         "retirement_success": None, "estate": estate, "goals": goals, "crossborder": crossborder, "education": education,
+        "sections": [s.strip() for s in sections.split(",")] if sections else None,
     }
     pdf = build_plan_pdf(data)
     audit(user, "report.pdf", "report", household_name)

@@ -36,6 +36,7 @@ def build_plan_pdf(data: dict) -> bytes:
     el = []
 
     firm = data.get("firm_name") or "Compass Planning"
+    sections = set(data.get("sections") or ["retirement", "protection", "estate", "crossborder", "education", "goals", "documents"])
     el.append(Paragraph(firm, ParagraphStyle("firm", parent=ss["Normal"], textColor=BLUE, fontSize=11, spaceAfter=2)))
     el.append(Paragraph(data.get("household_name", "Household"), h1))
     el.append(Paragraph("Canadian financial plan summary — illustrative, not financial, tax or legal advice.", sub))
@@ -59,7 +60,7 @@ def build_plan_pdf(data: dict) -> bytes:
                          ("Net worth", _money(data.get("net_worth")))]))
 
     # Retirement
-    if data.get("retirement"):
+    if "retirement" in sections and data.get("retirement"):
         r = data["retirement"]
         el.append(Paragraph("Retirement", h2))
         el.append(_kv_table([("Scenario", str(r.get("name", "Latest"))),
@@ -67,7 +68,7 @@ def build_plan_pdf(data: dict) -> bytes:
                              ("Target monthly income", _money(r.get("monthly_income_goal")) + "/mo" if r.get("monthly_income_goal") else "—")]))
 
     # Protection
-    if data.get("protection"):
+    if "protection" in sections and data.get("protection"):
         el.append(Paragraph("Protection gaps", h2))
         rows = []
         for p in data["protection"]:
@@ -81,7 +82,7 @@ def build_plan_pdf(data: dict) -> bytes:
         el.append(_kv_table(rows or [("No protection analyses saved", "—")]))
 
     # Estate
-    if data.get("estate"):
+    if "estate" in sections and data.get("estate"):
         e = data["estate"]
         el.append(Paragraph("Estate settlement", h2))
         el.append(_kv_table([("Gross estate", _money(e.get("grossEstateValue"))),
@@ -94,7 +95,7 @@ def build_plan_pdf(data: dict) -> bytes:
             el.append(wf)
 
     # US / cross-border
-    if data.get("crossborder"):
+    if "crossborder" in sections and data.get("crossborder"):
         cb = data["crossborder"]
         el.append(Paragraph("US / cross-border", h2))
         rows = [("Jurisdiction", str(cb.get("label", "—")))]
@@ -109,7 +110,7 @@ def build_plan_pdf(data: dict) -> bytes:
         el.append(_kv_table(rows))
 
     # Education funding
-    if data.get("education"):
+    if "education" in sections and data.get("education"):
         ed = data["education"]
         el.append(Paragraph("Education funding (RESP)", h2))
         rows = [(f"{c.get('name', 'Child')} — projected",
@@ -121,7 +122,8 @@ def build_plan_pdf(data: dict) -> bytes:
         el.append(_kv_table(rows or [("No children on file", "—")]))
 
     # Goals
-    el.append(Paragraph("Goals", h2))
+    if "goals" in sections:
+        el.append(Paragraph("Goals", h2))
     gdata = [["Goal", "Progress", "Status"]]
     for g in (data.get("goals") or [])[:8]:
         try:

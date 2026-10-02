@@ -24,6 +24,9 @@ export default function ClientReport() {
   const [brand, setBrand] = useState({ firm_name: "Compass Planning", cover_note: "", logo: "", logo_url: "" });
   const [recipient, setRecipient] = useState("");
   const [attached, setAttached] = useState([]);
+  const [sections, setSections] = useState({ retirement: true, protection: true, estate: true, crossborder: true, education: true, goals: true, documents: true });
+  const toggleSection = (k) => setSections((s) => ({ ...s, [k]: !s[k] }));
+  const activeSections = () => Object.keys(sections).filter((k) => sections[k]);
   const [historyModal, setHistoryModal] = useState(null);
   const [historyVisible, setHistoryVisible] = useState(5);
 
@@ -100,7 +103,7 @@ export default function ClientReport() {
   };
 
   const emailMut = useMutation({
-    mutationFn: () => api.post("/report/email", { recipient, net_worth: data.netWorth, protection_score: data.protection, retirement_success: data.success, document_ids: attached }),
+    mutationFn: () => api.post("/report/email", { recipient, net_worth: data.netWorth, protection_score: data.protection, retirement_success: data.success, document_ids: attached, sections: activeSections() }),
     onSuccess: () => { toast.success(`Summary emailed to ${recipient}`); setAttached([]); qc.invalidateQueries({ queryKey: ["report-history"] }); },
     onError: (e) => toast.error(formatApiError(e.response?.data?.detail)),
   });
@@ -149,9 +152,12 @@ export default function ClientReport() {
     line("Monthly expenses", money(data.monthlyExpenses));
 
     section("Top goals");
-    if (data.goals.length === 0) line("No goals on file.", "");
-    data.goals.forEach((g) => { const p = g.target_amount ? Math.round((g.current_amount / g.target_amount) * 100) : 0; line(g.title, `${money(g.current_amount)} / ${money(g.target_amount)} · ${p}%`); });
+    if (sections.goals) {
+      if (data.goals.length === 0) line("No goals on file.", "");
+      data.goals.forEach((g) => { const p = g.target_amount ? Math.round((g.current_amount / g.target_amount) * 100) : 0; line(g.title, `${money(g.current_amount)} / ${money(g.target_amount)} · ${p}%`); });
+    }
 
+    if (sections.estate) {
     section(`Estate (${data.province})`);
     line("Estimated probate fees", money(data.estEstimate.probate));
     line("Deemed-disposition tax", money(data.estEstimate.deemedTax));
@@ -159,9 +165,10 @@ export default function ClientReport() {
     data.beneficiaries.slice(0, 4).forEach((b) => line(`Beneficiary · ${b.asset || "Asset"}`, `${b.beneficiary || "—"}${b.allocation ? ` (${b.allocation}%)` : ""}`));
     data.documents.slice(0, 4).forEach((d) => line(`${d.doc_type || "Document"} · ${d.asset || d.name || ""}`, d.status || ""));
     if (data.beneficiaries.length === 0 && data.documents.length === 0) line("No estate register entries.", "");
+    }
 
     const cb = crossborder.data?.result;
-    if (cb) {
+    if (sections.crossborder && cb) {
       section("US / cross-border");
       line("Jurisdiction", cb.jurisdiction?.label || "—");
       if (cb.us_tax) { line("US federal tax", money(cb.us_tax.federal_tax)); line(`US state tax (${cb.us_tax.state})`, money(cb.us_tax.state_tax)); line("Total US tax", money(cb.us_tax.total_us_tax)); }
@@ -169,13 +176,13 @@ export default function ClientReport() {
     }
 
     const ed = education.data;
-    if (ed && ed.per_child?.length) {
+    if (sections.education && ed && ed.per_child?.length) {
       section("Education funding (RESP)");
       ed.per_child.forEach((c) => line(c.name, `${money(c.projectedValue)} · ${c.coveragePct}% covered`));
       line("Combined projected", money(ed.combined?.projectedValue));
     }
 
-    const attachedList = (vault.data || []).filter((f) => attached.includes(f.id));
+    const attachedList = (sections.documents ? (vault.data || []).filter((f) => attached.includes(f.id)) : []);
     if (attachedList.length) { section("Attached documents"); attachedList.forEach((f) => line(f.name, f.category)); }
 
     doc.setDrawColor(226, 232, 240); doc.line(14, 284, W - 14, 284);
@@ -187,7 +194,7 @@ export default function ClientReport() {
 
   const downloadFullPlan = async () => {
     try {
-      const res = await api.get("/report/pdf", { responseType: "blob" });
+      const res = await api.get(`/report/pdf?sections=${activeSections().join(",")}`, { responseType: "blob" });
       const url = window.URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
       const a = document.createElement("a");
       a.href = url;
@@ -267,6 +274,19 @@ export default function ClientReport() {
         </Card>
 
         <div className="space-y-6">
+          <Card className="p-6" data-testid="sections-panel">
+            <h3 className="font-heading font-bold text-compass-navy mb-4 flex items-center gap-2"><FileText size={18} className="text-compass-blue" /> Report sections</h3>
+            <p className="text-xs text-compass-muted mb-3">Choose which sections appear in the downloaded PDF and emailed report. Net worth is always included.</p>
+            <div className="space-y-2">
+              {[["retirement", "Retirement"], ["protection", "Protection"], ["estate", "Estate"], ["crossborder", "US / Cross-border"], ["education", "Education (RESP)"], ["goals", "Goals"], ["documents", "Attached documents"]].map(([k, label]) => (
+                <label key={k} className="flex items-center gap-2.5 text-sm cursor-pointer" data-testid={`section-toggle-${k}`}>
+                  <input type="checkbox" checked={sections[k]} onChange={() => toggleSection(k)} className="h-4 w-4 accent-compass-blue" />
+                  <span className="text-compass-navy">{label}</span>
+                </label>
+              ))}
+            </div>
+          </Card>
+
           <Card className="p-6" data-testid="branding-panel">
             <h3 className="font-heading font-bold text-compass-navy mb-4 flex items-center gap-2"><Palette size={18} className="text-compass-blue" /> Branding</h3>
             <div className="space-y-4">

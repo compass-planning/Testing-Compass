@@ -749,6 +749,46 @@ async def cron_book_digest(background: BackgroundTasks, authorization: str = Hea
     return {"status": "accepted"}
 
 
+async def _run_invite_reminders():
+    # background: nudge invited portal users whose invite is pending > 7 days
+    now = datetime.now(timezone.utc)
+    for u in repo.all_users():
+        if not u.get("invited_by") or not u.get("must_change_password"):
+            continue
+        try:
+            created_dt = datetime.fromisoformat(u.get("created_at"))
+        except Exception:
+            continue
+        if (now - created_dt).days < 7:
+            continue
+        last = u.get("last_reminded")
+        if last:
+            try:
+                if (now - datetime.fromisoformat(last)).days < 7:
+                    continue
+            except Exception:
+                pass
+        adv = next((a for a in repo.all_users() if a.get("id") == u.get("invited_by")), None)
+        firm = ((adv or {}).get("branding") or {}).get("firm_name") or "Compass Planning"
+        link = _activation_link(_app_base_url(), create_scoped_token({"sub": u["id"]}, 60 * 24 * 7, "activate"))
+        try:
+            await _send_invite(u["email"], u.get("name", "there"), firm, link)
+            repo.update_user(u["id"], {"last_reminded": now.isoformat()})
+        except Exception as e:
+            logger.warning(f"Invite reminder failed for {u.get('email')}: {e}")
+
+
+@router.post("/cron/invite-reminders")
+async def cron_invite_reminders(background: BackgroundTasks, authorization: str = Header(default="")):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    secret = os.environ.get("WEBHOOK_CRON_SECRET", "")
+    token = authorization[7:] if authorization.startswith("Bearer ") else ""
+    if not secret or not token or not secrets.compare_digest(token, secret):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    background.add_task(_run_invite_reminders)
+    return {"status": "accepted"}
+
+
 @router.post("/advisor/book-digest/preview")
 async def book_digest_preview(user: dict = Depends(get_current_user)):
     if user["tier"] != "advisor":

@@ -76,6 +76,22 @@ async def save_education(body: EducationSaveInput, user: dict = Depends(get_curr
     else:
         repo.create(store, "plan_education", {"id": _id(), "store": store, "scope": ws, "household_id": hid, **payload})
     audit(user, "education.save", "plan_education", hid or "self")
+    # Sync one linked education goal per child (plan -> goals)
+    year = datetime.now(timezone.utc).year
+    existing_goals = repo.list(store, "goals", read)
+    for c, s in zip(body.children, rows):
+        tgt_year = year + max(0, 18 - int(c.child_age or 0))
+        status = "on_track" if s["coveragePct"] >= 100 else ("at_risk" if s["coveragePct"] < 60 else "behind")
+        fields = {"title": f"Education fund — {c.name}", "category": "education",
+                  "target_amount": float(c.tuition_goal or 0), "current_amount": float(c.current_savings or 0),
+                  "target_year": tgt_year, "status": status, "source": "resp", "resp_child": c.name,
+                  "monthly_contribution": float(c.monthly_contribution or 0)}
+        match = next((g for g in existing_goals if g.get("source") == "resp" and g.get("resp_child") == c.name
+                      and (not hid or g.get("scope", {}).get("client_id") == hid)), None)
+        if match:
+            repo.update(store, "goals", match["id"], fields, read)
+        else:
+            repo.create(store, "goals", {"id": _id(), "store": store, "scope": ws, **fields})
     return {"ok": True, "per_child": rows, "combined": combined}
 
 

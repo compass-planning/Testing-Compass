@@ -139,7 +139,7 @@ def _money(v) -> str:
         return "$0"
 
 
-def render_report_html(household_name: str, net_worth, protection_score, retirement_success, goals, firm_name=None, logo_url=None, protection=None, documents=None, crossborder=None, education=None) -> str:
+def render_report_html(household_name: str, net_worth, protection_score, retirement_success, goals, firm_name=None, logo_url=None, protection=None, documents=None, crossborder=None, education=None, sections=None) -> str:
     name = escape(str(household_name))
     firm = escape(str(firm_name or EMAIL_FROM_NAME))
     initials = "".join([w[0] for w in str(firm_name or EMAIL_FROM_NAME).split()[:2]]).upper() or "C"
@@ -221,6 +221,17 @@ def render_report_html(household_name: str, net_worth, protection_score, retirem
                f'<td style="padding:6px 0;text-align:right;color:#0B1437"><b>{_money(cb2.get("projectedValue"))}</b></td></tr>')
         education_block = (f'<h3 style="color:#0B1437;margin:22px 0 6px;font-size:14px">Education funding (RESP)</h3>'
                            f'<table role="presentation" width="100%" style="font-size:13px">{er}</table>')
+
+    if sections is not None:
+        _sec = set(sections)
+        if "protection" not in _sec:
+            protection_block = ""
+        if "crossborder" not in _sec:
+            crossborder_block = ""
+        if "education" not in _sec:
+            education_block = ""
+        if "documents" not in _sec:
+            documents_block = ""
 
     return (
         f'<table role="presentation" width="100%" style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif">'

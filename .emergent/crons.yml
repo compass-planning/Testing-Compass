@@ -23,3 +23,10 @@ crons:
     method: POST
     # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
     enabled: true
+  - name: invite-reminders
+    description: "Daily nudge emailing portal invites still pending over 7 days; re-nudges weekly until accepted"
+    cron: "0 13 * * *"
+    endpoint: "{{BASE_URL}}/api/cron/invite-reminders"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true
