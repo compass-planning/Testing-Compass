@@ -219,7 +219,10 @@ function Estate({ province }) {
   const estateValue = Number(overview.data?.netWorth || 0);
   const registeredValue = (networth.data || []).filter((r) => r.kind === "asset" && ["RRSP"].includes(r.category)).reduce((s, r) => s + Number(r.value || 0), 0)
     + (accounts.data || []).filter((a) => REGISTERED_ACCT.includes(a.account_type)).reduce((s, a) => s + Number(a.balance || 0), 0);
-  const est = useMemo(() => estateEstimate({ estateValue, registeredValue, province: prov }), [estateValue, registeredValue, prov]);
+  const estQ = useQuery({ queryKey: ["estate-analysis", prov, estateValue, registeredValue], queryFn: async () => (await api.post("/plan/estate/analysis", { province: prov, grossEstateValue: estateValue, rrspRrifBalance: registeredValue })).data });
+  const est = estQ.data
+    ? { total: estQ.data.totalSettlementCost, probate: estQ.data.probate.probateFee, deemedTax: estQ.data.terminalTax.estimatedTax, net: estQ.data.netToHeirs }
+    : { total: 0, probate: 0, deemedTax: 0, net: 0 };
 
   const rows = estate.data || [];
   const beneficiaries = rows.filter((r) => r.kind === "beneficiary");
@@ -243,6 +246,7 @@ function Estate({ province }) {
           <div className="mt-4 space-y-2 text-sm">
             <Row label="Probate fees" value={money(est.probate)} />
             <Row label="Deemed-disposition tax" value={money(est.deemedTax)} />
+            <Row label="Net to heirs" value={money(est.net)} />
           </div>
         </Card>
       </div>

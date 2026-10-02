@@ -23,7 +23,7 @@ SECURITY_QUESTIONS = [
     "What is the name of your childhood best friend?",
 ]
 
-PLAN_COLLECTIONS = {"networth", "debts", "expenses", "insurance", "documents", "tax_notes", "retirement", "estate"}
+PLAN_COLLECTIONS = {"networth", "debts", "expenses", "insurance", "documents", "tax_notes", "retirement", "estate", "protection"}
 
 _RESERVED = {"id", "scope", "store", "household_id", "created_at", "crm_record_id", "source"}
 

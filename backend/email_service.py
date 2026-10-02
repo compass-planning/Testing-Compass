@@ -139,7 +139,7 @@ def _money(v) -> str:
         return "$0"
 
 
-def render_report_html(household_name: str, net_worth, protection_score, retirement_success, goals, firm_name=None, logo_url=None) -> str:
+def render_report_html(household_name: str, net_worth, protection_score, retirement_success, goals, firm_name=None, logo_url=None, protection=None) -> str:
     name = escape(str(household_name))
     firm = escape(str(firm_name or EMAIL_FROM_NAME))
     initials = "".join([w[0] for w in str(firm_name or EMAIL_FROM_NAME).split()[:2]]).upper() or "C"
@@ -167,6 +167,22 @@ def render_report_html(household_name: str, net_worth, protection_score, retirem
                 f'<div style="font-size:11px;color:#60708f;text-transform:uppercase;letter-spacing:.5px">{label}</div>'
                 f'<div style="font-size:18px;font-weight:700;color:#0B1437;margin-top:4px">{value}</div></td>')
 
+    protection_block = ""
+    if protection:
+        def prow(label, value):
+            return (f'<tr><td style="padding:6px 0;color:#0B1437">{escape(str(label))}</td>'
+                    f'<td style="padding:6px 0;text-align:right;color:#60708f">{value}</td></tr>')
+        pr = ""
+        if protection.get("life_gap") is not None:
+            pr += prow("Life insurance gap", _money(protection.get("life_gap")))
+        if protection.get("di_monthly_gap") is not None:
+            pr += prow("Disability monthly gap", _money(protection.get("di_monthly_gap")) + "/mo")
+        if protection.get("ltc_gap") is not None:
+            pr += prow("Long-term care gap", _money(protection.get("ltc_gap")) + "/day")
+        if pr:
+            protection_block = (f'<h3 style="color:#0B1437;margin:22px 0 6px;font-size:14px">Protection gaps</h3>'
+                                f'<table role="presentation" width="100%" style="font-size:13px">{pr}</table>')
+
     return (
         f'<table role="presentation" width="100%" style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif">'
         f'<tr><td style="background:#0052FF;padding:20px 24px;border-radius:10px 10px 0 0">'
@@ -184,6 +200,7 @@ def render_report_html(household_name: str, net_worth, protection_score, retirem
         f'</tr></table>'
         f'<h3 style="color:#0B1437;margin:22px 0 6px;font-size:14px">Top goals</h3>'
         f'<table role="presentation" width="100%" style="font-size:13px">{rows}</table>'
+        f'{protection_block}'
         f'<p style="font-size:11px;color:#9aa5b9;margin-top:22px">Prepared with {firm}. '
         f'Illustrative summary — not financial, tax or legal advice. We never ask for your password or card details by email.</p>'
         f'</td></tr></table>'

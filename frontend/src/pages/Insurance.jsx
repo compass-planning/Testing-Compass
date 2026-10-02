@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Shield, HeartPulse, Home, Play, Umbrella } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
-import { protectionApi } from "@/lib/planning";
+import { protectionApi, planApi } from "@/lib/planning";
 import { Card, Button, Input, Field, Select, Badge, Stat } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
@@ -17,6 +17,11 @@ const TABS = [
 
 function Row({ label, value, strong }) {
   return <div className="flex justify-between text-sm"><span className="text-compass-muted">{label}</span><span className={strong ? "font-bold text-compass-navy" : "font-semibold text-compass-navy"}>{value}</span></div>;
+}
+
+function SaveBtn({ name, summary }) {
+  const save = useMutation({ mutationFn: () => planApi.create("protection", { name, ...summary }), onSuccess: () => toast.success("Saved to household plan"), onError: (e) => toast.error(formatApiError(e.response?.data?.detail) || "Open a household first") });
+  return <Button variant="outline" size="sm" className="mt-3" onClick={() => save.mutate()} disabled={save.isPending} data-testid={`save-${summary.kind}`}>Save to household</Button>;
 }
 
 export default function Insurance() {
@@ -84,6 +89,7 @@ function LifeTab() {
             <div className="border-t border-compass-border my-2 pt-2 muted-label">Other gaps</div>
             <Row label="Disability monthly gap" value={`${money(r.diGap.monthlyGap)}/mo`} />
             <Row label="Critical illness gap" value={money(r.ciGap.gap)} />
+            <SaveBtn name="Life insurance needs" summary={{ kind: "life", recommended_coverage: r.recommendedLifeCoverage, life_gap: r.lifeCoverageGap, method: r.selectedMethod }} />
           </div>
         )}
         {!r && <p className="text-sm text-compass-muted mt-3">Enter the household profile and analyze to compare DIME, Human Life Value and Capital Retention.</p>}
@@ -129,6 +135,7 @@ function DiTab() {
               <Row label="Group after tax" value={`${money(r.existing.groupAfterTax)}/mo`} />
               <Row label="Own-occ claim prob" value={`${Math.round(r.claimProbability.ownOcc * 100)}%`} />
               <p className="text-xs text-compass-muted mt-2">{r.taxTreatment.recommendation}</p>
+              <SaveBtn name="Disability income" summary={{ kind: "di", di_monthly_gap: r.coverageGap, replacement_ratio: r.replacementRatio }} />
             </div>
           </div>
         )}
@@ -175,6 +182,7 @@ function LtcTab() {
             <Row label="Premiums to claim age" value={money(r.totalPremiumsToClaimAge)} />
             <Row label="Break-even age" value={r.breakEvenAge < 999 ? r.breakEvenAge : "—"} strong />
             {r.adequacyGap > 0 && <Row label="Adequacy gap (vs provincial)" value={`${money(r.adequacyGap)}/day`} />}
+            <SaveBtn name="Long-term care" summary={{ kind: "ltc", ltc_gap: r.adequacyGap, pool_dollars: r.totalPoolDollars, break_even_age: r.breakEvenAge }} />
           </div>
         )}
         {!r && <p className="text-sm text-compass-muted mt-3">Model the benefit pool, elimination-period cost and self-insure break-even for long-term care.</p>}

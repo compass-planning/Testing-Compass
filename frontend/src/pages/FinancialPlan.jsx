@@ -16,6 +16,7 @@ export default function FinancialPlan() {
     { icon: Scale, label: "Net Worth", value: money(o.netWorth), done: true },
     { icon: PiggyBank, label: "Retirement", value: `${o.retirementProjections} projection(s)`, done: o.retirementProjections > 0 },
     { icon: Shield, label: "Insurance", value: `${o.insuranceAnalyses} policy(ies)`, done: o.insuranceAnalyses > 0 },
+    { icon: Shield, label: "Protection analysis", value: `${o.protectionAnalyses || 0} saved`, done: (o.protectionAnalyses || 0) > 0 },
     { icon: Receipt, label: "Cash Flow", value: `${money(o.monthlyExpenses)}/mo`, done: o.monthlyExpenses > 0 },
     { icon: CreditCard, label: "Debt", value: `${o.debtCount} tracked`, done: true },
     { icon: FileText, label: "Documents", value: `${o.documents} on file`, done: o.documents > 0 },

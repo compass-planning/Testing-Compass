@@ -252,6 +252,7 @@ async def plan_overview(user: dict = Depends(get_current_user), household_id: st
         "accounts": len(accounts), "goals": len(goals),
         "retirementProjections": len(hh(repo.list(store, "plan_retirement", read))),
         "insuranceAnalyses": len(hh(repo.list(store, "plan_insurance", read))),
+        "protectionAnalyses": len(hh(repo.list(store, "plan_protection", read))),
         "debtCount": len(debts),
         "monthlyExpenses": sum(float(r.get("amount", 0)) for r in hh(repo.list(store, "plan_expenses", read))),
         "documents": len(hh(repo.list(store, "plan_documents", read))),
@@ -342,6 +343,9 @@ class ReportEmailInput(BaseModel):
     net_worth: float = 0
     protection_score: int = 0
     retirement_success: Optional[int] = None
+    life_gap: Optional[float] = None
+    di_monthly_gap: Optional[float] = None
+    ltc_gap: Optional[float] = None
 
 
 @router.post("/report/email")
@@ -358,7 +362,10 @@ async def email_report(body: ReportEmailInput, user: dict = Depends(get_current_
     household_name = f"The {primary['full_name'].split()[-1]} Household" if primary else "Household"
     goals = repo.list(store, "goals", read)[:5]
     branding = user.get("branding") or {}
-    html = render_report_html(household_name, body.net_worth, body.protection_score, body.retirement_success, goals, branding.get("firm_name"), logo_url=branding.get("logo_url"))
+    protection = None
+    if body.life_gap is not None or body.di_monthly_gap is not None or body.ltc_gap is not None:
+        protection = {"life_gap": body.life_gap, "di_monthly_gap": body.di_monthly_gap, "ltc_gap": body.ltc_gap}
+    html = render_report_html(household_name, body.net_worth, body.protection_score, body.retirement_success, goals, branding.get("firm_name"), logo_url=branding.get("logo_url"), protection=protection)
     email_id = await send_email(to=str(body.recipient), subject=f"{household_name} — financial summary", html=html)
     repo.create(store, "report_log", {
         "id": _id(), "store": store, "scope": ws, "household_id": hid,
