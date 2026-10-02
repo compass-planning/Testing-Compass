@@ -15,7 +15,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 import storage
 import seed
-from routers import auth, planning, advisor, tasks, compliance
+from routers import auth, planning, advisor, tasks, compliance, retirement
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("compass")
@@ -47,6 +47,7 @@ api.include_router(planning.router)
 api.include_router(advisor.router)
 api.include_router(tasks.router)
 api.include_router(compliance.router)
+api.include_router(retirement.router)
 
 app.include_router(api)
 app.add_middleware(

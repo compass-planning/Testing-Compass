@@ -9,3 +9,17 @@ export const planApi = {
   profile: () => api.get(`/plan/profile`).then((r) => r.data),
   saveProfile: (body) => api.put(`/plan/profile`, body).then((r) => r.data),
 };
+
+export const retirementApi = {
+  projection: (body) => api.post(`/plan/retirement/projection`, body).then((r) => r.data),
+  montecarlo: (body) => api.post(`/plan/retirement/montecarlo`, body).then((r) => r.data),
+  guardrails: (body) => api.post(`/plan/retirement/guardrails`, body).then((r) => r.data),
+  withdrawals: (body) => api.post(`/plan/retirement/withdrawals`, body).then((r) => r.data),
+  cppTiming: (body) => api.post(`/plan/retirement/cpp-timing`, body).then((r) => r.data),
+  rrspVsTfsa: (body) => api.post(`/plan/retirement/rrsp-vs-tfsa`, body).then((r) => r.data),
+  pensionSplit: (body) => api.post(`/plan/retirement/pension-split`, body).then((r) => r.data),
+  scenarios: () => api.get(`/plan/retirement/scenarios`).then((r) => r.data),
+  saveScenario: (body) => api.post(`/plan/retirement/scenarios`, body).then((r) => r.data),
+  removeScenario: (id) => api.delete(`/plan/retirement/scenarios/${id}`).then((r) => r.data),
+};
+
