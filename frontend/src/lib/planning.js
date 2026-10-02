@@ -59,9 +59,12 @@ export const educationApi = {
 export const enterpriseApi = {
   overview: () => api.get(`/enterprise/overview`).then((r) => r.data),
   household: (hid) => api.get(`/enterprise/household/${hid}`).then((r) => r.data),
+  invite: (body) => api.post(`/enterprise/clients/invite`, body).then((r) => r.data),
 };
 
 export const crossBorderApi = {
   analyze: (body) => api.post(`/plan/crossborder`, body).then((r) => r.data),
+  save: (body) => api.post(`/plan/crossborder/save`, body).then((r) => r.data),
+  saved: () => api.get(`/plan/crossborder/saved`).then((r) => r.data),
 };
 

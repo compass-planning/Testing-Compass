@@ -12,8 +12,8 @@ US_BRACKETS = {
 US_STD_DEDUCTION = {"single": 14600, "mfj": 29200}
 FEIE_2024 = 126500.0
 
-# ── US state tax (simplified) ─────────────────────────────────────────────────
-NO_TAX_STATES = {"TX", "FL", "WA", "NV", "WY", "SD", "AK", "TN", "NH"}
+# ── US state tax (simplified, 2024 single-filer) ─────────────────────────────
+NO_TAX_STATES = {"AK", "FL", "NV", "NH", "SD", "TN", "TX", "WA", "WY"}
 STATE_BRACKETS = {
     "CA": [(10412, 0.01), (24684, 0.02), (38959, 0.04), (54081, 0.06), (68350, 0.08),
            (349137, 0.093), (418961, 0.103), (698271, 0.113), (float("inf"), 0.123)],
@@ -22,8 +22,16 @@ STATE_BRACKETS = {
     "NJ": [(20000, 0.014), (35000, 0.0175), (40000, 0.035), (75000, 0.05525),
            (500000, 0.0637), (1000000, 0.0897), (float("inf"), 0.1075)],
 }
-STATE_FLAT = {"IL": 0.0495, "MA": 0.05, "PA": 0.0307, "CO": 0.044, "MI": 0.0425,
-              "UT": 0.0465, "NC": 0.045, "AZ": 0.025, "GA": 0.0549, "VA": 0.0575}
+# Remaining states + DC — simplified at the 2024 top marginal rate (flat approximation)
+STATE_FLAT = {
+    "AL": 0.05, "AZ": 0.025, "AR": 0.039, "CO": 0.044, "CT": 0.0699, "DE": 0.066,
+    "DC": 0.1075, "GA": 0.0539, "HI": 0.11, "ID": 0.058, "IL": 0.0495, "IN": 0.0305,
+    "IA": 0.057, "KS": 0.057, "KY": 0.04, "LA": 0.0425, "ME": 0.0715, "MD": 0.0575,
+    "MA": 0.05, "MI": 0.0425, "MN": 0.0985, "MS": 0.047, "MO": 0.048, "MT": 0.059,
+    "NE": 0.0584, "NM": 0.059, "NC": 0.045, "ND": 0.025, "OH": 0.035, "OK": 0.0475,
+    "OR": 0.099, "PA": 0.0307, "RI": 0.0599, "SC": 0.064, "UT": 0.0465, "VT": 0.0875,
+    "VA": 0.0575, "WV": 0.065, "WI": 0.0765,
+}
 DEFAULT_STATE_FLAT = 0.05
 
 # ── Social Security (2024) ────────────────────────────────────────────────────
@@ -50,7 +58,7 @@ def us_state_tax(state: str, taxable_income: float) -> dict:
     if s in STATE_BRACKETS:
         return {"state": s, "tax": round(_apply(taxable_income, STATE_BRACKETS[s])), "note": "Progressive state tax"}
     if s in STATE_FLAT:
-        return {"state": s, "tax": round(taxable_income * STATE_FLAT[s]), "note": f"Flat {STATE_FLAT[s]*100:.2f}% state tax"}
+        return {"state": s, "tax": round(taxable_income * STATE_FLAT[s]), "note": f"Simplified at top marginal {STATE_FLAT[s]*100:.2f}%"}
     return {"state": s, "tax": round(taxable_income * DEFAULT_STATE_FLAT), "note": "Estimated at 5% (state not modelled)"}
 
 

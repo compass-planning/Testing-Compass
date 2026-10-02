@@ -1,14 +1,15 @@
 import React, { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Globe, Play, Flag, Landmark, PiggyBank, FileWarning } from "lucide-react";
+import { Globe, Play, Flag, Landmark, PiggyBank, FileWarning, Save } from "lucide-react";
 import { formatApiError } from "@/lib/api";
 import { crossBorderApi } from "@/lib/planning";
+import { useAuth } from "@/context/AuthContext";
 import { Card, Button, Input, Field, Select, Badge, Stat } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
 
-const STATES = ["Other", "CA", "NY", "NJ", "IL", "MA", "PA", "CO", "MI", "UT", "NC", "AZ", "GA", "VA", "TX", "FL", "WA", "NV", "TN", "NH"];
+const STATES = ["Other", "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"];
 const CAT_COLOR = { dual: "#FFB800", canadian_resident: "#00A36C", us_person: "#0052FF", other: "#A3AED0" };
 
 function Toggle({ label, checked, onChange, testid }) {
@@ -21,6 +22,7 @@ function Toggle({ label, checked, onChange, testid }) {
 }
 
 export default function CrossBorder() {
+  const { user } = useAuth();
   const [inp, setInp] = useState({
     ca_resident: true, us_citizen: false, us_green_card: false, us_substantial_presence: false, ca_citizen: true,
     annual_income: 120000, filing_status: "single", state: "Other", avg_annual_earnings: 75000, claim_age: 67,
@@ -31,6 +33,11 @@ export default function CrossBorder() {
     mutationFn: () => crossBorderApi.analyze(inp),
     onSuccess: (d) => setRes(d),
     onError: (e) => toast.error(formatApiError(e.response?.data?.detail) || "Analysis failed"),
+  });
+  const save = useMutation({
+    mutationFn: () => crossBorderApi.save(inp),
+    onSuccess: (d) => { setRes(d.result); toast.success("Saved to client file — it will appear in the report"); },
+    onError: (e) => toast.error(formatApiError(e.response?.data?.detail) || "Could not save"),
   });
   const j = res?.jurisdiction;
   const ut = res?.us_tax;
@@ -57,6 +64,7 @@ export default function CrossBorder() {
             <Field label="SS claim age"><Select value={inp.claim_age} onChange={(e) => set("claim_age", Number(e.target.value))} data-testid="cb-claim-age"><option value={62}>62 (early)</option><option value={67}>67 (full)</option><option value={70}>70 (delayed)</option></Select></Field>
           </div>
           <Button className="mt-5 w-full" onClick={() => run.mutate()} disabled={run.isPending} data-testid="cb-run"><Play size={16} /> {run.isPending ? "Analyzing…" : "Analyze jurisdiction"}</Button>
+          {user.tier !== "enterprise" && <Button variant="outline" className="mt-2 w-full" onClick={() => save.mutate()} disabled={save.isPending} data-testid="cb-save"><Save size={15} /> Save to client file</Button>}
         </Card>
 
         <div className="lg:col-span-2 space-y-6">

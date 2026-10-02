@@ -327,6 +327,45 @@ async def invite_client(body: InviteClientInput, user: dict = Depends(get_curren
     return {"email": email, "activation_link": link, "emailed": emailed}
 
 
+class EnterpriseInviteInput(BaseModel):
+    email: EmailStr
+    full_name: str
+    hid: str
+    base_url: str = ""
+
+
+@router.post("/enterprise/clients/invite")
+async def invite_enterprise_client(body: EnterpriseInviteInput, user: dict = Depends(get_current_user)):
+    if user["tier"] != "enterprise":
+        raise HTTPException(status_code=403, detail="Enterprise tier only")
+    store, flt = scope_context(user)
+    owner = next((o for o in repo.list(store, "owners", flt) if o["id"] == body.hid), None)
+    if not owner:
+        raise HTTPException(status_code=404, detail="Household not found in your corp")
+    email = body.email.lower()
+    if repo.find_user_by_email(email):
+        raise HTTPException(status_code=409, detail="An account with this email already exists")
+    sc = user.get("scope", {})
+    client = {
+        "id": _id(), "email": email, "password_hash": hash_password("Cmps-" + secrets.token_urlsafe(10)),
+        "name": body.full_name, "tier": "solo", "role": "solo_user",
+        "scope": {"corp_id": sc.get("corp_id"), "org_id": sc.get("org_id"), "advisor_id": None, "client_id": body.hid},
+        "mfa_enabled": False, "mfa_secret": None, "must_change_password": True,
+        "invited_by": user["id"],
+        "invite_expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+        "consent": {"marketing": False, "data_processing": True, "crm_sharing": True,
+                    "updated_at": datetime.now(timezone.utc).isoformat()},
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    repo.insert_user(client)
+    token = create_scoped_token({"sub": client["id"]}, 60 * 24 * 7, "activate")
+    link = _activation_link(body.base_url, token)
+    firm = (user.get("branding") or {}).get("firm_name") or "Compass Planning"
+    emailed = await _send_invite(email, client["name"], firm, link)
+    audit(user, "enterprise.invite", "account", f"Invited portal login {email} for {body.hid}")
+    return {"email": email, "activation_link": link, "emailed": emailed}
+
+
 @router.post("/advisor/clients/invite/resend")
 async def resend_invite(body: ResendInviteInput, user: dict = Depends(get_current_user)):
     if user["tier"] != "advisor":

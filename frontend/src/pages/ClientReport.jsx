@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 import { FileBarChart, Download, Upload, Mail, Palette, History, Scale, FileText } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
-import { planApi, docsApi } from "@/lib/planning";
+import { planApi, docsApi, crossBorderApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
 import { Card, Button, Stat, Badge, Field, Input, Empty, Modal } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
@@ -53,6 +53,7 @@ export default function ClientReport() {
   const accounts = useQuery({ queryKey: ["accounts"], queryFn: async () => (await api.get("/accounts")).data });
   const history = useQuery({ queryKey: ["report-history"], queryFn: async () => (await api.get("/report/history")).data });
   const vault = useQuery({ queryKey: ["doc-files"], queryFn: docsApi.list });
+  const crossborder = useQuery({ queryKey: ["crossborder-saved"], queryFn: crossBorderApi.saved });
 
   const data = useMemo(() => {
     const o = overview.data || {};
@@ -157,6 +158,14 @@ export default function ClientReport() {
     data.beneficiaries.slice(0, 4).forEach((b) => line(`Beneficiary · ${b.asset || "Asset"}`, `${b.beneficiary || "—"}${b.allocation ? ` (${b.allocation}%)` : ""}`));
     data.documents.slice(0, 4).forEach((d) => line(`${d.doc_type || "Document"} · ${d.asset || d.name || ""}`, d.status || ""));
     if (data.beneficiaries.length === 0 && data.documents.length === 0) line("No estate register entries.", "");
+
+    const cb = crossborder.data?.result;
+    if (cb) {
+      section("US / cross-border");
+      line("Jurisdiction", cb.jurisdiction?.label || "—");
+      if (cb.us_tax) { line("US federal tax", money(cb.us_tax.federal_tax)); line(`US state tax (${cb.us_tax.state})`, money(cb.us_tax.state_tax)); line("Total US tax", money(cb.us_tax.total_us_tax)); }
+      if (cb.social_security) line("Social Security at 67", `${money(cb.social_security.fra_monthly)}/mo`);
+    }
 
     const attachedList = (vault.data || []).filter((f) => attached.includes(f.id));
     if (attachedList.length) { section("Attached documents"); attachedList.forEach((f) => line(f.name, f.category)); }
@@ -277,6 +286,7 @@ export default function ClientReport() {
             <Button className="w-full mt-4" disabled={!recipient || emailMut.isPending} onClick={() => emailMut.mutate()} data-testid="send-email-button">
               <Mail size={16} /> {emailMut.isPending ? "Sending…" : "Send summary"}
             </Button>
+            {crossborder.data?.result && <p className="text-xs text-compass-muted mt-3" data-testid="report-crossborder-note">A saved US / cross-border summary will be included in the report and email.</p>}
           </Card>
 
           <Card className="p-6" data-testid="attach-docs-panel">

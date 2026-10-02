@@ -1,8 +1,10 @@
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Building2, Users, Gauge, AlertTriangle } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Building2, Users, Gauge, AlertTriangle, UserPlus } from "lucide-react";
+import { formatApiError } from "@/lib/api";
 import { enterpriseApi } from "@/lib/planning";
-import { Card, Stat, Badge, Modal } from "@/components/ui-kit";
+import { Card, Stat, Badge, Modal, Button, Input, Field } from "@/components/ui-kit";
 import { money } from "@/lib/format";
 
 const STATUS_COLOR = { "On Track": "#00DF89", "Needs Review": "#FFB800", "At Risk": "#EE5D50", "Needs Setup": "#A3AED0" };
@@ -14,6 +16,13 @@ function sev(score) {
 function HouseholdDrill({ hid, onClose }) {
   const q = useQuery({ queryKey: ["enterprise-household", hid], queryFn: () => enterpriseApi.household(hid), enabled: !!hid });
   const d = q.data;
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const invite = useMutation({
+    mutationFn: () => enterpriseApi.invite({ email, full_name: d.primary, hid, base_url: window.location.origin }),
+    onSuccess: (r) => { toast.success(r.emailed ? `Portal invite emailed to ${r.email}` : `Invite created for ${r.email}`); setInviteOpen(false); setEmail(""); },
+    onError: (e) => toast.error(formatApiError(e.response?.data?.detail) || "Could not send invite"),
+  });
   return (
     <Modal open={!!hid} onClose={onClose} title={d ? d.primary : "Household"} testid="enterprise-drill">
       {!d ? (
@@ -49,6 +58,23 @@ function HouseholdDrill({ hid, onClose }) {
               </div>
             ))}
           </Section>
+
+          <div className="rounded-xl bg-compass-bg px-4 py-3">
+            {!inviteOpen ? (
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm text-compass-navy font-semibold">Portal access <span className="text-xs text-compass-muted font-normal">· plan-data binding coming soon</span></div>
+                <Button size="sm" variant="outline" onClick={() => setInviteOpen(true)} data-testid="drill-invite-open"><UserPlus size={14} /> Invite to portal</Button>
+              </div>
+            ) : (
+              <div className="space-y-2.5" data-testid="drill-invite-form">
+                <Field label={`Email for ${d.primary}`}><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="client@email.com" data-testid="drill-invite-email" /></Field>
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => setInviteOpen(false)}>Cancel</Button>
+                  <Button size="sm" onClick={() => invite.mutate()} disabled={!email || invite.isPending} data-testid="drill-invite-send">Send invite</Button>
+                </div>
+              </div>
+            )}
+          </div>
           <p className="text-xs text-compass-muted">Read-only corp view. Household data is managed via the CRM source of record.</p>
         </div>
       )}

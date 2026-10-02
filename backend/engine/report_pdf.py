@@ -93,6 +93,21 @@ def build_plan_pdf(data: dict) -> bytes:
             el.append(Spacer(1, 6))
             el.append(wf)
 
+    # US / cross-border
+    if data.get("crossborder"):
+        cb = data["crossborder"]
+        el.append(Paragraph("US / cross-border", h2))
+        rows = [("Jurisdiction", str(cb.get("label", "—")))]
+        ut = cb.get("us_tax")
+        if ut:
+            rows.append(("US federal tax", _money(ut.get("federal_tax"))))
+            rows.append((f"US state tax ({ut.get('state', '—')})", _money(ut.get("state_tax"))))
+            rows.append(("Total US tax", _money(ut.get("total_us_tax"))))
+        ss = cb.get("social_security")
+        if ss:
+            rows.append(("Social Security at FRA (67)", _money(ss.get("fra_monthly")) + "/mo"))
+        el.append(_kv_table(rows))
+
     # Goals
     el.append(Paragraph("Goals", h2))
     gdata = [["Goal", "Progress", "Status"]]

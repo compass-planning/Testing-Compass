@@ -478,7 +478,14 @@ async def email_report(body: ReportEmailInput, user: dict = Depends(get_current_
             files = [f for f in files if f.get("household_id") == hid]
         chosen = set(body.document_ids)
         documents = [{"name": f.get("name"), "category": f.get("category")} for f in files if f["id"] in chosen]
-    html = render_report_html(household_name, body.net_worth, body.protection_score, body.retirement_success, goals, branding.get("firm_name"), logo_url=branding.get("logo_url"), protection=protection, documents=documents)
+    cb_saved = repo.list(store, "plan_crossborder", read)
+    if hid:
+        cb_saved = [c for c in cb_saved if c.get("household_id") == hid]
+    crossborder = None
+    if cb_saved:
+        r = cb_saved[-1].get("result") or {}
+        crossborder = {"label": (r.get("jurisdiction") or {}).get("label"), "us_tax": r.get("us_tax"), "social_security": r.get("social_security")}
+    html = render_report_html(household_name, body.net_worth, body.protection_score, body.retirement_success, goals, branding.get("firm_name"), logo_url=branding.get("logo_url"), protection=protection, documents=documents, crossborder=crossborder)
     email_id = await send_email(to=str(body.recipient), subject=f"{household_name} — financial summary", html=html)
     repo.create(store, "report_log", {
         "id": _id(), "store": store, "scope": ws, "household_id": hid,
@@ -525,12 +532,17 @@ async def report_pdf(user: dict = Depends(get_current_user), household_id: str =
     retirement = retirement_rows[-1] if retirement_rows else None
     reg_balance = sum(float(a.get("balance", 0)) for a in accounts if a.get("account_type") in ("RRSP", "RRIF"))
     estate = calculate_estate({"province": (primary or {}).get("province", "ON"), "grossEstateValue": assets - liabilities, "rrspRrifBalance": reg_balance})
+    cb_saved = hh(repo.list(store, "plan_crossborder", read))
+    crossborder = None
+    if cb_saved:
+        r = cb_saved[-1].get("result") or {}
+        crossborder = {"label": (r.get("jurisdiction") or {}).get("label"), "us_tax": r.get("us_tax"), "social_security": r.get("social_security")}
 
     data = {
         "household_name": household_name, "firm_name": (user.get("branding") or {}).get("firm_name"),
         "net_worth": assets - liabilities, "total_assets": assets, "total_liabilities": liabilities,
         "protection_score": ps, "protection": protection, "retirement": retirement,
-        "retirement_success": None, "estate": estate, "goals": goals,
+        "retirement_success": None, "estate": estate, "goals": goals, "crossborder": crossborder,
     }
     pdf = build_plan_pdf(data)
     audit(user, "report.pdf", "report", household_name)

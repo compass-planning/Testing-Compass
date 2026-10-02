@@ -139,7 +139,7 @@ def _money(v) -> str:
         return "$0"
 
 
-def render_report_html(household_name: str, net_worth, protection_score, retirement_success, goals, firm_name=None, logo_url=None, protection=None, documents=None) -> str:
+def render_report_html(household_name: str, net_worth, protection_score, retirement_success, goals, firm_name=None, logo_url=None, protection=None, documents=None, crossborder=None) -> str:
     name = escape(str(household_name))
     firm = escape(str(firm_name or EMAIL_FROM_NAME))
     initials = "".join([w[0] for w in str(firm_name or EMAIL_FROM_NAME).split()[:2]]).upper() or "C"
@@ -193,6 +193,23 @@ def render_report_html(household_name: str, net_worth, protection_score, retirem
                            f'<table role="presentation" width="100%" style="font-size:13px">{drows}</table>'
                            f'<p style="font-size:11px;color:#9aa5b9;margin-top:4px">These documents are available securely in your plan portal.</p>')
 
+    crossborder_block = ""
+    if crossborder:
+        def crow(label, value):
+            return (f'<tr><td style="padding:6px 0;color:#0B1437">{escape(str(label))}</td>'
+                    f'<td style="padding:6px 0;text-align:right;color:#60708f">{value}</td></tr>')
+        cr = crow("Jurisdiction", escape(str(crossborder.get("label", "—"))))
+        ut = crossborder.get("us_tax")
+        if ut:
+            cr += crow("US federal tax", _money(ut.get("federal_tax")))
+            cr += crow(f"US state tax ({escape(str(ut.get('state', '—')))})", _money(ut.get("state_tax")))
+            cr += crow("Total US tax", _money(ut.get("total_us_tax")))
+        ss = crossborder.get("social_security")
+        if ss:
+            cr += crow("Social Security at FRA (67)", _money(ss.get("fra_monthly")) + "/mo")
+        crossborder_block = (f'<h3 style="color:#0B1437;margin:22px 0 6px;font-size:14px">US / cross-border</h3>'
+                             f'<table role="presentation" width="100%" style="font-size:13px">{cr}</table>')
+
     return (
         f'<table role="presentation" width="100%" style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif">'
         f'<tr><td style="background:#0052FF;padding:20px 24px;border-radius:10px 10px 0 0">'
@@ -211,6 +228,7 @@ def render_report_html(household_name: str, net_worth, protection_score, retirem
         f'<h3 style="color:#0B1437;margin:22px 0 6px;font-size:14px">Top goals</h3>'
         f'<table role="presentation" width="100%" style="font-size:13px">{rows}</table>'
         f'{protection_block}'
+        f'{crossborder_block}'
         f'{documents_block}'
         f'<p style="font-size:11px;color:#9aa5b9;margin-top:22px">Prepared with {firm}. '
         f'Illustrative summary — not financial, tax or legal advice. We never ask for your password or card details by email.</p>'
