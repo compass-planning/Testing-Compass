@@ -7,6 +7,7 @@ import { planApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
 import { Card, Button, Input, Field, Select, Badge, Stat, Modal, Empty } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
+import { useTr } from "@/lib/i18n";
 import { money } from "@/lib/format";
 import { TAX_PROVINCES, RRSP_MAX, calcTax, rrspRoom, tfsaRoom, capitalGainsTax, incomeSplitting, estateEstimate } from "@/lib/tax";
 
@@ -21,6 +22,7 @@ const TABS = [
 
 export default function Tax() {
   const [tab, setTab] = useState("projection");
+  const tr = useTr();
   const owners = useQuery({ queryKey: ["owners"], queryFn: async () => (await api.get("/owners")).data });
   const list = owners.data || [];
   const primary = list.find((o) => o.relationship === "self") || list[0];
@@ -38,7 +40,7 @@ export default function Tax() {
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)} data-testid={`tax-tab-${t.key}`}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap transition-colors ${tab === t.key ? "border-compass-blue text-compass-blue" : "border-transparent text-compass-muted hover:text-compass-navy"}`}>
-            <t.icon size={16} /> {t.label}
+            <t.icon size={16} /> {tr(t.label)}
           </button>
         ))}
       </div>

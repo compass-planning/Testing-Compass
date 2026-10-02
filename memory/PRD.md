@@ -157,6 +157,12 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - **OCR Confidence**: `letters.py` prompt asks the vision/text model for a `low_confidence` array of field names per policy; `_normalize` carries it (validated against the field list). `Documents.jsx` LettersImporter highlights flagged fields (amber ring) and shows a per-policy "Low confidence on N fields — double-check" banner. Verified: field present in parse response.
 - **Reset Demo Data**: `seed.reset_corp_demo(corp_id)` + `_seed_corp_book()` wipe the corp's enterprise-store data and reseed the Sweston sample book; `POST /enterprise/reset-demo` (gated by `ALLOW_ENTERPRISE_WRITE`). `EnterpriseOverview` gets a "Reset corp book" button + confirm modal. Verified: removed 16 records and restored 3 baseline households.
 
+## Phase 3j — Finish Planner French + Expiring-Soon Badge + OCR Review Queue + Reset Scope (added 2026-06, iter43) ✅
+- **Deepen Planner French**: `useTr()` wired into the modal field labels + Cancel/Save of **NetWorth, Debt, Goals**, and into **Insurance, Retirement, Tax** (tabs via `{tr(t.label)}`, primary buttons, Save-to-household). EN2FR extended with ~80 planner strings + tab labels. Verified FR on Debt/Retirement. Remaining deep sub-tab field labels (e.g. Retirement Monte-Carlo inputs, Tax sub-tab fields) fall back to EN and can be extended.
+- **Expiring-Soon Badge**: `_build_roster` now returns `renewals_soon` (policies renewing ≤60 days per household); `AdvisorClients` shows an amber "N policy renewals ≤ 60d" pill on each household card. Verified: roster returns the count.
+- **OCR Review Queue**: importer saves `needs_review`/`review_fields` on policies that had low-confidence scanned fields; `Documents` Letters tab shows a "Needs review" list with per-field hints and a "Mark reviewed" action (`PUT /plan/insurance/{id}`).
+- **Reset Scope Choice**: `seed.reset_corp_demo(corp_id, scope)` + `POST /enterprise/reset-demo?scope=all|additions`; the reset modal offers "Wipe everything & reseed" vs "Only remove my test additions" (keeps CRM-sourced records, `source=="crm"`). Verified: additions-only removed just the test household, kept the 3 CRM households.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.

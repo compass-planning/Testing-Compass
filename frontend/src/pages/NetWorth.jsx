@@ -149,6 +149,7 @@ const clean = (b) => { const { id, store, scope, household_id, created_at, ...re
 const num = (v) => Number(v || 0);
 
 function EntryModal({ open, initial, owners, tab, onClose, onSubmit, loading }) {
+  const tr = useTr();
   const isLiab = (initial?.kind === "liability") || tab === "liabilities";
   const isEdu = tab === "education" && !initial?.kind;
   const cats = isLiab ? LIABILITY_CATEGORIES : isEdu ? EDUCATION_CATEGORIES : ASSET_CATEGORIES;
@@ -207,10 +208,10 @@ function EntryModal({ open, initial, owners, tab, onClose, onSubmit, loading }) 
     <Modal open={open} onClose={onClose} title={`${f.id ? "Edit" : "Add"} ${isLiab ? "liability" : "asset"}`} testid="networth-modal">
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Owner"><Select value={f.owner || ""} onChange={set("owner")} data-testid="field-owner">{ownerOpts.map((o) => <option key={o}>{o}</option>)}</Select></Field>
-          <Field label="Category"><Select value={f.category || ""} onChange={set("category")} data-testid="field-category">{cats.map((c) => <option key={c}>{c}</option>)}</Select></Field>
+          <Field label={tr("Owner")}><Select value={f.owner || ""} onChange={set("owner")} data-testid="field-owner">{ownerOpts.map((o) => <option key={o}>{o}</option>)}</Select></Field>
+          <Field label={tr("Category")}><Select value={f.category || ""} onChange={set("category")} data-testid="field-category">{cats.map((c) => <option key={c}>{c}</option>)}</Select></Field>
         </div>
-        <Field label="Name / notes"><Input value={f.name || ""} onChange={set("name")} data-testid="field-name" /></Field>
+        <Field label={tr("Name / notes")}><Input value={f.name || ""} onChange={set("name")} data-testid="field-name" /></Field>
         <Field label={isLiab ? "Balance (CAD)" : group === "real_estate" ? "Total value (CAD)" : group === "vehicle" ? "Current value (CAD)" : group === "investment" ? "Balance (CAD)" : "Market value (CAD)"}>
           <Input type="number" value={f.value ?? ""} onChange={set("value")} data-testid="field-value" />
         </Field>
@@ -270,8 +271,8 @@ function EntryModal({ open, initial, owners, tab, onClose, onSubmit, loading }) 
         )}
 
         <div className="flex gap-2 justify-end pt-2">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={loading} data-testid="networth-save">Save</Button>
+          <Button variant="ghost" onClick={onClose}>{tr("Cancel")}</Button>
+          <Button onClick={submit} disabled={loading} data-testid="networth-save">{tr("Save")}</Button>
         </div>
       </div>
     </Modal>

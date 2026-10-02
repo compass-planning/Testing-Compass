@@ -159,6 +159,7 @@ function StrategyCard({ title, tag, icon: Icon, result, base, testid }) {
 function strip(body) { const { id, store, scope, household_id, created_at, ...rest } = body; return rest; }
 
 function DebtModal({ open, initial, onClose, onSubmit, loading }) {
+  const tr = useTr();
   const [f, setF] = useState({});
   React.useEffect(() => {
     if (open) setF({ id: initial?.id, name: initial?.name || "", lender: initial?.lender || "", owner: initial?.owner || "Joint",
@@ -170,18 +171,18 @@ function DebtModal({ open, initial, onClose, onSubmit, loading }) {
     <Modal open={open} onClose={onClose} title={`${f.id ? "Edit" : "Add"} debt`} testid="debts-modal">
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Debt name"><Input value={f.name || ""} onChange={set("name")} data-testid="field-name" /></Field>
-          <Field label="Owner"><Select value={f.owner || "Joint"} onChange={set("owner")} data-testid="field-owner">{OWNER_TAGS.map((t) => <option key={t}>{t}</option>)}</Select></Field>
+          <Field label={tr("Debt name")}><Input value={f.name || ""} onChange={set("name")} data-testid="field-name" /></Field>
+          <Field label={tr("Owner")}><Select value={f.owner || "Joint"} onChange={set("owner")} data-testid="field-owner">{OWNER_TAGS.map((t) => <option key={t}>{t}</option>)}</Select></Field>
         </div>
-        <Field label="Lender"><Input value={f.lender || ""} onChange={set("lender")} data-testid="field-lender" /></Field>
+        <Field label={tr("Lender")}><Input value={f.lender || ""} onChange={set("lender")} data-testid="field-lender" /></Field>
         <div className="grid grid-cols-3 gap-3">
-          <Field label="Balance ($)"><Input type="number" value={f.balance ?? ""} onChange={set("balance")} data-testid="field-balance" /></Field>
-          <Field label="Rate (%)"><Input type="number" step="0.01" value={f.rate ?? ""} onChange={set("rate")} data-testid="field-rate" /></Field>
-          <Field label="Monthly payment ($)"><Input type="number" value={f.payment ?? ""} onChange={set("payment")} data-testid="field-payment" /></Field>
+          <Field label={tr("Balance ($)")}><Input type="number" value={f.balance ?? ""} onChange={set("balance")} data-testid="field-balance" /></Field>
+          <Field label={tr("Rate (%)")}><Input type="number" step="0.01" value={f.rate ?? ""} onChange={set("rate")} data-testid="field-rate" /></Field>
+          <Field label={tr("Monthly payment ($)")}><Input type="number" value={f.payment ?? ""} onChange={set("payment")} data-testid="field-payment" /></Field>
         </div>
         <div className="flex gap-2 justify-end pt-2">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={loading} data-testid="debts-save">Save</Button>
+          <Button variant="ghost" onClick={onClose}>{tr("Cancel")}</Button>
+          <Button onClick={submit} disabled={loading} data-testid="debts-save">{tr("Save")}</Button>
         </div>
       </div>
     </Modal>

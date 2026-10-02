@@ -6,6 +6,7 @@ import api, { formatApiError } from "@/lib/api";
 import { protectionApi, planApi } from "@/lib/planning";
 import { Card, Button, Input, Field, Select, Badge, Stat } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
+import { useTr } from "@/lib/i18n";
 import { money } from "@/lib/format";
 import { TAX_PROVINCES } from "@/lib/tax";
 
@@ -20,12 +21,14 @@ function Row({ label, value, strong }) {
 }
 
 function SaveBtn({ name, summary }) {
+  const tr = useTr();
   const save = useMutation({ mutationFn: () => planApi.create("protection", { name, ...summary }), onSuccess: () => toast.success("Saved to household plan"), onError: (e) => toast.error(formatApiError(e.response?.data?.detail) || "Open a household first") });
-  return <Button variant="outline" size="sm" className="mt-3" onClick={() => save.mutate()} disabled={save.isPending} data-testid={`save-${summary.kind}`}>Save to household</Button>;
+  return <Button variant="outline" size="sm" className="mt-3" onClick={() => save.mutate()} disabled={save.isPending} data-testid={`save-${summary.kind}`}>{tr("Save to household")}</Button>;
 }
 
 export default function Insurance() {
   const [tab, setTab] = useState("life");
+  const tr = useTr();
   return (
     <div data-testid="insurance-page">
       <PageHeader title="Insurance & Protection" subtitle="Life-insurance needs analysis, disability and long-term-care planning.">
@@ -35,7 +38,7 @@ export default function Insurance() {
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)} data-testid={`insurance-tab-${t.key}`}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap transition-colors ${tab === t.key ? "border-compass-blue text-compass-blue" : "border-transparent text-compass-muted hover:text-compass-navy"}`}>
-            <t.icon size={16} /> {t.label}
+            <t.icon size={16} /> {tr(t.label)}
           </button>
         ))}
       </div>

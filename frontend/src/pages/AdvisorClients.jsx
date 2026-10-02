@@ -163,6 +163,7 @@ export default function AdvisorClients() {
                     <div className="text-right">
                       <div className="font-heading text-2xl font-extrabold" style={{ color: scoreColor(c.score || 0) }} data-testid={`client-score-${c.client_id}`}>{c.score ?? "—"}</div>
                       <Badge color={meta.color} bg={meta.bg} data-testid={`client-status-${c.client_id}`}>{c.status || "—"}</Badge>
+                      {c.renewals_soon > 0 && <div className="mt-1 inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ color: "#B8860B", background: "rgba(255,184,0,0.14)" }} data-testid={`renewals-soon-${c.client_id}`}>{c.renewals_soon} policy renewal{c.renewals_soon === 1 ? "" : "s"} ≤ 60d</div>}
                       {c.invite_pending && <div className="mt-1 text-[10px] font-semibold text-compass-amber" data-testid={`invite-pending-${c.client_id}`}>Invited · not activated</div>}
                       {c.invite_pending && <button onClick={() => resendInvite(c.client_id)} className="mt-0.5 text-[10px] font-semibold text-compass-blue hover:underline" data-testid={`resend-invite-${c.client_id}`}>Resend invite</button>}
                       {c.invite_pending && c.invite_expires_at && (() => { const d = Math.ceil((new Date(c.invite_expires_at) - Date.now()) / 86400000); return <div className={`text-[10px] font-semibold ${d <= 0 ? "text-compass-red" : "text-compass-muted"}`} data-testid={`invite-expiry-${c.client_id}`}>{d > 0 ? `Link expires in ${d}d` : "Link expired"}</div>; })()}

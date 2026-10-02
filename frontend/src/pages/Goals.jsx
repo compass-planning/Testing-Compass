@@ -181,6 +181,7 @@ export default function Goals() {
 function strip(body) { const { store, scope, household_id, created_at, status, ...rest } = body; return rest; }
 
 function GoalModal({ open, initial, owners, linkItems, onClose, onSubmit, loading }) {
+  const tr = useTr();
   const [f, setF] = useState({ title: "", category: "retirement", target_amount: "", current_amount: "", target_year: new Date().getFullYear() + 10, owner_id: "", linked_asset_ids: [], monthly_contribution: "", growth_rate: "" });
   React.useEffect(() => {
     if (open) setF({
@@ -206,20 +207,20 @@ function GoalModal({ open, initial, owners, linkItems, onClose, onSubmit, loadin
   return (
     <Modal open={open} onClose={onClose} title={f.id ? `Edit · ${f.title}` : "New financial goal"} testid="goal-modal">
       <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
-        <Field label="Goal title"><Input value={f.title || ""} onChange={set("title")} placeholder="Retire at 65" data-testid="goal-title-input" /></Field>
+        <Field label={tr("Goal title")}><Input value={f.title || ""} onChange={set("title")} placeholder="Retire at 65" data-testid="goal-title-input" /></Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Category"><Select value={f.category} onChange={set("category")} data-testid="goal-category">{CATEGORIES.map((c) => <option key={c} value={c} className="capitalize">{c}</option>)}</Select></Field>
-          <Field label="Target year"><Input type="number" value={f.target_year} onChange={set("target_year")} /></Field>
+          <Field label={tr("Category")}><Select value={f.category} onChange={set("category")} data-testid="goal-category">{CATEGORIES.map((c) => <option key={c} value={c} className="capitalize">{c}</option>)}</Select></Field>
+          <Field label={tr("Target year")}><Input type="number" value={f.target_year} onChange={set("target_year")} /></Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Target amount"><Input type="number" value={f.target_amount} onChange={set("target_amount")} data-testid="goal-target" /></Field>
-          <Field label="Current amount">
+          <Field label={tr("Target amount")}><Input type="number" value={f.target_amount} onChange={set("target_amount")} data-testid="goal-target" /></Field>
+          <Field label={tr("Current amount")}>
             <Input type="number" value={linked ? computed : f.current_amount} onChange={set("current_amount")} disabled={linked} data-testid="goal-current" />
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Monthly contribution"><Input type="number" value={f.monthly_contribution} onChange={set("monthly_contribution")} data-testid="goal-contribution" /></Field>
-          <Field label="Expected growth (%/yr)"><Input type="number" step="0.1" value={f.growth_rate} onChange={set("growth_rate")} data-testid="goal-growth" /></Field>
+          <Field label={tr("Monthly contribution")}><Input type="number" value={f.monthly_contribution} onChange={set("monthly_contribution")} data-testid="goal-contribution" /></Field>
+          <Field label={tr("Expected growth (%/yr)")}><Input type="number" step="0.1" value={f.growth_rate} onChange={set("growth_rate")} data-testid="goal-growth" /></Field>
         </div>
         {owners.length > 0 && (
           <Field label="Link to owner (optional)">
@@ -244,8 +245,8 @@ function GoalModal({ open, initial, owners, linkItems, onClose, onSubmit, loadin
           </div>
         )}
         <div className="flex gap-2 justify-end pt-2">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={!f.title || !f.target_amount || loading} data-testid="goal-save">{f.id ? "Save goal" : "Create goal"}</Button>
+          <Button variant="ghost" onClick={onClose}>{tr("Cancel")}</Button>
+          <Button onClick={submit} disabled={!f.title || !f.target_amount || loading} data-testid="goal-save">{f.id ? tr("Save goal") : tr("Create goal")}</Button>
         </div>
       </div>
     </Modal>

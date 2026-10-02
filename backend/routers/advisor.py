@@ -112,16 +112,21 @@ def _build_roster(user: dict) -> list[dict]:
     for cid, c in clients.items():
         cflt = {**flt, "client_id": cid}
         hh_goals = [g for g in goals if g["scope"].get("client_id") == cid]
+        ins = repo.list(store, "plan_insurance", cflt)
         c.update(_household_score(
             c,
             repo.list(store, "plan_networth", cflt),
             repo.list(store, "plan_debts", cflt),
-            repo.list(store, "plan_insurance", cflt),
+            ins,
             repo.list(store, "plan_retirement", cflt),
             hh_goals,
             repo.list(store, "plan_estate", cflt),
         ))
         c.update(_protection_score(repo.list(store, "plan_protection", cflt)))
+        from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+        _today = _dt.now(_tz.utc).date().isoformat()
+        _horizon = (_dt.now(_tz.utc).date() + _td(days=60)).isoformat()
+        c["renewals_soon"] = sum(1 for p in ins if p.get("renewal_date") and _today <= (p.get("renewal_date") or "")[:10] <= _horizon)
     for u in repo.all_users():
         if not u.get("invited_by"):
             continue

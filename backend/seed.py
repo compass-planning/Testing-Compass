@@ -71,10 +71,27 @@ def _seed_corp_book(corp_id):
     })
 
 
-def reset_corp_demo(corp_id):
-    """Wipe the corp's enterprise-store data and reseed the original sample book."""
+def reset_corp_demo(corp_id, scope="all"):
+    """Wipe the corp's enterprise-store data and reseed the original sample book.
+    scope="all" wipes everything and reseeds; scope="additions" removes only
+    records that are NOT from the original CRM seed (source != 'crm')."""
     flt = {"corp_id": corp_id}
     removed = 0
+    if scope == "additions":
+        owners = repo.list("enterprise", "owners", flt)
+        del_ids = {o["id"] for o in owners if o.get("source") != "crm"}
+        for coll in ["accounts", "goals"]:
+            for r in repo.list("enterprise", coll, flt):
+                if r.get("owner_id") in del_ids and repo.delete("enterprise", coll, r["id"], flt):
+                    removed += 1
+        for coll in [f"plan_{c}" for c in _RESET_PLAN_COLLS]:
+            for r in repo.list("enterprise", coll, flt):
+                if r.get("household_id") in del_ids and repo.delete("enterprise", coll, r["id"], flt):
+                    removed += 1
+        for oid in del_ids:
+            if repo.delete("enterprise", "owners", oid, flt):
+                removed += 1
+        return removed
     colls = ["owners", "accounts", "goals", "crm_sync_state"] + [f"plan_{c}" for c in _RESET_PLAN_COLLS]
     for coll in colls:
         for r in repo.list("enterprise", coll, flt):

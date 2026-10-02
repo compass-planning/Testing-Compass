@@ -15,6 +15,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useHousehold } from "@/context/HouseholdContext";
 import { Card, Button, Input, Field, Select, Badge, Stat, Empty } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
+import { useTr } from "@/lib/i18n";
 import { money } from "@/lib/format";
 import { TAX_PROVINCES } from "@/lib/tax";
 
@@ -67,6 +68,7 @@ export default function Retirement() {
   const { user } = useAuth();
   const { active } = useHousehold() || {};
   const [tab, setTab] = useState("projection");
+  const tr = useTr();
   const [inp, setInp] = useState(DEFAULTS);
   const owners = useQuery({ queryKey: ["owners"], queryFn: async () => (await api.get("/owners")).data });
   const assumptions = useQuery({ queryKey: ["assumptions", active], queryFn: assumptionsApi.get });
@@ -103,7 +105,7 @@ export default function Retirement() {
   return (
     <div data-testid="retirement-page">
       <PageHeader title="Retirement" subtitle="Canadian projection, Monte Carlo stress-testing and drawdown strategy.">
-        <Button variant="outline" size="sm" onClick={prefill} data-testid="retirement-prefill">Prefill from profile</Button>
+        <Button variant="outline" size="sm" onClick={prefill} data-testid="retirement-prefill">{tr("Prefill from profile")}</Button>
       </PageHeader>
 
       <AssumptionsCard inp={inp} setInp={setInp} readOnly={user.tier === "enterprise" && !user.enterprise_write} />
@@ -112,7 +114,7 @@ export default function Retirement() {
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)} data-testid={`retirement-tab-${t.key}`}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap transition-colors ${tab === t.key ? "border-compass-blue text-compass-blue" : "border-transparent text-compass-muted hover:text-compass-navy"}`}>
-            <t.icon size={16} /> {t.label}
+            <t.icon size={16} /> {tr(t.label)}
           </button>
         ))}
       </div>

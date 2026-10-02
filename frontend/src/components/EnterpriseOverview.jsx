@@ -96,6 +96,7 @@ export default function EnterpriseOverview() {
   const [newOpen, setNewOpen] = useState(false);
   const [delHh, setDelHh] = useState(null);
   const [resetOpen, setResetOpen] = useState(false);
+  const [resetScope, setResetScope] = useState("all");
   const [resetting, setResetting] = useState(false);
   const { user } = useAuth();
   const { setActive, clear } = useHousehold();
@@ -138,7 +139,7 @@ export default function EnterpriseOverview() {
   const runReset = async () => {
     setResetting(true);
     try {
-      const r = await enterpriseApi.resetDemo();
+      const r = await enterpriseApi.resetDemo(resetScope);
       qc.invalidateQueries({ queryKey: ["enterprise-overview"] });
       toast.success(`Corp book reset — ${r.removed} record(s) cleared and sample households reseeded`);
     } catch (e) {
@@ -246,10 +247,20 @@ export default function EnterpriseOverview() {
       </Modal>
       <Modal open={resetOpen} onClose={() => setResetOpen(false)} title="Reset corp book?" testid="reset-demo-modal">
         <div className="space-y-4">
-          <p className="text-sm text-compass-navy">This clears <span className="font-semibold">all</span> households, accounts, goals and plan data in this corp, then reseeds the original Sweston sample book. Use this to tidy up test data. This cannot be undone.</p>
+          <p className="text-sm text-compass-navy">Choose what to reset in this corp book. This cannot be undone.</p>
+          <div className="space-y-2">
+            <label className="flex items-start gap-2.5 cursor-pointer rounded-lg border border-compass-border p-3" data-testid="reset-scope-all">
+              <input type="radio" name="reset-scope" checked={resetScope === "all"} onChange={() => setResetScope("all")} className="mt-0.5 accent-compass-blue" />
+              <span className="text-sm"><span className="font-semibold text-compass-navy">Wipe everything &amp; reseed</span><br /><span className="text-compass-muted text-xs">Clears all households and restores the original Sweston sample book.</span></span>
+            </label>
+            <label className="flex items-start gap-2.5 cursor-pointer rounded-lg border border-compass-border p-3" data-testid="reset-scope-additions">
+              <input type="radio" name="reset-scope" checked={resetScope === "additions"} onChange={() => setResetScope("additions")} className="mt-0.5 accent-compass-blue" />
+              <span className="text-sm"><span className="font-semibold text-compass-navy">Only remove my test additions</span><br /><span className="text-compass-muted text-xs">Deletes households you created while testing; keeps the original CRM sample data.</span></span>
+            </label>
+          </div>
           <div className="flex gap-2 justify-end">
             <Button variant="ghost" onClick={() => setResetOpen(false)}>Cancel</Button>
-            <Button variant="danger" onClick={runReset} disabled={resetting} data-testid="confirm-reset-demo">{resetting ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />} Reset &amp; reseed</Button>
+            <Button variant="danger" onClick={runReset} disabled={resetting} data-testid="confirm-reset-demo">{resetting ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />} Reset</Button>
           </div>
         </div>
       </Modal>

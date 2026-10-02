@@ -232,6 +232,9 @@ function LettersImporter() {
   const [policies, setPolicies] = useState(null); // null = nothing parsed yet
   const [picked, setPicked] = useState({});
   const [fileName, setFileName] = useState("");
+  const reviewQ = useQuery({ queryKey: ["plan", "insurance"], queryFn: () => planApi.list("insurance") });
+  const flagged = (reviewQ.data || []).filter((p) => p.needs_review);
+  const markReviewed = useMutation({ mutationFn: (id) => planApi.update("insurance", id, { needs_review: false, review_fields: [] }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["plan", "insurance"] }); toast.success("Marked reviewed"); } });
 
   const parse = async (file) => {
     if (!file) return;
@@ -265,6 +268,8 @@ function LettersImporter() {
           policy_number: p.policy_number || "",
           renewal_date: p.renewal_date || null,
           source: "imported",
+          needs_review: (p.low_confidence || []).length > 0,
+          review_fields: p.low_confidence || [],
         });
       }
       return chosen.length;
@@ -287,6 +292,20 @@ function LettersImporter() {
         {fileName && !busy && <div className="text-xs text-compass-muted mt-3 flex items-center gap-1.5"><FileText size={13} /> {fileName}</div>}
       </Card>
 
+      {flagged.length > 0 && (
+        <Card className="p-5 mb-6 border-amber-200" data-testid="ocr-review-queue">
+          <div className="flex items-center gap-2 mb-3 font-heading font-bold text-compass-navy"><AlertTriangle size={16} className="text-amber-500" /> Needs review ({flagged.length})</div>
+          <p className="text-xs text-compass-muted mb-3">Imported policies with fields the scan read with low confidence. Verify the values on each, then mark reviewed.</p>
+          <div className="space-y-2">
+            {flagged.map((p) => (
+              <div key={p.id} className="flex items-center justify-between gap-3 text-sm border-b border-compass-border/60 pb-2" data-testid={`review-item-${p.id}`}>
+                <div><span className="font-semibold text-compass-navy">{p.carrier || "Policy"} · {p.policy_type}</span>{(p.review_fields || []).length > 0 && <span className="text-amber-600 text-xs ml-2">check: {(p.review_fields || []).join(", ")}</span>}</div>
+                <Button size="sm" variant="outline" onClick={() => markReviewed.mutate(p.id)} data-testid={`mark-reviewed-${p.id}`}><Check size={14} /> Mark reviewed</Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
       {policies === null ? (
         <Empty icon={FileSearch} title="Import coverage from a letter or policy">Upload an insurance policy or coverage letter (PDF) and we'll pull out the policies so you can add them to the plan in one click.</Empty>
       ) : policies.length === 0 ? (
