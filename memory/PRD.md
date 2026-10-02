@@ -142,6 +142,9 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - **Hub Navigation ⌘K** (`components/CommandPalette.jsx` via cmdk; mounted advisor-only in `Shell.jsx`, opened by Ctrl/⌘+K or the topbar `command-trigger`): search client households (→ sets active + routes to /profile) and jump to any page. Solo/enterprise do not mount it.
 - Testing: iteration_39.json — backend 5/5 (Claude parse, 422 blank, 403 enterprise, insurance round-trip), frontend 100% on all four + live-preview toggle regression. No bugs. Applied minor a11y fix: hidden DialogTitle on CommandDialog.
 
+## Enterprise Write (TESTING FLAG, added 2026-06)
+- `backend/.env` `ALLOW_ENTERPRISE_WRITE="true"` lifts the Enterprise tier's CRM-read-only lock so the tier can be exercised without a CRM. Single enforcement point: `deps._block_enterprise_write` no-ops when the flag is on; `planner_scope` scopes enterprise plan writes to the open household (`client_id`) when the flag is on. `_public(user)` returns `enterprise_write`, and every frontend `readOnly = user.tier === "enterprise"` now also checks `&& !user.enterprise_write`. `EnterpriseOverview` corp-book table gains an "Open & edit" action per household (sets active household → `/profile`) and an "Edit mode (testing)" badge. Reverting: set the env flag to `false` (or remove it) and restart backend — all enterprise writes 403 again. Verified: enterprise POST /owners + /plan/networth return 200 with the flag on.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.

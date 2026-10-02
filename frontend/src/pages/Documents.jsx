@@ -14,7 +14,7 @@ const fmtTs = (ts) => new Date(ts).toLocaleString("en-CA", { month: "short", day
 
 export default function Documents() {
   const { user } = useAuth();
-  const readOnly = user.tier === "enterprise";
+  const readOnly = user.tier === "enterprise" && !user.enterprise_write;
   const [tab, setTab] = useState("vault");
   const tabs = [{ k: "vault", l: "Document Vault", i: FolderOpen }, { k: "meetings", l: "Meetings", i: Mic }];
   if (!readOnly) tabs.push({ k: "letters", l: "Letters & Policies", i: FileSearch });

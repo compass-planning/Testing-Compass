@@ -14,7 +14,7 @@ import { PersonToggle, matchPerson, OWNER_TAGS } from "@/components/PersonToggle
 export default function Debt() {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const readOnly = user.tier === "enterprise";
+  const readOnly = user.tier === "enterprise" && !user.enterprise_write;
   const [modal, setModal] = useState(null);
   const [extra, setExtra] = useState(0);
   const [view, setView] = useState("combined");

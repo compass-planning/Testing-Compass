@@ -13,7 +13,7 @@ const ACCOUNT_TYPES = ["RRSP", "TFSA", "CPP", "OAS", "DB Pension", "DC Pension",
 export default function Owners() {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const readOnly = user.tier === "enterprise";
+  const readOnly = user.tier === "enterprise" && !user.enterprise_write;
   const [ownerModal, setOwnerModal] = useState(false);
   const [acctFor, setAcctFor] = useState(null);
   const [expanded, setExpanded] = useState(null);

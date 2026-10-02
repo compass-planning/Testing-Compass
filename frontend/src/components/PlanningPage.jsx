@@ -114,7 +114,7 @@ export default function PlanningPage({ kind }) {
   const cfg = PLAN_CONFIGS[kind];
   const { user } = useAuth();
   const qc = useQueryClient();
-  const readOnly = user.tier === "enterprise";
+  const readOnly = user.tier === "enterprise" && !user.enterprise_write;
   const [modal, setModal] = useState(null); // null | {} | row
 
   const { data = [], isLoading } = useQuery({ queryKey: ["plan", kind], queryFn: () => planApi.list(kind) });

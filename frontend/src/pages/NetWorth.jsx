@@ -38,7 +38,7 @@ const encumbrance = (r) => Number(r.mortgage || r.loan_amount || 0);
 export default function NetWorth() {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const readOnly = user.tier === "enterprise";
+  const readOnly = user.tier === "enterprise" && !user.enterprise_write;
   const [tab, setTab] = useState("assets");
   const [modal, setModal] = useState(null); // {} or row
 

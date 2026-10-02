@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Building2, Users, Gauge, AlertTriangle, UserPlus } from "lucide-react";
+import { Building2, Users, Gauge, AlertTriangle, UserPlus, Pencil } from "lucide-react";
 import { formatApiError } from "@/lib/api";
 import { enterpriseApi } from "@/lib/planning";
+import { useAuth } from "@/context/AuthContext";
+import { useHousehold } from "@/context/HouseholdContext";
 import { Card, Stat, Badge, Modal, Button, Input, Field } from "@/components/ui-kit";
 import { money } from "@/lib/format";
 
@@ -90,6 +93,11 @@ const Empty = () => <div className="text-sm text-compass-muted py-1.5">None on f
 export default function EnterpriseOverview() {
   const q = useQuery({ queryKey: ["enterprise-overview"], queryFn: enterpriseApi.overview });
   const [drill, setDrill] = useState(null);
+  const { user } = useAuth();
+  const { setActive } = useHousehold();
+  const navigate = useNavigate();
+  const canWrite = !!user.enterprise_write;
+  const openHousehold = (h) => { setActive(h.id, h.primary || h.id); navigate("/profile"); };
   const d = q.data;
   if (!d) return null;
 
@@ -103,11 +111,12 @@ export default function EnterpriseOverview() {
       </div>
 
       <Card className="p-0 overflow-hidden" data-testid="enterprise-households">
-        <div className="px-6 py-4 border-b border-compass-border font-heading font-bold text-compass-navy flex items-center gap-2"><Building2 size={16} className="text-compass-blue" /> Corp book — click a household to inspect</div>
+        <div className="px-6 py-4 border-b border-compass-border font-heading font-bold text-compass-navy flex items-center gap-2"><Building2 size={16} className="text-compass-blue" /> Corp book — click a household to inspect{canWrite && <Badge color="#FFB800" bg="rgba(255,184,0,0.14)">Edit mode (testing)</Badge>}</div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-compass-bg/60"><tr className="text-left text-[11px] uppercase tracking-wide text-compass-muted">
               {["Household", "Province", "Assets", "Goals", "Score", "Status"].map((h) => <th key={h} className="px-5 py-2 font-semibold">{h}</th>)}
+              {canWrite && <th className="px-5 py-2 font-semibold text-right">Action</th>}
             </tr></thead>
             <tbody>
               {(d.households_list || []).map((h) => (
@@ -118,6 +127,7 @@ export default function EnterpriseOverview() {
                   <td className="px-5 py-2.5">{h.goals}</td>
                   <td className="px-5 py-2.5"><Badge color={sev(h.score)} bg="rgba(0,82,255,0.06)">{h.score ?? "—"}</Badge></td>
                   <td className="px-5 py-2.5"><span className="text-xs font-semibold" style={{ color: STATUS_COLOR[h.status] }}>{h.status}</span>{h.invite_status && <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ color: h.invite_status === "accepted" ? "#00A36C" : "#FFB800", background: h.invite_status === "accepted" ? "rgba(0,163,108,0.12)" : "rgba(255,184,0,0.14)" }} data-testid={`invite-status-${h.id}`}>{h.invite_status === "accepted" ? "Portal active" : "Invite pending"}</span>}</td>
+                  {canWrite && <td className="px-5 py-2.5 text-right"><Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); openHousehold(h); }} data-testid={`open-household-${h.id}`}><Pencil size={13} /> Open &amp; edit</Button></td>}
                 </tr>
               ))}
             </tbody>

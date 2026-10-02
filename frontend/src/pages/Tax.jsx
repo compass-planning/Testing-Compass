@@ -199,7 +199,7 @@ const REGISTERED_ACCT = ["RRSP", "RRIF", "DC Pension", "DB Pension", "Group RRSP
 function Estate({ province }) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const readOnly = user.tier === "enterprise";
+  const readOnly = user.tier === "enterprise" && !user.enterprise_write;
   const [prov, setProv] = useState(province);
   const [modal, setModal] = useState(null);
 

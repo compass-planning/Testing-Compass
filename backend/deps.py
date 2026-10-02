@@ -4,6 +4,7 @@ Tenant isolation is enforced server-side on every route via `scope_context`,
 never in the UI. Cross-tenant reads are impossible by construction.
 """
 import logging
+import os
 from datetime import datetime, timezone
 from fastapi import HTTPException, Request
 
@@ -13,6 +14,10 @@ from repository import repo
 from models import _id
 
 logger = logging.getLogger("compass")
+
+# Testing escape hatch: when true, the Enterprise tier (normally CRM-read-only)
+# is allowed to create/edit/delete records so the tier can be exercised without a CRM.
+ALLOW_ENTERPRISE_WRITE = os.environ.get("ALLOW_ENTERPRISE_WRITE", "false").lower() == "true"
 
 SECURITY_QUESTIONS = [
     "What was the name of your first pet?",
@@ -33,6 +38,7 @@ def _public(user: dict) -> dict:
     for k in ("password_hash", "mfa_secret", "security_answer_hash"):
         u.pop(k, None)
     u["is_client"] = bool(user.get("invited_by"))
+    u["enterprise_write"] = ALLOW_ENTERPRISE_WRITE
     return u
 
 
@@ -99,7 +105,7 @@ def audit(user: dict, action: str, resource: str, detail: str = ""):
 
 
 def _block_enterprise_write(user):
-    if user["tier"] == "enterprise":
+    if user["tier"] == "enterprise" and not ALLOW_ENTERPRISE_WRITE:
         raise HTTPException(status_code=403,
                             detail="CRM (Salesforce) is the source of truth for Enterprise records. Edit in CRM; Compass syncs from it.")
 
@@ -123,9 +129,13 @@ def planner_scope(user: dict, household_id: str = None):
         household_id = user["scope"].get("client_id")
     elif user["tier"] == "advisor" and household_id:
         read["client_id"] = household_id
+    elif user["tier"] == "enterprise" and household_id and ALLOW_ENTERPRISE_WRITE:
+        read["client_id"] = household_id
     ws = {"corp_id": None, "org_id": None, "advisor_id": None, "client_id": None}
     if user["tier"] == "enterprise":
         ws["corp_id"] = user["scope"].get("corp_id")
+        if ALLOW_ENTERPRISE_WRITE:
+            ws["client_id"] = household_id
     elif user["tier"] == "solo":
         ws["client_id"] = user["scope"].get("client_id")
     else:

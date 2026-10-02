@@ -106,7 +106,7 @@ export default function Retirement() {
         <Button variant="outline" size="sm" onClick={prefill} data-testid="retirement-prefill">Prefill from profile</Button>
       </PageHeader>
 
-      <AssumptionsCard inp={inp} setInp={setInp} readOnly={user.tier === "enterprise"} />
+      <AssumptionsCard inp={inp} setInp={setInp} readOnly={user.tier === "enterprise" && !user.enterprise_write} />
 
       <div className="flex gap-1 mb-6 border-b border-compass-border overflow-x-auto">
         {TABS.map((t) => (
@@ -122,7 +122,7 @@ export default function Retirement() {
       {tab === "guardrails" && <GuardrailsTab inp={inp} num={num} />}
       {tab === "timing" && <TimingTab inp={inp} num={num} />}
       {tab === "decisions" && <DecisionsTab inp={inp} owners={owners.data || []} />}
-      {tab === "scenarios" && <ScenariosTab inp={inp} readOnly={user.tier === "enterprise"} />}
+      {tab === "scenarios" && <ScenariosTab inp={inp} readOnly={user.tier === "enterprise" && !user.enterprise_write} />}
     </div>
   );
 }

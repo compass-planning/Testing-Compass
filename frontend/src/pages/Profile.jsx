@@ -14,7 +14,7 @@ const PENSIONS = ["", "DBPP", "DCPP", "Group RRSP", "DPSP", "No Pension"];
 export default function Profile() {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const readOnly = user.tier === "enterprise";
+  const readOnly = user.tier === "enterprise" && !user.enterprise_write;
   const { data, isLoading } = useQuery({ queryKey: ["profile"], queryFn: planApi.profile });
   const [f, setF] = useState({});
 

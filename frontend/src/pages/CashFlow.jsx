@@ -16,7 +16,7 @@ const REAL_ESTATE = ["Principal Residence", "Real Estate (other)"];
 export default function CashFlow() {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const readOnly = user.tier === "enterprise";
+  const readOnly = user.tier === "enterprise" && !user.enterprise_write;
   const [modal, setModal] = useState(null);
   const [view, setView] = useState("combined");
 
