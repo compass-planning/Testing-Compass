@@ -123,6 +123,28 @@ const EN2FR = {
   // common empties
   "No clients yet": "Aucun client pour l'instant", "No household members yet": "Aucun membre du ménage",
   "No goals yet": "Aucun objectif pour l'instant", "No goals on file.": "Aucun objectif au dossier.",
+  // common actions / fields (planner pages)
+  "Add entry": "Ajouter une entrée", "Quick add:": "Ajout rapide :", "Cancel": "Annuler",
+  "Name": "Nom", "Owner": "Propriétaire", "Category": "Catégorie", "Name / notes": "Nom / notes",
+  "Market value": "Valeur marchande", "Balance": "Solde", "Mortgage / Loan": "Hypothèque / Prêt",
+  "Net worth": "Valeur nette", "Total assets": "Actif total", "Total liabilities": "Passif total",
+  "Assets": "Actifs", "Liabilities": "Passifs",
+  "Use Quick Add to record an entry.": "Utilisez l'ajout rapide pour enregistrer une entrée.",
+  // Goals page
+  "New goal": "Nouvel objectif", "Edit": "Modifier",
+  "Create your first financial goal to start tracking.": "Créez votre premier objectif financier pour commencer le suivi.",
+  "Goal title": "Titre de l'objectif", "Target year": "Année cible", "Target amount": "Montant cible",
+  "Current amount": "Montant actuel", "Monthly contribution": "Cotisation mensuelle",
+  "Expected growth (%/yr)": "Croissance prévue (%/an)", "Save goal": "Enregistrer l'objectif",
+  "Create goal": "Créer l'objectif", "New financial goal": "Nouvel objectif financier",
+  // Debt page
+  "Add debt": "Ajouter une dette", "Total debt": "Dette totale", "Monthly payments": "Paiements mensuels",
+  "Weighted avg rate": "Taux moyen pondéré", "Lifetime interest": "Intérêts à vie",
+  "No debts yet": "Aucune dette pour l'instant",
+  "Add a mortgage, loan or line of credit to see payoff analytics.": "Ajoutez une hypothèque, un prêt ou une marge de crédit pour voir l'analyse de remboursement.",
+  "Lender": "Prêteur", "Rate": "Taux", "Payment": "Paiement", "Payoff": "Remboursement",
+  "Interest": "Intérêts", "Debt name": "Nom de la dette", "Debt-free in": "Libre de dettes dans",
+  "Total interest": "Intérêts totaux", "Payoff order": "Ordre de remboursement",
 };
 
 export function LanguageProvider({ children }) {

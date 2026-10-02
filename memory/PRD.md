@@ -151,6 +151,12 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - **Renewal Reminders**: `routers/tasks.py` `_run_renewal_reminders` + `POST /cron/renewal-reminders` (daily 12:00 ET in `crons.yml`) scans `plan_insurance` with a `renewal_date` within 60 days and creates a de-duplicated advisor task (`renewal_ref` = policy id) per policy. Verified: creates once, dedups on re-run.
 - **Delete Household (enterprise, testing flag)**: `DELETE /enterprise/household/{hid}` (gated by `ALLOW_ENTERPRISE_WRITE`) removes the household's owners + their accounts + goals + `plan_*` records keyed by household_id. `EnterpriseOverview` corp-book row gets a trash action + confirm modal. Verified: create→delete returns removed counts and restores the book.
 
+## Phase 3i — Deepen French + Renewal Digest + OCR Confidence + Reset Demo (added 2026-06, iter42) ✅
+- **Deepen French**: `EN2FR` extended with planner strings; `useTr()` wired into **NetWorth, Debt, Goals** (stat labels, tabs, quick-add, table headers, primary buttons, empties) on top of the global scaffolding pass. Verified FR render on Debt (DETTE TOTALE, PROPRIÉTAIRE, PRÊTEUR…). Scope note: deep sub-component strings (some modal field labels, Debt payoff-strategy section, EntryModal fields) remain EN and can be extended.
+- **Renewal Digest**: `email_service.render_task_digest_html` now takes `renewals` and renders an "Upcoming policy renewals" section; `tasks._run_task_digest` computes policies renewing within 60 days per advisor and includes them (and sends even when there are no tasks but there are renewals). Complements the task-creating cron.
+- **OCR Confidence**: `letters.py` prompt asks the vision/text model for a `low_confidence` array of field names per policy; `_normalize` carries it (validated against the field list). `Documents.jsx` LettersImporter highlights flagged fields (amber ring) and shows a per-policy "Low confidence on N fields — double-check" banner. Verified: field present in parse response.
+- **Reset Demo Data**: `seed.reset_corp_demo(corp_id)` + `_seed_corp_book()` wipe the corp's enterprise-store data and reseed the Sweston sample book; `POST /enterprise/reset-demo` (gated by `ALLOW_ENTERPRISE_WRITE`). `EnterpriseOverview` gets a "Reset corp book" button + confirm modal. Verified: removed 16 records and restored 3 baseline households.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.

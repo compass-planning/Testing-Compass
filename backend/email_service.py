@@ -283,11 +283,12 @@ def render_invite_html(name, firm, link) -> str:
 
 
 
-def render_task_digest_html(advisor_name, firm, today_tasks, overdue_tasks) -> str:
+def render_task_digest_html(advisor_name, firm, today_tasks, overdue_tasks, renewals=None) -> str:
     firm = escape(str(firm or EMAIL_FROM_NAME))
     name = escape(str(advisor_name or "there").split()[0])
     today_tasks = today_tasks or []
     overdue_tasks = overdue_tasks or []
+    renewals = renewals or []
 
     def row(title, meta, color):
         return (f'<tr><td style="padding:8px 0;border-bottom:1px solid #eef1f6;color:#0B1437;font-size:14px">{escape(str(title))}</td>'
@@ -302,7 +303,14 @@ def render_task_digest_html(advisor_name, firm, today_tasks, overdue_tasks) -> s
         rows = "".join(row(t.get("title", "Task"), "Due today", "#0052FF") for t in today_tasks)
         sections += (f'<h3 style="color:#0B1437;margin:20px 0 4px;font-size:14px">Due today ({len(today_tasks)})</h3>'
                      f'<table role="presentation" width="100%">{rows}</table>')
+    if renewals:
+        rows = "".join(row(
+            f'{r.get("carrier") or "Policy"} {r.get("policy_type") or ""} — {r.get("insured") or "client"}'.strip(),
+            f'Renews {r.get("renewal_date", "")}', "#FFB800") for r in renewals)
+        sections += (f'<h3 style="color:#B8860B;margin:20px 0 4px;font-size:14px">Upcoming policy renewals ({len(renewals)})</h3>'
+                     f'<table role="presentation" width="100%">{rows}</table>')
     total = len(overdue_tasks) + len(today_tasks)
+    rtxt = f' and <strong>{len(renewals)}</strong> upcoming renewal{"" if len(renewals) == 1 else "s"}' if renewals else ""
     return (
         f'<table role="presentation" width="100%" style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif">'
         f'<tr><td style="background:#0052FF;padding:20px 24px;border-radius:10px 10px 0 0">'
@@ -310,7 +318,7 @@ def render_task_digest_html(advisor_name, firm, today_tasks, overdue_tasks) -> s
         f'<div style="color:#dbe6ff;font-size:12px">Your morning task digest</div></td></tr>'
         f'<tr><td style="padding:24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px">'
         f'<h2 style="color:#0B1437;margin:0 0 4px">Good morning, {name}</h2>'
-        f'<p style="color:#60708f;margin:0 0 6px;font-size:13px">You have <strong>{total}</strong> task{"" if total == 1 else "s"} needing attention today.</p>'
+        f'<p style="color:#60708f;margin:0 0 6px;font-size:13px">You have <strong>{total}</strong> task{"" if total == 1 else "s"} needing attention today{rtxt}.</p>'
         f'{sections}'
         f'<p style="font-size:11px;color:#9aa5b9;margin-top:22px">Sign in to {firm} to complete or reschedule these tasks. '
         f'We never ask for your password or card details by email.</p>'

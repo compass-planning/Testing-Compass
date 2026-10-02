@@ -141,14 +141,23 @@ async def _run_task_digest():
         store, flt = scope_context(u)
         due = [t for t in repo.list(store, "tasks", flt)
                if not t.get("done") and t.get("due_date") and t["due_date"] <= today]
-        if not due:
+        # Upcoming policy renewals within the lead window, rolled into the daily email.
+        horizon = (now.date() + timedelta(days=RENEWAL_LEAD_DAYS)).isoformat()
+        renewals = sorted([
+            {"carrier": p.get("carrier"), "policy_type": p.get("policy_type"),
+             "insured": p.get("insured"), "renewal_date": (p.get("renewal_date") or "")[:10]}
+            for p in repo.list(store, "plan_insurance", flt)
+            if p.get("renewal_date") and today <= (p.get("renewal_date") or "")[:10] <= horizon
+        ], key=lambda r: r["renewal_date"])
+        if not due and not renewals:
             continue
         overdue = sorted([t for t in due if t["due_date"] < today], key=lambda t: t["due_date"])
         today_tasks = [t for t in due if t["due_date"] == today]
         firm = (u.get("branding") or {}).get("firm_name")
-        html = render_task_digest_html(u.get("name"), firm, today_tasks, overdue)
+        html = render_task_digest_html(u.get("name"), firm, today_tasks, overdue, renewals=renewals)
         try:
-            await send_email(to=u["email"], subject=f"{len(due)} task(s) need your attention today", html=html)
+            subj = f"{len(due)} task(s) need your attention today" if due else f"{len(renewals)} upcoming policy renewal(s)"
+            await send_email(to=u["email"], subject=subj, html=html)
             sent += 1
             log_digest(u, "daily", "scheduled", True)
         except Exception as e:

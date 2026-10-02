@@ -40,6 +40,50 @@ def _goal(store, scope, owner_id, title, cat, target, current, year, status):
     }
 
 
+_RESET_PLAN_COLLS = ["networth", "debts", "expenses", "insurance", "documents",
+                     "tax_notes", "retirement", "estate", "protection", "assumptions",
+                     "education", "crossborder", "meetings"]
+
+
+def _seed_corp_book(corp_id):
+    """(Re)create the Sweston sample corp book in the enterprise store."""
+    sc = {"corp_id": corp_id}
+    owners = [
+        _owner("enterprise", sc, "Eleanor Whitfield", "self", "1968-04-12", "ON", "crm", "SF-0012"),
+        _owner("enterprise", sc, "Raymond Whitfield", "spouse", "1966-09-02", "ON", "crm", "SF-0013"),
+        _owner("enterprise", sc, "Dev Patel", "self", "1972-01-25", "BC", "crm", "SF-0021"),
+        _owner("enterprise", sc, "Sophie Girard", "self", "1979-11-08", "QC", "crm", "SF-0033"),
+    ]
+    for o in owners:
+        repo.create("enterprise", "owners", o)
+    repo.create("enterprise", "accounts", _account("enterprise", sc, owners[0]["id"], "DB Pension", "Sweston Pension Trust", 842000, 0))
+    repo.create("enterprise", "accounts", _account("enterprise", sc, owners[0]["id"], "RRSP", "RBC", 310500, 12000))
+    repo.create("enterprise", "accounts", _account("enterprise", sc, owners[1]["id"], "TFSA", "TD", 88000, 7000))
+    repo.create("enterprise", "accounts", _account("enterprise", sc, owners[2]["id"], "DC Pension", "Sweston Group RRSP", 415000, 18000))
+    repo.create("enterprise", "accounts", _account("enterprise", sc, owners[3]["id"], "RRSP", "Desjardins", 205000, 9000))
+    repo.create("enterprise", "goals", _goal("enterprise", sc, owners[0]["id"], "Retire at 62", "retirement", 1500000, 1240500, 2030, "on_track"))
+    repo.create("enterprise", "goals", _goal("enterprise", sc, owners[2]["id"], "Bridge to CPP", "income", 500000, 415000, 2034, "at_risk"))
+    repo.create("enterprise", "goals", _goal("enterprise", sc, owners[3]["id"], "Legacy fund", "legacy", 300000, 205000, 2040, "behind"))
+    repo.create("enterprise", "crm_sync_state", {
+        "id": _id(), "store": "enterprise", "scope": sc, "connector": "Salesforce",
+        "status": "connected", "authoritative": True, "last_synced_at": _now(),
+        "records_synced": 4, "pending_changes": 0, "delete_propagation": False,
+    })
+
+
+def reset_corp_demo(corp_id):
+    """Wipe the corp's enterprise-store data and reseed the original sample book."""
+    flt = {"corp_id": corp_id}
+    removed = 0
+    colls = ["owners", "accounts", "goals", "crm_sync_state"] + [f"plan_{c}" for c in _RESET_PLAN_COLLS]
+    for coll in colls:
+        for r in repo.list("enterprise", coll, flt):
+            if repo.delete("enterprise", coll, r["id"], flt):
+                removed += 1
+    _seed_corp_book(corp_id)
+    return removed
+
+
 def _audit(store, scope, actor, action, resource, detail):
     return {
         "id": _id(), "store": store, "scope": scope, "actor_email": actor,

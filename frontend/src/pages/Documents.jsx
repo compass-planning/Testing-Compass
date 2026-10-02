@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { FileText, Upload, Trash2, Download, Mic, Square, FolderOpen, Loader2, Sparkles, ListChecks, FileSearch, Check } from "lucide-react";
+import { FileText, Upload, Trash2, Download, Mic, Square, FolderOpen, Loader2, Sparkles, ListChecks, FileSearch, Check, AlertTriangle } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { docsApi, meetingsApi, lettersApi, planApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
@@ -295,23 +295,24 @@ function LettersImporter() {
         <div data-testid="letters-results">
           <p className="text-sm text-compass-muted mb-3">Review the extracted policies, edit anything that looks off, then add the ones you want.</p>
           <div className="space-y-3">
-            {policies.map((p, i) => (
+            {policies.map((p, i) => { const lc = p.low_confidence || []; const flagCls = (f) => lc.includes(f) ? " ring-2 ring-amber-400 border-amber-400" : ""; return (
               <Card key={i} className="p-4" data-testid={`letter-policy-${i}`}>
                 <label className="flex items-center gap-2.5 mb-3 cursor-pointer">
                   <input type="checkbox" checked={!!picked[i]} onChange={(e) => setPicked((pk) => ({ ...pk, [i]: e.target.checked }))} className="h-4 w-4 accent-compass-blue" data-testid={`letter-pick-${i}`} />
                   <span className="font-heading font-bold text-compass-navy">{p.carrier || "Policy"} <span className="text-compass-muted font-normal">· {p.policy_type}</span></span>
                 </label>
+                {lc.length > 0 && <div className="flex items-center gap-1.5 mb-3 text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5" data-testid={`letter-lowconf-${i}`}><AlertTriangle size={13} /> Low confidence on {lc.length} field{lc.length === 1 ? "" : "s"} — please double-check the highlighted value{lc.length === 1 ? "" : "s"}.</div>}
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  <Lab label="Type"><Select value={p.policy_type} onChange={(e) => edit(i, "policy_type", e.target.value)} data-testid={`letter-type-${i}`}>{POLICY_TYPES.map((pt) => <option key={pt} value={pt}>{pt}</option>)}</Select></Lab>
-                  <Lab label="Carrier"><Input value={p.carrier || ""} onChange={(e) => edit(i, "carrier", e.target.value)} data-testid={`letter-carrier-${i}`} /></Lab>
-                  <Lab label="Insured"><Input value={p.insured || ""} onChange={(e) => edit(i, "insured", e.target.value)} data-testid={`letter-insured-${i}`} /></Lab>
-                  <Lab label="Coverage"><Input type="number" value={p.coverage ?? ""} onChange={(e) => edit(i, "coverage", e.target.value)} data-testid={`letter-coverage-${i}`} /></Lab>
-                  <Lab label="Premium"><Input type="number" value={p.premium ?? ""} onChange={(e) => edit(i, "premium", e.target.value)} data-testid={`letter-premium-${i}`} /></Lab>
-                  <Lab label="Policy #"><Input value={p.policy_number || ""} onChange={(e) => edit(i, "policy_number", e.target.value)} data-testid={`letter-number-${i}`} /></Lab>
-                  <Lab label="Renewal date"><Input type="date" value={p.renewal_date || ""} onChange={(e) => edit(i, "renewal_date", e.target.value)} data-testid={`letter-renewal-${i}`} /></Lab>
+                  <Lab label="Type"><Select value={p.policy_type} onChange={(e) => edit(i, "policy_type", e.target.value)} className={flagCls("policy_type")} data-testid={`letter-type-${i}`}>{POLICY_TYPES.map((pt) => <option key={pt} value={pt}>{pt}</option>)}</Select></Lab>
+                  <Lab label="Carrier"><Input value={p.carrier || ""} onChange={(e) => edit(i, "carrier", e.target.value)} className={flagCls("carrier")} data-testid={`letter-carrier-${i}`} /></Lab>
+                  <Lab label="Insured"><Input value={p.insured || ""} onChange={(e) => edit(i, "insured", e.target.value)} className={flagCls("insured")} data-testid={`letter-insured-${i}`} /></Lab>
+                  <Lab label="Coverage"><Input type="number" value={p.coverage ?? ""} onChange={(e) => edit(i, "coverage", e.target.value)} className={flagCls("coverage")} data-testid={`letter-coverage-${i}`} /></Lab>
+                  <Lab label="Premium"><Input type="number" value={p.premium ?? ""} onChange={(e) => edit(i, "premium", e.target.value)} className={flagCls("premium")} data-testid={`letter-premium-${i}`} /></Lab>
+                  <Lab label="Policy #"><Input value={p.policy_number || ""} onChange={(e) => edit(i, "policy_number", e.target.value)} className={flagCls("policy_number")} data-testid={`letter-number-${i}`} /></Lab>
+                  <Lab label="Renewal date"><Input type="date" value={p.renewal_date || ""} onChange={(e) => edit(i, "renewal_date", e.target.value)} className={flagCls("renewal_date")} data-testid={`letter-renewal-${i}`} /></Lab>
                 </div>
               </Card>
-            ))}
+            ); })}
           </div>
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="ghost" onClick={() => { setPolicies(null); setFileName(""); }}>Discard</Button>

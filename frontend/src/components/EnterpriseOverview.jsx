@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Building2, Users, Gauge, AlertTriangle, UserPlus, Pencil, Plus, Trash2 } from "lucide-react";
+import { Building2, Users, Gauge, AlertTriangle, UserPlus, Pencil, Plus, Trash2, RefreshCw, Loader2 } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { enterpriseApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
@@ -95,6 +95,8 @@ export default function EnterpriseOverview() {
   const [drill, setDrill] = useState(null);
   const [newOpen, setNewOpen] = useState(false);
   const [delHh, setDelHh] = useState(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const { user } = useAuth();
   const { setActive, clear } = useHousehold();
   const navigate = useNavigate();
@@ -133,6 +135,16 @@ export default function EnterpriseOverview() {
       } finally { setDelHh(null); }
     },
   };
+  const runReset = async () => {
+    setResetting(true);
+    try {
+      const r = await enterpriseApi.resetDemo();
+      qc.invalidateQueries({ queryKey: ["enterprise-overview"] });
+      toast.success(`Corp book reset — ${r.removed} record(s) cleared and sample households reseeded`);
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail) || "Could not reset demo data");
+    } finally { setResetting(false); setResetOpen(false); }
+  };
 
   return (
     <div className="mt-6 space-y-6" data-testid="enterprise-overview">
@@ -146,7 +158,7 @@ export default function EnterpriseOverview() {
       <Card className="p-0 overflow-hidden" data-testid="enterprise-households">
         <div className="px-6 py-4 border-b border-compass-border flex items-center justify-between gap-2">
           <span className="font-heading font-bold text-compass-navy flex items-center gap-2"><Building2 size={16} className="text-compass-blue" /> Corp book — click a household to inspect{canWrite && <Badge color="#FFB800" bg="rgba(255,184,0,0.14)">Edit mode (testing)</Badge>}</span>
-          {canWrite && <Button size="sm" onClick={() => setNewOpen(true)} data-testid="add-household-button"><Plus size={14} /> Add household</Button>}
+          {canWrite && <div className="flex items-center gap-2"><Button size="sm" variant="outline" onClick={() => setResetOpen(true)} data-testid="reset-demo-button"><RefreshCw size={14} /> Reset corp book</Button><Button size="sm" onClick={() => setNewOpen(true)} data-testid="add-household-button"><Plus size={14} /> Add household</Button></div>}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -229,6 +241,15 @@ export default function EnterpriseOverview() {
           <div className="flex gap-2 justify-end">
             <Button variant="ghost" onClick={() => setDelHh(null)}>Cancel</Button>
             <Button variant="danger" onClick={delMut.run} data-testid="confirm-delete-household"><Trash2 size={15} /> Delete household</Button>
+          </div>
+        </div>
+      </Modal>
+      <Modal open={resetOpen} onClose={() => setResetOpen(false)} title="Reset corp book?" testid="reset-demo-modal">
+        <div className="space-y-4">
+          <p className="text-sm text-compass-navy">This clears <span className="font-semibold">all</span> households, accounts, goals and plan data in this corp, then reseeds the original Sweston sample book. Use this to tidy up test data. This cannot be undone.</p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" onClick={() => setResetOpen(false)}>Cancel</Button>
+            <Button variant="danger" onClick={runReset} disabled={resetting} data-testid="confirm-reset-demo">{resetting ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />} Reset &amp; reseed</Button>
           </div>
         </div>
       </Modal>

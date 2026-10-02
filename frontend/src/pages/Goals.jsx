@@ -6,6 +6,7 @@ import api, { formatApiError } from "@/lib/api";
 import { planApi } from "@/lib/planning";
 import { Card, Button, Input, Field, Select, Badge, Progress, Modal, Empty } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
+import { useTr } from "@/lib/i18n";
 import { money, STATUS_META } from "@/lib/format";
 
 const CATEGORIES = ["retirement", "income", "legacy", "purchase", "education"];
@@ -47,6 +48,7 @@ function realisticYear(current, target, annualGrowth, cap, fromYear) {
 export default function Goals() {
   const qc = useQueryClient();
   const [modal, setModal] = useState(null);
+  const tr = useTr();
 
   const goals = useQuery({ queryKey: ["goals"], queryFn: async () => (await api.get("/goals")).data });
   const owners = useQuery({ queryKey: ["owners"], queryFn: async () => (await api.get("/owners")).data });
@@ -88,7 +90,7 @@ export default function Goals() {
   return (
     <div>
       <PageHeader title="Financial Goals" subtitle="Track progress toward retirement, income, legacy and major-purchase goals.">
-        <Button onClick={() => setModal({})} data-testid="add-goal-button"><Plus size={16} /> New goal</Button>
+        <Button onClick={() => setModal({})} data-testid="add-goal-button"><Plus size={16} /> {tr("New goal")}</Button>
       </PageHeader>
 
       {goals.isLoading ? (
@@ -161,7 +163,7 @@ export default function Goals() {
                   })()}
                 </div>
                 <div className="flex gap-2 mt-5">
-                  <Button size="sm" variant="outline" onClick={() => setModal(g)} data-testid={`edit-goal-${g.id}`}><Pencil size={14} /> Edit</Button>
+                  <Button size="sm" variant="outline" onClick={() => setModal(g)} data-testid={`edit-goal-${g.id}`}><Pencil size={14} /> {tr("Edit")}</Button>
                   <Button size="sm" variant="ghost" className="text-compass-red" onClick={() => del.mutate(g.id)} data-testid={`delete-goal-${g.id}`}><Trash2 size={14} /></Button>
                 </div>
               </Card>

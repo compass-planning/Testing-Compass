@@ -724,6 +724,18 @@ async def delete_enterprise_household(hid: str, user: dict = Depends(get_current
     return {"ok": True, "removed": removed}
 
 
+@router.post("/enterprise/reset-demo")
+async def reset_enterprise_demo(user: dict = Depends(get_current_user)):
+    if user["tier"] != "enterprise":
+        raise HTTPException(status_code=403, detail="Enterprise tier only")
+    if not ALLOW_ENTERPRISE_WRITE:
+        raise HTTPException(status_code=403, detail="CRM (Salesforce) is the source of truth for Enterprise records.")
+    import seed as _seed
+    removed = _seed.reset_corp_demo(user["scope"].get("corp_id"))
+    audit(user, "enterprise.reset_demo", "owners", f"Reset corp book (removed {removed} records)")
+    return {"ok": True, "removed": removed}
+
+
 @router.get("/enterprise/household/{hid}")
 async def enterprise_household(hid: str, user: dict = Depends(get_current_user)):
     if user["tier"] != "enterprise":

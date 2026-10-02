@@ -7,6 +7,7 @@ import { planApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
 import { Card, Button, Input, Field, Select, Badge, Modal, Stat, Empty } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
+import { useTr } from "@/lib/i18n";
 import { money } from "@/lib/format";
 
 const ASSET_CATEGORIES = [
@@ -40,6 +41,7 @@ export default function NetWorth() {
   const qc = useQueryClient();
   const readOnly = user.tier === "enterprise" && !user.enterprise_write;
   const [tab, setTab] = useState("assets");
+  const tr = useTr();
   const [modal, setModal] = useState(null); // {} or row
 
   const nw = useQuery({ queryKey: ["plan", "networth"], queryFn: () => planApi.list("networth") });
@@ -68,27 +70,27 @@ export default function NetWorth() {
     <div>
       <PageHeader title="Net Worth" subtitle="Household balance sheet — assets, liabilities and education savings.">
         {readOnly ? <Badge color="#A3AED0" bg="rgba(163,174,208,0.15)">CRM-managed</Badge>
-          : <Button onClick={() => quickAdd(quickBtns[0], tab === "liabilities" ? "liability" : "asset")} data-testid="add-networth-button"><Plus size={16} /> Add entry</Button>}
+          : <Button onClick={() => quickAdd(quickBtns[0], tab === "liabilities" ? "liability" : "asset")} data-testid="add-networth-button"><Plus size={16} /> {tr("Add entry")}</Button>}
       </PageHeader>
 
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <Stat label="Net worth" value={money(totalAssets - totalLiab)} accent />
-        <Stat label="Total assets" value={money(totalAssets)} />
-        <Stat label="Total liabilities" value={money(totalLiab)} />
+        <Stat label={tr("Net worth")} value={money(totalAssets - totalLiab)} accent />
+        <Stat label={tr("Total assets")} value={money(totalAssets)} />
+        <Stat label={tr("Total liabilities")} value={money(totalLiab)} />
       </div>
 
       <div className="flex gap-1 mb-4 border-b border-compass-border">
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)} data-testid={`nw-tab-${t.key}`}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === t.key ? "border-compass-blue text-compass-blue" : "border-transparent text-compass-muted hover:text-compass-navy"}`}>
-            <t.icon size={16} /> {t.label}
+            <t.icon size={16} /> {tr(t.label)}
           </button>
         ))}
       </div>
 
       {!readOnly && (
         <div className="flex flex-wrap gap-2 mb-5">
-          <span className="muted-label self-center mr-1">Quick add:</span>
+          <span className="muted-label self-center mr-1">{tr("Quick add:")}</span>
           {quickBtns.map((c) => (
             <button key={c} onClick={() => quickAdd(c, tab === "liabilities" ? "liability" : "asset")}
               className="rounded-full border border-compass-border px-3 py-1.5 text-xs font-semibold text-compass-navy hover:border-compass-blue hover:text-compass-blue transition-colors" data-testid={`quick-${c}`}>
@@ -104,11 +106,11 @@ export default function NetWorth() {
         <Card className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="text-left border-b border-compass-border">
-              <th className="muted-label px-5 py-3.5">Name</th>
-              <th className="muted-label px-5 py-3.5">Owner</th>
-              <th className="muted-label px-5 py-3.5">Category</th>
-              {tab === "assets" && <th className="muted-label px-5 py-3.5 text-right">Mortgage / Loan</th>}
-              <th className="muted-label px-5 py-3.5 text-right">{tab === "liabilities" ? "Balance" : "Market value"}</th>
+              <th className="muted-label px-5 py-3.5">{tr("Name")}</th>
+              <th className="muted-label px-5 py-3.5">{tr("Owner")}</th>
+              <th className="muted-label px-5 py-3.5">{tr("Category")}</th>
+              {tab === "assets" && <th className="muted-label px-5 py-3.5 text-right">{tr("Mortgage / Loan")}</th>}
+              <th className="muted-label px-5 py-3.5 text-right">{tab === "liabilities" ? tr("Balance") : tr("Market value")}</th>
               {!readOnly && <th className="px-5 py-3.5" />}
             </tr></thead>
             <tbody>

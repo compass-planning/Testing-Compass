@@ -7,6 +7,7 @@ import { planApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
 import { Card, Button, Input, Field, Select, Badge, Modal, Stat, Empty } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
+import { useTr } from "@/lib/i18n";
 import { money } from "@/lib/format";
 import { weightedAvgRate, singlePayoff, baseline, strategy, monthsLabel } from "@/lib/finance";
 import { PersonToggle, matchPerson, OWNER_TAGS } from "@/components/PersonToggle";
@@ -39,6 +40,7 @@ export default function Debt() {
     if (rows.length === 0) return null;
     return { base: baseline(rows), ava: strategy(rows, extra, "avalanche"), snow: strategy(rows, extra, "snowball") };
   }, [rows, extra]);
+  const tr = useTr();
 
   return (
     <div>
@@ -46,15 +48,15 @@ export default function Debt() {
         <div className="flex items-center gap-3">
           <PersonToggle owners={owners.data || []} value={view} onChange={setView} testid="debt-person" />
           {readOnly ? <Badge color="#A3AED0" bg="rgba(163,174,208,0.15)">CRM-managed</Badge>
-            : <Button onClick={() => setModal({})} data-testid="add-debts-button"><Plus size={16} /> Add debt</Button>}
+            : <Button onClick={() => setModal({})} data-testid="add-debts-button"><Plus size={16} /> {tr("Add debt")}</Button>}
         </div>
       </PageHeader>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Stat label="Total debt" value={money(totalBalance)} accent />
-        <Stat label="Monthly payments" value={money(totalPayment)} />
-        <Stat label="Weighted avg rate" value={`${avgRate.toFixed(2)}%`} />
-        <Stat label="Lifetime interest" value={analysis ? (analysis.base.neverPaysOff ? "—" : money(analysis.base.interest)) : "$0"} />
+        <Stat label={tr("Total debt")} value={money(totalBalance)} accent />
+        <Stat label={tr("Monthly payments")} value={money(totalPayment)} />
+        <Stat label={tr("Weighted avg rate")} value={`${avgRate.toFixed(2)}%`} />
+        <Stat label={tr("Lifetime interest")} value={analysis ? (analysis.base.neverPaysOff ? "—" : money(analysis.base.interest)) : "$0"} />
       </div>
 
       {isLoading ? <div className="text-compass-muted">Loading…</div> : rows.length === 0 ? (
@@ -64,14 +66,14 @@ export default function Debt() {
           <Card className="overflow-x-auto mb-8">
             <table className="w-full text-sm">
               <thead><tr className="text-left border-b border-compass-border">
-                <th className="muted-label px-5 py-3.5">Debt</th>
-                <th className="muted-label px-5 py-3.5">Owner</th>
-                <th className="muted-label px-5 py-3.5">Lender</th>
-                <th className="muted-label px-5 py-3.5 text-right">Rate</th>
-                <th className="muted-label px-5 py-3.5 text-right">Payment</th>
-                <th className="muted-label px-5 py-3.5 text-right">Balance</th>
-                <th className="muted-label px-5 py-3.5 text-right">Payoff</th>
-                <th className="muted-label px-5 py-3.5 text-right">Interest</th>
+                <th className="muted-label px-5 py-3.5">{tr("Debt")}</th>
+                <th className="muted-label px-5 py-3.5">{tr("Owner")}</th>
+                <th className="muted-label px-5 py-3.5">{tr("Lender")}</th>
+                <th className="muted-label px-5 py-3.5 text-right">{tr("Rate")}</th>
+                <th className="muted-label px-5 py-3.5 text-right">{tr("Payment")}</th>
+                <th className="muted-label px-5 py-3.5 text-right">{tr("Balance")}</th>
+                <th className="muted-label px-5 py-3.5 text-right">{tr("Payoff")}</th>
+                <th className="muted-label px-5 py-3.5 text-right">{tr("Interest")}</th>
                 {!readOnly && <th className="px-5 py-3.5" />}
               </tr></thead>
               <tbody>

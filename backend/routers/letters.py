@@ -25,9 +25,12 @@ PARSE_SYSTEM_PROMPT = (
     "carrier (the insurer's name), coverage (benefit/face amount as a plain number, no symbols or commas), "
     "premium (periodic premium as a plain number if stated, else null), "
     "insured (the insured person's full name), policy_number, "
-    "renewal_date (ISO YYYY-MM-DD if a renewal/expiry date is present, else null). "
+    "renewal_date (ISO YYYY-MM-DD if a renewal/expiry date is present, else null), "
+    "low_confidence (an array of the field names above whose values you are NOT confident about — e.g. blurry, ambiguous or guessed from a scan; use [] when you are confident). "
     "Return ONLY a JSON array of such objects. If a field is unknown use null. No prose outside the JSON array."
 )
+
+_FIELDS = ["policy_type", "carrier", "coverage", "premium", "insured", "policy_number", "renewal_date"]
 
 
 def _num(v):
@@ -81,6 +84,7 @@ def _normalize(parsed) -> list:
                 "insured": str(p.get("insured") or "").strip()[:120],
                 "policy_number": str(p.get("policy_number") or "").strip()[:60],
                 "renewal_date": (str(p.get("renewal_date")).strip()[:10] if p.get("renewal_date") else None),
+                "low_confidence": [f for f in (p.get("low_confidence") or []) if isinstance(f, str) and f in _FIELDS][:7],
             })
     return policies
 
