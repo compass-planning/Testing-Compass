@@ -1,0 +1,23 @@
+{
+  "summary": "Frontend-only end-to-end testing of 4 features + regression. All features passed. (1) Education RESP save-as-goal POSTs successfully and 'Education fund' goal appears in /goals. (2) Enterprise drill-in opens read-only modal for Eleanor Whitfield showing 2 members, 3 accounts, 1 goal, $1,240,500 assets, 100 score / On Track — matches expected backend data. (3) Client-welcome modal correctly suppressed for solo@compass.ca (is_client=false). Invited-client creation flow not exercised in automation (noted as limitation). (4) Cross-Border page tested for all 3 scenarios: dual (US citizen + CA resident, income 120k) → jurisdiction 'Cross-border (US person resident in Canada)', FEIE excluded, SS schedule 62=$1,877 / 67=$2,681 / 70=$3,324, 6 treaty/filing flags, treaty notes visible; US green-card non-CA-resident NY → non-zero state tax ($5,748) and federal $18,338; CA-resident only → us_tax and social_security cards NOT rendered, jurisdiction label 'Canadian resident'. (5) Regression: /retirement, /insurance, /tax, /education, /crossborder, /goals, /dashboard all load without errors. 'Cross-Border' sidebar nav link present.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ClientWelcome.jsx: if user is somehow null (edge auth timing), the `user.is_client` and `user.id` access could throw. Low priority — Dashboard renders only after auth-protected route guarantees user.",
+    "CrossBorder.jsx: UI assumes POST /api/plan/crossborder always returns full jurisdiction/us_tax/social_security objects per residency rules; no explicit error-state render beyond toast — acceptable."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (not tested — curl-verified by main agent)", "frontend": "100%"},
+  "test_credentials": "advisor@compass.ca / scott@sweston.ca / solo@compass.ca — Compass2026! (TOTP JBSWY3DPEHPK3PXP). Active household compass_active_household=client_a1.",
+  "seed_data_creation": "Created 1 education goal ('Education fund (child age N)') for advisor client_a1 via RESP save-as-goal flow. Main agent may want to clean up this /api/goals entry if re-running RESP save test (duplicate goals will accumulate otherwise).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 4 iteration-35 features verified via Playwright on the public preview URL. Invited-client welcome modal POSITIVE path (actual invited user) was NOT automated — only the negative path (solo user doesn't see modal) was verified. If needed, next agent should drive /api/advisor/clients/invite + /api/auth/activate to create an is_client user then login and assert data-testid=client-welcome opens on first dashboard visit and does not reopen after clicking welcome-explore (localStorage key compass_client_welcomed_<uid>).",
+  "rca of the issue": "No issues found."
+}
