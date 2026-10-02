@@ -99,9 +99,10 @@ function Meetings({ readOnly, isAdvisor }) {
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [picked, setPicked] = useState({});
+  const [dueDates, setDueDates] = useState({});
   const [suggestClient, setSuggestClient] = useState(null);
   const runSuggest = async (m) => {
-    setSuggestFor(m); setSuggestLoading(true); setSuggestions([]); setPicked({});
+    setSuggestFor(m); setSuggestLoading(true); setSuggestions([]); setPicked({}); setDueDates({});
     setSuggestClient(m.household_id || localStorage.getItem("compass_active_household"));
     try {
       const res = await meetingsApi.suggestTasks(m.id);
@@ -115,8 +116,8 @@ function Meetings({ readOnly, isAdvisor }) {
   };
   const addTasks = useMutation({
     mutationFn: async () => {
-      const chosen = suggestions.filter((_, i) => picked[i]);
-      for (const t of chosen) await api.post("/advisor/tasks", { client_id: suggestClient, title: t.title });
+      const chosen = suggestions.map((t, i) => ({ t, i })).filter(({ i }) => picked[i]);
+      for (const { t, i } of chosen) await api.post("/advisor/tasks", { client_id: suggestClient, title: t.title, due_date: dueDates[i] || null });
       return chosen.length;
     },
     onSuccess: (n) => { qc.invalidateQueries({ queryKey: ["tasks"] }); toast.success(`${n} task${n === 1 ? "" : "s"} added to the board`); setSuggestFor(null); },
@@ -200,7 +201,9 @@ function Meetings({ readOnly, isAdvisor }) {
               {suggestions.map((t, i) => (
                 <label key={i} className="flex items-start gap-2.5 text-sm cursor-pointer rounded-lg border border-compass-border px-3 py-2" data-testid={`suggest-task-${i}`}>
                   <input type="checkbox" checked={!!picked[i]} onChange={(e) => setPicked((p) => ({ ...p, [i]: e.target.checked }))} className="h-4 w-4 mt-0.5 accent-compass-blue" />
-                  <span className="text-compass-navy">{t.title}</span>
+                  <span className="text-compass-navy flex-1 min-w-0">{t.title}</span>
+                  <input type="date" value={dueDates[i] || ""} onChange={(e) => setDueDates((d) => ({ ...d, [i]: e.target.value }))} title="Optional due date" data-testid={`suggest-due-${i}`}
+                    className="shrink-0 rounded-lg border border-compass-border bg-white px-2 py-1 text-xs text-compass-navy focus:border-compass-blue focus:outline-none" />
                 </label>
               ))}
             </div>

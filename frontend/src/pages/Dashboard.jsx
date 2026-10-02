@@ -10,6 +10,9 @@ import { Card, Stat, Badge, Button } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import TodayPanel from "@/components/TodayPanel";
 import ActionItems from "@/components/ActionItems";
+import EnterpriseOverview from "@/components/EnterpriseOverview";
+import SoloOnboarding from "@/components/SoloOnboarding";
+import { planApi } from "@/lib/planning";
 import { money, compact, dateFmt, STATUS_META } from "@/lib/format";
 
 const CHART_COLORS = ["#0052FF", "#00DF89", "#FFB800", "#A3AED0", "#1B2559"];
@@ -20,6 +23,15 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { data, isLoading } = useQuery({ queryKey: ["dashboard"], queryFn: async () => (await api.get("/dashboard")).data });
   const clientsQ = useQuery({ queryKey: ["clients"], queryFn: async () => (await api.get("/advisor/clients")).data, enabled: user.tier === "advisor" });
+  const profileQ = useQuery({ queryKey: ["plan", "profile"], queryFn: planApi.profile, enabled: user.tier === "solo" && !user.is_client });
+  const [setupOpen, setSetupOpen] = React.useState(false);
+  const soloIncomplete = user.tier === "solo" && !user.is_client && !!data && !!profileQ.data &&
+    !(data.accounts_count > 0 && data.goals_count > 0 && Number(profileQ.data.annual_income || 0) > 0);
+  const onboardKey = `compass_solo_onboarded_${user.id}`;
+  React.useEffect(() => {
+    if (soloIncomplete && !localStorage.getItem(onboardKey)) setSetupOpen(true);
+  }, [soloIncomplete, onboardKey]);
+  const closeSetup = (done) => { setSetupOpen(false); if (done || soloIncomplete) localStorage.setItem(onboardKey, "1"); };
 
   if (isLoading || !data) return <div className="text-compass-muted">Loading dashboard…</div>;
 
@@ -123,6 +135,8 @@ export default function Dashboard() {
         </Card>
       )}
 
+      {user.tier === "enterprise" && <EnterpriseOverview />}
+
       {user.tier === "advisor" && <TodayPanel />}
 
       {user.tier === "advisor" && (
@@ -164,7 +178,19 @@ export default function Dashboard() {
         </Card>
       )}
 
+      {user.tier === "solo" && !user.is_client && (
+        <Card className="p-5 mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3" data-testid="solo-setup-card">
+          <div>
+            <h3 className="font-heading font-bold text-compass-navy">{soloIncomplete ? "Finish setting up your plan" : "Your plan is set up"}</h3>
+            <p className="text-sm text-compass-muted mt-0.5">{soloIncomplete ? "Add your profile, an account and a goal to fill your dashboard." : "Want to revisit the basics? Restart the quick setup any time."}</p>
+          </div>
+          <Button variant={soloIncomplete ? "primary" : "outline"} onClick={() => setSetupOpen(true)} data-testid="restart-setup">{soloIncomplete ? "Start setup" : "Restart setup"}</Button>
+        </Card>
+      )}
+
       {user.tier === "solo" && <div className="mt-6"><ActionItems /></div>}
+
+      <SoloOnboarding open={setupOpen} onClose={closeSetup} selfOwnerId={profileQ.data?.id} profile={profileQ.data} />
 
       {user.tier === "solo" && data.retention && (
         <Card className="p-6 mt-6 flex items-start gap-3">

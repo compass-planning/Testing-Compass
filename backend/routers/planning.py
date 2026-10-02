@@ -532,3 +532,89 @@ async def report_pdf(user: dict = Depends(get_current_user), household_id: str =
     fname = "".join(c for c in household_name if c.isalnum() or c in " -_").strip().replace(" ", "_") + "_Plan.pdf"
     return StreamingResponse(iter([pdf]), media_type="application/pdf",
                              headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+# ---------------- Enterprise corp roll-up ----------------
+
+def _ent_household_score(accounts, goals):
+    if not accounts and not goals:
+        return {"score": None, "status": "Needs Setup", "needs_setup": True}
+    score = 100
+    if not goals:
+        score -= 30
+    if not accounts:
+        score -= 25
+    for g in goals:
+        st = g.get("status")
+        if st == "at_risk":
+            score -= 12
+        elif st == "behind":
+            score -= 20
+    score = max(0, min(100, score))
+    status = "On Track" if score >= 75 else ("Needs Review" if score >= 50 else "At Risk")
+    return {"score": score, "status": status, "needs_setup": False}
+
+
+@router.get("/enterprise/overview")
+async def enterprise_overview(user: dict = Depends(get_current_user)):
+    if user["tier"] != "enterprise":
+        raise HTTPException(status_code=403, detail="Enterprise tier only")
+    store, flt = scope_context(user)
+    owners = sorted(repo.list(store, "owners", flt), key=lambda o: o.get("created_at", ""))
+    accounts = repo.list(store, "accounts", flt)
+    goals = repo.list(store, "goals", flt)
+    acct_by_owner, goal_by_owner = {}, {}
+    for a in accounts:
+        acct_by_owner.setdefault(a.get("owner_id"), []).append(a)
+    for g in goals:
+        goal_by_owner.setdefault(g.get("owner_id"), []).append(g)
+
+    # Group owners into households: a 'self' owner starts a household; others attach to it.
+    households, current = [], None
+    for o in owners:
+        if o.get("relationship") == "self" or current is None:
+            current = {"primary": o["full_name"], "province": o.get("province"), "owner_ids": [o["id"]]}
+            households.append(current)
+        else:
+            current["owner_ids"].append(o["id"])
+    for h in households:
+        accs = [a for oid in h["owner_ids"] for a in acct_by_owner.get(oid, [])]
+        gls = [g for oid in h["owner_ids"] for g in goal_by_owner.get(oid, [])]
+        h["assets"] = sum(float(a.get("balance", 0)) for a in accs)
+        h["goals"] = len(gls)
+        h.update(_ent_household_score(accs, gls))
+
+    scored = [h for h in households if h.get("score") is not None]
+    avg_score = round(sum(h["score"] for h in scored) / len(scored)) if scored else None
+    counts = {"On Track": 0, "Needs Review": 0, "At Risk": 0, "Needs Setup": 0}
+    for h in households:
+        counts[h.get("status", "Needs Review")] = counts.get(h.get("status", "Needs Review"), 0) + 1
+    attention = [{"primary": h["primary"], "status": h["status"], "score": h.get("score")}
+                 for h in households if h.get("needs_setup") or h.get("status") in ("At Risk", "Needs Review")]
+    attention.sort(key=lambda a: (a["score"] is not None, a["score"] if a["score"] is not None else 999))
+
+    corp_id = user.get("scope", {}).get("corp_id")
+    planners = sorted([u for u in repo.all_users()
+                       if u.get("tier") == "enterprise" and u.get("scope", {}).get("corp_id") == corp_id],
+                      key=lambda u: u.get("email", ""))
+    # Even round-robin allocation of households across planners (illustrative book allocation).
+    alloc = {p["email"]: [] for p in planners}
+    if planners:
+        for i, h in enumerate(households):
+            alloc[planners[i % len(planners)]["email"]].append(h)
+    planner_rows = []
+    for p in planners:
+        hs = alloc[p["email"]]
+        ps = [h["score"] for h in hs if h.get("score") is not None]
+        planner_rows.append({"name": p.get("name"), "email": p["email"], "households": len(hs),
+                             "avg_score": round(sum(ps) / len(ps)) if ps else None})
+
+    return {
+        "households": len(households),
+        "book_assets": sum(h["assets"] for h in households),
+        "avg_score": avg_score,
+        "counts": counts,
+        "attention": attention[:8],
+        "planners": planner_rows,
+        "households_per_planner": round(len(households) / len(planners), 1) if planners else None,
+    }

@@ -52,3 +52,11 @@ export const actionItemsApi = {
   list: () => api.get(`/plan/action-items`).then((r) => r.data),
 };
 
+export const educationApi = {
+  resp: (body) => api.post(`/plan/education/resp`, body).then((r) => r.data),
+};
+
+export const enterpriseApi = {
+  overview: () => api.get(`/enterprise/overview`).then((r) => r.data),
+};
+

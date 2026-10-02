@@ -32,6 +32,7 @@ import Insurance from "@/pages/Insurance";
 import Tax from "@/pages/Tax";
 import MyPlan from "@/pages/MyPlan";
 import TaskBoard from "@/pages/TaskBoard";
+import Education from "@/pages/Education";
 
 function TierRoute({ tiers, children }) {
   const { user } = useAuth();
@@ -80,6 +81,7 @@ function App() {
               <Route path="/tax" element={<RequireHousehold><Tax /></RequireHousehold>} />
               <Route path="/documents" element={<RequireHousehold><Documents /></RequireHousehold>} />
               <Route path="/retirement" element={<RequireHousehold><Retirement /></RequireHousehold>} />
+              <Route path="/education" element={<RequireHousehold><Education /></RequireHousehold>} />
               <Route path="/ai" element={<RequireHousehold><AIInsights /></RequireHousehold>} />
               <Route path="/plan" element={<RequireHousehold><FinancialPlan /></RequireHousehold>} />
               <Route path="/report" element={<RequireHousehold><ClientReport /></RequireHousehold>} />
