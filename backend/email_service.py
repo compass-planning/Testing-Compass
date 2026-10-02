@@ -139,7 +139,7 @@ def _money(v) -> str:
         return "$0"
 
 
-def render_report_html(household_name: str, net_worth, protection_score, retirement_success, goals, firm_name=None, logo_url=None, protection=None) -> str:
+def render_report_html(household_name: str, net_worth, protection_score, retirement_success, goals, firm_name=None, logo_url=None, protection=None, documents=None) -> str:
     name = escape(str(household_name))
     firm = escape(str(firm_name or EMAIL_FROM_NAME))
     initials = "".join([w[0] for w in str(firm_name or EMAIL_FROM_NAME).split()[:2]]).upper() or "C"
@@ -183,6 +183,16 @@ def render_report_html(household_name: str, net_worth, protection_score, retirem
             protection_block = (f'<h3 style="color:#0B1437;margin:22px 0 6px;font-size:14px">Protection gaps</h3>'
                                 f'<table role="presentation" width="100%" style="font-size:13px">{pr}</table>')
 
+    documents_block = ""
+    if documents:
+        drows = "".join(
+            f'<tr><td style="padding:6px 0;color:#0B1437">{escape(str(d.get("name", "Document")))}</td>'
+            f'<td style="padding:6px 0;text-align:right;color:#60708f;text-transform:capitalize">{escape(str(d.get("category", "")))}</td></tr>'
+            for d in documents)
+        documents_block = (f'<h3 style="color:#0B1437;margin:22px 0 6px;font-size:14px">Attached documents</h3>'
+                           f'<table role="presentation" width="100%" style="font-size:13px">{drows}</table>'
+                           f'<p style="font-size:11px;color:#9aa5b9;margin-top:4px">These documents are available securely in your plan portal.</p>')
+
     return (
         f'<table role="presentation" width="100%" style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif">'
         f'<tr><td style="background:#0052FF;padding:20px 24px;border-radius:10px 10px 0 0">'
@@ -201,6 +211,7 @@ def render_report_html(household_name: str, net_worth, protection_score, retirem
         f'<h3 style="color:#0B1437;margin:22px 0 6px;font-size:14px">Top goals</h3>'
         f'<table role="presentation" width="100%" style="font-size:13px">{rows}</table>'
         f'{protection_block}'
+        f'{documents_block}'
         f'<p style="font-size:11px;color:#9aa5b9;margin-top:22px">Prepared with {firm}. '
         f'Illustrative summary — not financial, tax or legal advice. We never ask for your password or card details by email.</p>'
         f'</td></tr></table>'

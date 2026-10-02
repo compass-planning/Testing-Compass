@@ -9,6 +9,7 @@ import { useHousehold } from "@/context/HouseholdContext";
 import { Card, Stat, Badge, Button } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import TodayPanel from "@/components/TodayPanel";
+import ActionItems from "@/components/ActionItems";
 import { money, compact, dateFmt, STATUS_META } from "@/lib/format";
 
 const CHART_COLORS = ["#0052FF", "#00DF89", "#FFB800", "#A3AED0", "#1B2559"];
@@ -162,6 +163,8 @@ export default function Dashboard() {
           )}
         </Card>
       )}
+
+      {user.tier === "solo" && <div className="mt-6"><ActionItems /></div>}
 
       {user.tier === "solo" && data.retention && (
         <Card className="p-6 mt-6 flex items-start gap-3">

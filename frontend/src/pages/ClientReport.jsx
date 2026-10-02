@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 import { FileBarChart, Download, Upload, Mail, Palette, History, Scale, FileText } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
-import { planApi } from "@/lib/planning";
+import { planApi, docsApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
 import { Card, Button, Stat, Badge, Field, Input, Empty, Modal } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
@@ -23,6 +23,7 @@ export default function ClientReport() {
   const brandKey = `compass_brand_${user.id}`;
   const [brand, setBrand] = useState({ firm_name: "Compass Planning", cover_note: "", logo: "", logo_url: "" });
   const [recipient, setRecipient] = useState("");
+  const [attached, setAttached] = useState([]);
   const [historyModal, setHistoryModal] = useState(null);
   const [historyVisible, setHistoryVisible] = useState(5);
 
@@ -51,6 +52,7 @@ export default function ClientReport() {
   const networth = useQuery({ queryKey: ["plan", "networth"], queryFn: () => planApi.list("networth") });
   const accounts = useQuery({ queryKey: ["accounts"], queryFn: async () => (await api.get("/accounts")).data });
   const history = useQuery({ queryKey: ["report-history"], queryFn: async () => (await api.get("/report/history")).data });
+  const vault = useQuery({ queryKey: ["doc-files"], queryFn: docsApi.list });
 
   const data = useMemo(() => {
     const o = overview.data || {};
@@ -96,7 +98,7 @@ export default function ClientReport() {
   };
 
   const emailMut = useMutation({
-    mutationFn: () => api.post("/report/email", { recipient, net_worth: data.netWorth, protection_score: data.protection, retirement_success: data.success }),
+    mutationFn: () => api.post("/report/email", { recipient, net_worth: data.netWorth, protection_score: data.protection, retirement_success: data.success, document_ids: attached }),
     onSuccess: () => { toast.success(`Summary emailed to ${recipient}`); qc.invalidateQueries({ queryKey: ["report-history"] }); },
     onError: (e) => toast.error(formatApiError(e.response?.data?.detail)),
   });
@@ -155,6 +157,9 @@ export default function ClientReport() {
     data.beneficiaries.slice(0, 4).forEach((b) => line(`Beneficiary · ${b.asset || "Asset"}`, `${b.beneficiary || "—"}${b.allocation ? ` (${b.allocation}%)` : ""}`));
     data.documents.slice(0, 4).forEach((d) => line(`${d.doc_type || "Document"} · ${d.asset || d.name || ""}`, d.status || ""));
     if (data.beneficiaries.length === 0 && data.documents.length === 0) line("No estate register entries.", "");
+
+    const attachedList = (vault.data || []).filter((f) => attached.includes(f.id));
+    if (attachedList.length) { section("Attached documents"); attachedList.forEach((f) => line(f.name, f.category)); }
 
     doc.setDrawColor(226, 232, 240); doc.line(14, 284, W - 14, 284);
     doc.setFontSize(8); doc.setTextColor(150, 160, 185);
@@ -233,6 +238,15 @@ export default function ClientReport() {
               </div>
             ) : <div className="text-sm text-compass-muted">No estate register entries.</div>}
           </div>
+
+          {attached.length > 0 && (
+            <div className="mt-6" data-testid="report-attached-docs">
+              <div className="muted-label mb-2 flex items-center gap-1.5"><FileText size={13} /> Attached documents</div>
+              {(vault.data || []).filter((f) => attached.includes(f.id)).map((f) => (
+                <Row key={f.id} label={f.name} value={<Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{f.category}</Badge>} />
+              ))}
+            </div>
+          )}
         </Card>
 
         <div className="space-y-6">
@@ -263,6 +277,24 @@ export default function ClientReport() {
             <Button className="w-full mt-4" disabled={!recipient || emailMut.isPending} onClick={() => emailMut.mutate()} data-testid="send-email-button">
               <Mail size={16} /> {emailMut.isPending ? "Sending…" : "Send summary"}
             </Button>
+          </Card>
+
+          <Card className="p-6" data-testid="attach-docs-panel">
+            <h3 className="font-heading font-bold text-compass-navy mb-4 flex items-center gap-2"><FileText size={18} className="text-compass-blue" /> Attach documents</h3>
+            {(vault.data || []).length === 0 ? (
+              <p className="text-sm text-compass-muted">No vault documents yet. Upload files in Documents to attach them here.</p>
+            ) : (
+              <div className="space-y-2 max-h-56 overflow-y-auto">
+                {(vault.data || []).map((f) => (
+                  <label key={f.id} className="flex items-center gap-2.5 text-sm cursor-pointer" data-testid={`attach-doc-${f.id}`}>
+                    <input type="checkbox" checked={attached.includes(f.id)} onChange={(e) => setAttached((a) => e.target.checked ? [...a, f.id] : a.filter((x) => x !== f.id))} className="h-4 w-4 accent-compass-blue" />
+                    <span className="truncate text-compass-navy flex-1">{f.name}</span>
+                    <Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{f.category}</Badge>
+                  </label>
+                ))}
+              </div>
+            )}
+            {attached.length > 0 && <p className="text-xs text-compass-muted mt-3" data-testid="attach-count">{attached.length} document(s) will be listed in the emailed report.</p>}
           </Card>
 
           <Card className="p-6" data-testid="report-history">

@@ -1,11 +1,11 @@
 import React, { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { FileText, Upload, Trash2, Download, Mic, Square, FolderOpen, Loader2 } from "lucide-react";
+import { FileText, Upload, Trash2, Download, Mic, Square, FolderOpen, Loader2, Sparkles, ListChecks } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { docsApi, meetingsApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
-import { Card, Button, Badge, Empty, Select } from "@/components/ui-kit";
+import { Card, Button, Badge, Empty, Select, Modal } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 
 const CATS = ["document", "statement", "will", "tax", "insurance", "other"];
@@ -27,7 +27,7 @@ export default function Documents() {
           </button>
         ))}
       </div>
-      {tab === "vault" ? <Vault readOnly={readOnly} /> : <Meetings readOnly={readOnly} />}
+      {tab === "vault" ? <Vault readOnly={readOnly} /> : <Meetings readOnly={readOnly} isAdvisor={user.tier === "advisor"} />}
     </div>
   );
 }
@@ -86,7 +86,7 @@ function Vault({ readOnly }) {
   );
 }
 
-function Meetings({ readOnly }) {
+function Meetings({ readOnly, isAdvisor }) {
   const qc = useQueryClient();
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -94,6 +94,34 @@ function Meetings({ readOnly }) {
   const recRef = useRef(null);
   const chunks = useRef([]);
   const meetings = useQuery({ queryKey: ["meetings"], queryFn: meetingsApi.list });
+
+  const [suggestFor, setSuggestFor] = useState(null);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [picked, setPicked] = useState({});
+  const [suggestClient, setSuggestClient] = useState(null);
+  const runSuggest = async (m) => {
+    setSuggestFor(m); setSuggestLoading(true); setSuggestions([]); setPicked({});
+    setSuggestClient(m.household_id || localStorage.getItem("compass_active_household"));
+    try {
+      const res = await meetingsApi.suggestTasks(m.id);
+      const list = res.suggestions || [];
+      setSuggestions(list);
+      const init = {}; list.forEach((_, i) => { init[i] = true; }); setPicked(init);
+      if (res.client_id) setSuggestClient(res.client_id);
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail) || "Could not suggest tasks"); setSuggestFor(null);
+    } finally { setSuggestLoading(false); }
+  };
+  const addTasks = useMutation({
+    mutationFn: async () => {
+      const chosen = suggestions.filter((_, i) => picked[i]);
+      for (const t of chosen) await api.post("/advisor/tasks", { client_id: suggestClient, title: t.title });
+      return chosen.length;
+    },
+    onSuccess: (n) => { qc.invalidateQueries({ queryKey: ["tasks"] }); toast.success(`${n} task${n === 1 ? "" : "s"} added to the board`); setSuggestFor(null); },
+    onError: () => toast.error("Could not add tasks"),
+  });
 
   const send = async (blob) => {
     setBusy(true);
@@ -150,13 +178,39 @@ function Meetings({ readOnly }) {
             <Card key={m.id} className="p-5" data-testid={`meeting-${m.id}`}>
               <div className="flex items-start justify-between">
                 <div><div className="font-heading font-bold text-compass-navy">{m.title}</div><div className="text-xs text-compass-muted">{fmtTs(m.created_at)}</div></div>
-                {!readOnly && <button onClick={() => del.mutate(m.id)} className="text-compass-red hover:bg-compass-red/10 rounded-lg p-1.5" data-testid={`meeting-delete-${m.id}`}><Trash2 size={15} /></button>}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {isAdvisor && <Button size="sm" variant="outline" onClick={() => runSuggest(m)} data-testid={`meeting-suggest-${m.id}`}><Sparkles size={13} /> Suggest tasks</Button>}
+                  {!readOnly && <button onClick={() => del.mutate(m.id)} className="text-compass-red hover:bg-compass-red/10 rounded-lg p-1.5" data-testid={`meeting-delete-${m.id}`}><Trash2 size={15} /></button>}
+                </div>
               </div>
               <p className="text-sm text-compass-navy mt-3 whitespace-pre-wrap leading-relaxed">{m.transcript || <span className="text-compass-muted italic">No speech detected.</span>}</p>
             </Card>
           ))}
         </div>
       )}
+      <Modal open={!!suggestFor} onClose={() => setSuggestFor(null)} title="Suggested follow-up tasks" testid="suggest-tasks-modal">
+        {suggestLoading ? (
+          <div className="py-8 text-center text-sm text-compass-muted"><Loader2 className="animate-spin inline mr-2" size={16} /> Reading the transcript…</div>
+        ) : suggestions.length === 0 ? (
+          <div className="py-6 text-center text-sm text-compass-muted" data-testid="suggest-empty">No clear follow-ups found in this meeting.</div>
+        ) : (
+          <>
+            <p className="text-sm text-compass-muted mb-3">Select the tasks to add to your board.</p>
+            <div className="space-y-2 max-h-72 overflow-y-auto">
+              {suggestions.map((t, i) => (
+                <label key={i} className="flex items-start gap-2.5 text-sm cursor-pointer rounded-lg border border-compass-border px-3 py-2" data-testid={`suggest-task-${i}`}>
+                  <input type="checkbox" checked={!!picked[i]} onChange={(e) => setPicked((p) => ({ ...p, [i]: e.target.checked }))} className="h-4 w-4 mt-0.5 accent-compass-blue" />
+                  <span className="text-compass-navy">{t.title}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="ghost" onClick={() => setSuggestFor(null)}>Cancel</Button>
+              <Button onClick={() => addTasks.mutate()} disabled={addTasks.isPending || !Object.values(picked).some(Boolean)} data-testid="suggest-add-selected"><ListChecks size={15} /> Add selected</Button>
+            </div>
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

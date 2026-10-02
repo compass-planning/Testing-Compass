@@ -3,14 +3,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   PiggyBank, Calculator, Dice5, ShieldCheck, Clock, Scale, Layers,
-  Play, Save, Trash2, TrendingUp,
+  Play, Save, Trash2, TrendingUp, SlidersHorizontal,
 } from "lucide-react";
 import {
   AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, Legend, ReferenceLine,
 } from "recharts";
 import api, { formatApiError } from "@/lib/api";
-import { retirementApi, planApi } from "@/lib/planning";
+import { retirementApi, planApi, assumptionsApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
 import { Card, Button, Input, Field, Select, Badge, Stat, Empty } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
@@ -67,6 +67,20 @@ export default function Retirement() {
   const [tab, setTab] = useState("projection");
   const [inp, setInp] = useState(DEFAULTS);
   const owners = useQuery({ queryKey: ["owners"], queryFn: async () => (await api.get("/owners")).data });
+  const assumptions = useQuery({ queryKey: ["assumptions"], queryFn: assumptionsApi.get });
+  const seeded = React.useRef(false);
+  React.useEffect(() => {
+    if (assumptions.data && !seeded.current) {
+      seeded.current = true;
+      setInp((s) => ({
+        ...s,
+        expected_return_pct: assumptions.data.expected_return_pct,
+        inflation_pct: assumptions.data.inflation_pct,
+        life_expectancy: assumptions.data.life_expectancy,
+        retirement_age: assumptions.data.retirement_age,
+      }));
+    }
+  }, [assumptions.data]);
 
   const num = (k) => (e) => setInp((s) => ({ ...s, [k]: Number(e.target.value || 0) }));
   const str = (k) => (e) => setInp((s) => ({ ...s, [k]: e.target.value }));
@@ -90,6 +104,8 @@ export default function Retirement() {
         <Button variant="outline" size="sm" onClick={prefill} data-testid="retirement-prefill">Prefill from profile</Button>
       </PageHeader>
 
+      <AssumptionsCard inp={inp} setInp={setInp} readOnly={user.tier === "enterprise"} />
+
       <div className="flex gap-1 mb-6 border-b border-compass-border overflow-x-auto">
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)} data-testid={`retirement-tab-${t.key}`}
@@ -106,6 +122,34 @@ export default function Retirement() {
       {tab === "decisions" && <DecisionsTab inp={inp} owners={owners.data || []} />}
       {tab === "scenarios" && <ScenariosTab inp={inp} readOnly={user.tier === "enterprise"} />}
     </div>
+  );
+}
+
+function AssumptionsCard({ inp, setInp, readOnly }) {
+  const qc = useQueryClient();
+  const save = useMutation({
+    mutationFn: () => assumptionsApi.save({
+      expected_return_pct: inp.expected_return_pct, inflation_pct: inp.inflation_pct,
+      life_expectancy: inp.life_expectancy, retirement_age: inp.retirement_age,
+    }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["assumptions"] }); toast.success("Assumptions saved — reused across every projection"); },
+    onError: (e) => toast.error(formatApiError(e.response?.data?.detail) || "Could not save assumptions"),
+  });
+  const n = (k) => (e) => setInp((s) => ({ ...s, [k]: Number(e.target.value || 0) }));
+  return (
+    <Card className="p-5 mb-6" data-testid="assumptions-editor">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="font-heading font-bold text-compass-navy flex items-center gap-2"><SlidersHorizontal size={18} className="text-compass-blue" /> Planning assumptions</h3>
+        {!readOnly && <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending} data-testid="assumptions-save"><Save size={14} /> Save &amp; reuse</Button>}
+      </div>
+      <p className="text-xs text-compass-muted mb-4">Set these once — they seed every projection, Monte Carlo and guardrail run for this household.</p>
+      <div className="grid sm:grid-cols-4 gap-4">
+        <Field label="Expected return (%)"><Input type="number" step="0.1" value={inp.expected_return_pct} onChange={n("expected_return_pct")} data-testid="assume-return" /></Field>
+        <Field label="Inflation (%)"><Input type="number" step="0.1" value={inp.inflation_pct} onChange={n("inflation_pct")} data-testid="assume-inflation" /></Field>
+        <Field label="Life expectancy"><Input type="number" value={inp.life_expectancy} onChange={n("life_expectancy")} data-testid="assume-life" /></Field>
+        <Field label="Retirement age"><Input type="number" value={inp.retirement_age} onChange={n("retirement_age")} data-testid="assume-retire" /></Field>
+      </div>
+    </Card>
   );
 }
 

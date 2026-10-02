@@ -137,6 +137,54 @@ async def transcribe_meeting(request: Request, file: UploadFile = File(...), tit
     return rec
 
 
+TASK_SYSTEM_PROMPT = (
+    "You are an assistant for a Canadian financial advisor. From a client-meeting transcript, "
+    "extract 3-6 concrete follow-up tasks the advisor should complete. Each task is a short, "
+    "actionable imperative (e.g. 'Send updated retirement projection', 'Confirm beneficiary on RRSP'). "
+    "Return ONLY a JSON array of objects: {\"title\":\"...\"}. No prose outside the JSON array."
+)
+
+
+@router.post("/plan/meetings/{mid}/suggest-tasks")
+async def suggest_meeting_tasks(mid: str, user: dict = Depends(get_current_user), household_id: str = None):
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    store, read, _, hid = planner_scope(user, household_id)
+    rec = next((r for r in repo.list(store, "plan_meetings", read) if r["id"] == mid), None)
+    if not rec:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    transcript = (rec.get("transcript") or "").strip()
+    client_id = rec.get("household_id") or hid
+    if not transcript:
+        return {"meeting_id": mid, "client_id": client_id, "suggestions": []}
+    suggestions = []
+    key = os.environ.get("EMERGENT_LLM_KEY", "")
+    if key:
+        try:
+            import json as _json
+            from emergentintegrations.llm.chat import LlmChat, UserMessage
+            chat = LlmChat(api_key=key, session_id=str(uuid.uuid4()),
+                           system_message=TASK_SYSTEM_PROMPT).with_model("anthropic", "claude-sonnet-5-5")
+            resp = await chat.send_message(UserMessage(text="Meeting transcript:\n" + transcript[:6000]))
+            text = resp if isinstance(resp, str) else getattr(resp, "content", str(resp))
+            raw = text.strip()
+            s, e = raw.find("["), raw.rfind("]")
+            if s != -1 and e != -1 and e > s:
+                raw = raw[s:e + 1]
+            parsed = _json.loads(raw)
+            if isinstance(parsed, list):
+                suggestions = [{"title": str(i.get("title", "")).strip()[:160]} for i in parsed
+                               if str(i.get("title", "")).strip()][:6]
+        except Exception as ex:
+            logger.warning(f"meeting task suggestion failed, falling back: {ex}")
+    if not suggestions:
+        kw = ("follow up", "follow-up", "send", "review", "confirm", "schedule", "update", "call", "email", "prepare", "check", "set up")
+        lines = [l.strip(" -•\t") for l in transcript.splitlines() if l.strip()]
+        picks = [l for l in lines if any(k in l.lower() for k in kw)]
+        suggestions = [{"title": l[:160]} for l in picks[:6]]
+    return {"meeting_id": mid, "client_id": client_id, "suggestions": suggestions}
+
+
 @router.delete("/plan/meetings/{mid}")
 async def delete_meeting(mid: str, user: dict = Depends(get_current_user), household_id: str = None):
     _block_enterprise_write(user)

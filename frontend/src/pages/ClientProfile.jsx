@@ -3,10 +3,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { UserCog, Pencil, Plus, Users, Wallet, Shield, PiggyBank } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
-import { planApi } from "@/lib/planning";
+import { planApi, actionItemsApi } from "@/lib/planning";
 import { Card, Button, Input, Field, Select, Badge, Modal, Stat } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
+import ActionItems from "@/components/ActionItems";
 
 const PROVINCES = ["ON", "BC", "AB", "QC", "MB", "SK", "NS", "NB", "NL", "PE", "NT", "YT", "NU"];
 const PENSIONS = ["", "DBPP", "DCPP", "Group RRSP", "DPSP", "No Pension"];
@@ -30,6 +31,7 @@ export default function ClientProfile() {
 
   const owners = useQuery({ queryKey: ["owners"], queryFn: async () => (await api.get("/owners")).data });
   const overview = useQuery({ queryKey: ["plan", "overview"], queryFn: planApi.overview });
+  const actionItems = useQuery({ queryKey: ["action-items"], queryFn: actionItemsApi.list });
 
   const list = owners.data || [];
   const primary = list.find((o) => o.relationship === "self") || list[0];
@@ -58,7 +60,7 @@ export default function ClientProfile() {
           <Stat label="Net worth" value={money(o.netWorth)} accent />
           <Stat label="Retirement plans" value={o.retirementProjections} />
           <Stat label="Insurance analyses" value={o.insuranceAnalyses} />
-          <Stat label="Pending AI actions" value={0} />
+          <Stat label="Open action items" value={actionItems.data?.length ?? 0} />
         </div>
       )}
 
@@ -94,6 +96,8 @@ export default function ClientProfile() {
           )}
         </div>
       </Card>
+
+      <div className="mt-6"><ActionItems /></div>
 
       <EditModal owner={edit} onClose={() => setEdit(null)} onSubmit={(body) => save.mutate({ id: edit.id, body })} loading={save.isPending} />
       <AddModal kind={adding} onClose={() => setAdding(false)} onSubmit={(body) => addMember.mutate(body)} loading={addMember.isPending} />

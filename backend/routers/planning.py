@@ -286,6 +286,101 @@ async def plan_profile_save(body: ProfileInput, user: dict = Depends(get_current
     return updated
 
 
+# ---------------- Planning assumptions (set once, reused across modules) ----------------
+
+ASSUMPTION_DEFAULTS = {"expected_return_pct": 5.5, "inflation_pct": 2.1, "life_expectancy": 95, "retirement_age": 65}
+
+
+class AssumptionsInput(BaseModel):
+    expected_return_pct: float = 5.5
+    inflation_pct: float = 2.1
+    life_expectancy: int = 95
+    retirement_age: int = 65
+
+
+@router.get("/plan/assumptions")
+async def get_assumptions(user: dict = Depends(get_current_user), household_id: str = None):
+    store, read, _, hid = planner_scope(user, household_id)
+    rows = repo.list(store, "plan_assumptions", read)
+    if hid:
+        rows = [r for r in rows if r.get("household_id") == hid]
+    rec = rows[0] if rows else {}
+    return {k: (rec.get(k) if rec.get(k) is not None else v) for k, v in ASSUMPTION_DEFAULTS.items()}
+
+
+@router.put("/plan/assumptions")
+async def save_assumptions(body: AssumptionsInput, user: dict = Depends(get_current_user), household_id: str = None):
+    _block_enterprise_write(user)
+    store, read, ws, hid = planner_scope(user, household_id)
+    if user["tier"] == "advisor" and not hid:
+        raise HTTPException(status_code=400, detail="Open a household before saving its assumptions")
+    data = body.model_dump()
+    rows = repo.list(store, "plan_assumptions", read)
+    existing = next((r for r in rows if r.get("household_id") == hid), None)
+    if existing:
+        repo.update(store, "plan_assumptions", existing["id"], data, read)
+        audit(user, "assumptions.update", "plan_assumptions", hid or "self")
+    else:
+        rec = {"id": _id(), "store": store, "scope": ws, "household_id": hid,
+               "created_at": datetime.now(timezone.utc).isoformat(), **data}
+        repo.create(store, "plan_assumptions", rec)
+        audit(user, "assumptions.create", "plan_assumptions", hid or "self")
+    return {**ASSUMPTION_DEFAULTS, **data}
+
+
+# ---------------- Action items (gaps the engines detect, per household) ----------------
+
+def _action_items(store, read, hid):
+    def hh(rows):
+        return [r for r in rows if (not hid or r.get("household_id") == hid)]
+    nw = hh(repo.list(store, "plan_networth", read))
+    debts = hh(repo.list(store, "plan_debts", read))
+    insurance = hh(repo.list(store, "plan_insurance", read))
+    protection = hh(repo.list(store, "plan_protection", read))
+    retirement = hh(repo.list(store, "plan_retirement", read))
+    estate = hh(repo.list(store, "plan_estate", read))
+    docs = hh(repo.list(store, "plan_document_files", read))
+    goals = [g for g in repo.list(store, "goals", read) if (not hid or g.get("scope", {}).get("client_id") == hid)]
+    accounts = repo.list(store, "accounts", read)
+    assets = sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "asset") + sum(float(a.get("balance", 0)) for a in accounts)
+    liabilities = sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "liability") + sum(float(d.get("balance", 0)) for d in debts)
+    items = []
+
+    def add(key, severity, title, detail, action):
+        items.append({"id": key, "type": key, "severity": severity, "title": title, "detail": detail, "action": action})
+
+    if not retirement:
+        add("retirement", "warn", "No retirement projection", "Build a projection to confirm the plan funds the target income.", "Run a retirement projection")
+    if not insurance and not protection:
+        add("protection", "danger", "No insurance analysis", "Life, disability and LTC needs are unmeasured — size any coverage gap.", "Run an insurance gap analysis")
+    high = [d for d in debts if float(d.get("rate", 0) or 0) > 10]
+    if high:
+        add("debt", "warn", f"High-interest debt ({len(high)})", "One or more debts carry a rate above 10%.", "Review a debt payoff strategy")
+    behind = [g for g in goals if g.get("status") in ("behind", "at_risk")]
+    if behind:
+        names = ", ".join(str(g.get("title", "Goal")) for g in behind[:3])
+        add("goals", "warn", f"{len(behind)} goal(s) off track", f"Off track: {names}.", "Rebalance goal funding")
+    has_will = any(r.get("kind") == "document" and str(r.get("doc_type", "")).lower() == "will"
+                   and str(r.get("status", "")).lower() in ("on file", "current", "active") for r in estate)
+    if not has_will:
+        add("will", "info", "No will on file", "Record or confirm the client's will to reduce estate risk.", "Add or confirm the will")
+    if not any(r.get("kind") == "beneficiary" for r in estate):
+        add("beneficiary", "info", "Beneficiary designations missing", "Register beneficiaries for registered accounts and policies.", "Record beneficiary designations")
+    if (assets - liabilities) < 0:
+        add("networth", "danger", "Negative net worth", "Liabilities exceed assets — prioritise paying down high-interest debt.", "Prioritise debt reduction")
+    if not docs:
+        add("documents", "info", "No documents in the vault", "Upload statements, wills and policies for a complete file.", "Upload household documents")
+    return items
+
+
+@router.get("/plan/action-items")
+async def plan_action_items(user: dict = Depends(get_current_user), household_id: str = None):
+    store, read, _, hid = planner_scope(user, household_id)
+    if user["tier"] == "advisor" and not hid:
+        return []
+    return _action_items(store, read, hid)
+
+
 @router.get("/plan/{collection}")
 async def plan_list(collection: str, user: dict = Depends(get_current_user), household_id: str = None):
     if collection not in PLAN_COLLECTIONS:
@@ -351,6 +446,7 @@ class ReportEmailInput(BaseModel):
     life_gap: Optional[float] = None
     di_monthly_gap: Optional[float] = None
     ltc_gap: Optional[float] = None
+    document_ids: Optional[list[str]] = None
 
 
 @router.post("/report/email")
@@ -370,7 +466,14 @@ async def email_report(body: ReportEmailInput, user: dict = Depends(get_current_
     protection = None
     if body.life_gap is not None or body.di_monthly_gap is not None or body.ltc_gap is not None:
         protection = {"life_gap": body.life_gap, "di_monthly_gap": body.di_monthly_gap, "ltc_gap": body.ltc_gap}
-    html = render_report_html(household_name, body.net_worth, body.protection_score, body.retirement_success, goals, branding.get("firm_name"), logo_url=branding.get("logo_url"), protection=protection)
+    documents = None
+    if body.document_ids:
+        files = repo.list(store, "plan_document_files", read)
+        if hid:
+            files = [f for f in files if f.get("household_id") == hid]
+        chosen = set(body.document_ids)
+        documents = [{"name": f.get("name"), "category": f.get("category")} for f in files if f["id"] in chosen]
+    html = render_report_html(household_name, body.net_worth, body.protection_score, body.retirement_success, goals, branding.get("firm_name"), logo_url=branding.get("logo_url"), protection=protection, documents=documents)
     email_id = await send_email(to=str(body.recipient), subject=f"{household_name} — financial summary", html=html)
     repo.create(store, "report_log", {
         "id": _id(), "store": store, "scope": ws, "household_id": hid,

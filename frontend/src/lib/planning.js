@@ -39,6 +39,16 @@ export const docsApi = {
 export const meetingsApi = {
   list: () => api.get(`/plan/meetings`).then((r) => r.data),
   transcribe: (form) => api.post(`/plan/meetings/transcribe`, form).then((r) => r.data),
+  suggestTasks: (id) => api.post(`/plan/meetings/${id}/suggest-tasks`).then((r) => r.data),
   remove: (id) => api.delete(`/plan/meetings/${id}`).then((r) => r.data),
+};
+
+export const assumptionsApi = {
+  get: () => api.get(`/plan/assumptions`).then((r) => r.data),
+  save: (body) => api.put(`/plan/assumptions`, body).then((r) => r.data),
+};
+
+export const actionItemsApi = {
+  list: () => api.get(`/plan/action-items`).then((r) => r.data),
 };
 
