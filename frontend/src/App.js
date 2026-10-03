@@ -8,6 +8,7 @@ import { LanguageProvider } from "@/lib/i18n";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Shell from "@/components/Shell";
 import Login from "@/pages/Login";
+import Landing from "@/pages/Landing";
 import Register from "@/pages/Register";
 import Dashboard from "@/pages/Dashboard";
 import Owners from "@/pages/Owners";
@@ -68,6 +69,7 @@ function App() {
         <Toaster position="top-right" richColors />
         <BrowserRouter>
           <Routes>
+            <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/activate" element={<Activate />} />

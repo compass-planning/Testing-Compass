@@ -1,91 +1,285 @@
 {
-  "project_summary": {
-    "app_name": "Compass Planning",
-    "description": "Three-Tier Canadian Retirement Planning Platform (Enterprise, Advisor, Solo) with PIPEDA compliance, CRM pluggable integrations, TOTP MFA, household records, and financial goal tracking.",
-    "target_audience": "Canadian residents, wealth advisors, financial planners, enterprise wealth firms",
-    "design_context": "Financial Dashboard & Multi-tier SaaS Application"
-  },
+  "project_name": "Compass Planning Landing Page (Sales Page)",
+  "context_type": "MARKETING_PAGE",
+  "archetype": "LUXURY_AND_PERFORMANCE_FINTECH",
+  "theme": "DARK_PRIMARY_WITH_PURPLE_GRADIENT",
   "brand_identity": {
-    "logo": {
-      "mark": "Compass / Clock geometric icon",
-      "wordmark": "Compass Planning",
-      "font_heading": "Montserrat",
-      "font_weight": "800",
-      "tracking": "tracking-tight",
-      "sublabel": "CANADIAN RETIREMENT INTELLIGENCE",
-      "sublabel_style": "text-xs font-bold tracking-[0.2em] text-[#00DF89] uppercase"
-    },
-    "voice_and_tone": "Trustworthy, authoritative, precise, PIPEDA-compliant, modern Canadian wealth management"
+    "name": "Compass Planning",
+    "tagline": "Your financial future, clearly mapped.",
+    "tagline_fr": "Votre avenir financier, clairement tracé.",
+    "mission": "Canadian-resident, PIPEDA-compliant pension and retirement intelligence platform for Solo Individuals, Wealth Advisors, and Financial Enterprises.",
+    "logo_specs": {
+      "type": "Custom stacked compass logo wordmark",
+      "icon": "Compass rose with north needle highlighted in #00DF89 (compass-green)",
+      "text": "Compass Planning"
+    }
   },
   "colors": {
-    "primary_gradient": "bg-gradient-to-r from-[#0052FF] to-[#00DF89]",
-    "primary_blue": "#0052FF",
+    "primary_gradient": "linear-gradient(135deg, #2E1B6A 0%, #3B1F80 55%, #4B1D93 100%)",
+    "primary_purple": "#3B1F80",
+    "deep_purple_bg": "#120B2E",
+    "dark_surface": "#1A103C",
+    "dark_surface_card": "rgba(35, 20, 75, 0.7)",
     "accent_green": "#00DF89",
-    "text_navy": "#1B2559",
-    "muted_grey": "#A3AED0",
-    "white": "#FFFFFF",
-    "background_light": "#F4F7FE",
-    "background_dark": "#0B1437",
-    "card_background": "#FFFFFF",
-    "border_color": "#E2E8F0",
-    "success_green": "#00DF89",
-    "warning_amber": "#FFB800",
-    "danger_red": "#EE5D50",
-    "usage_rules": {
-      "gradient": "Reserved ONLY for brand header accents, active CTA buttons, and key progress metrics. Never blanket whole pages.",
-      "navy": "Used for main typography, structural titles, sidebars, and high-level card headers for visual weight.",
-      "muted_grey": "Used for secondary metadata, subtitles, labels, table headers, and dormant status indicators.",
-      "accent_green": "Used for active states, verified MFA badges, positive financial projections, and PIPEDA consent indicators."
+    "accent_green_hover": "#00B36E",
+    "accent_blue": "#0052FF",
+    "accent_blue_glow": "rgba(0, 82, 255, 0.35)",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#C0B8E3",
+    "text_muted": "#8C82B5",
+    "border_subtle": "rgba(255, 255, 255, 0.12)",
+    "border_glow": "rgba(0, 223, 137, 0.3)",
+    "glass_header": "rgba(18, 11, 46, 0.8)",
+    "rules": {
+      "tinted_grey": "Always tint neutral darks with deep purple hue (#120B2E, #1A103C)",
+      "cta_usage": "Use #00DF89 for primary action buttons with high contrast dark text (#0B061E) or crisp white text. Hover states must darken to #00B36E.",
+      "contrast_ratio": "APCA & WCAG AA compliant. All body text is #C0B8E3 or #FFFFFF."
     }
   },
   "typography": {
-    "primary_font": "Inter, sans-serif",
-    "heading_font": "Montserrat, sans-serif",
-    "mono_font": "JetBrains Mono, monospace",
-    "scales": {
-      "h1": "text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#1B2559] tracking-tight",
-      "h2": "text-2xl sm:text-3xl font-bold text-[#1B2559]",
-      "h3": "text-xl sm:text-2xl font-semibold text-[#1B2559]",
-      "h4": "text-lg font-semibold text-[#1B2559]",
-      "body": "text-sm sm:text-base text-[#1B2559] leading-relaxed",
-      "muted_label": "text-xs font-medium text-[#A3AED0] uppercase tracking-wider"
+    "headings": {
+      "font_family": "Plus Jakarta Sans, Clash Display, sans-serif",
+      "h1": "text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1]",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-snug",
+      "h3": "text-xl sm:text-2xl font-semibold tracking-tight",
+      "h4": "text-lg sm:text-xl font-medium"
+    },
+    "body": {
+      "font_family": "Inter, system-ui, sans-serif",
+      "text": "text-base text-[#C0B8E3] leading-relaxed",
+      "text_small": "text-sm text-[#8C82B5] leading-normal"
+    },
+    "mono": {
+      "font_family": "JetBrains Mono, monospace",
+      "usage": "Data metrics, Monte Carlo percentiles, tax rates, CRA rules, code badges"
     }
   },
   "spacing_and_layout": {
-    "spacing_scale": "p-4, p-6, p-8, p-12 for generous padding in container cards to prevent text collision",
-    "tier_shells": {
-      "enterprise": "High-density CRM dashboard, Salesforce mock sync status, multi-advisor oversight, audit log table, PIPEDA breach/retention monitor.",
-      "advisor": "Client roster view with instant household drill-down, asset allocation summary, goal progress tracker, promotion requests from Solo tier.",
-      "solo": "Clean mobile-friendly personal retirement planner, CPP/OAS/RRSP/TFSA calculator, consent management toggle, promotion to Advisor flow."
+    "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+    "section_padding": "py-20 lg:py-28",
+    "grid_bento": "grid grid-cols-1 md:grid-cols-8 lg:grid-cols-12 gap-6 lg:gap-8",
+    "gap_strategy": "Generous gaps (24px to 32px) to let data-dense panels breathe without text collision",
+    "header_height": "h-20"
+  },
+  "section_breakdown": [
+    {
+      "section_id": "header",
+      "name": "Sticky Glass Navigation Header",
+      "test_id": "landing-header",
+      "components": [
+        "Stacked Compass Logo with green compass needle badge",
+        "Navigation Links: Features, Who It's For, Monte Carlo Engine, Compliance, Pricing, FAQ",
+        "Bilingual Language Selector (EN / FR) toggle button",
+        "Secondary CTA: Sign In (routes to /login)",
+        "Primary CTA: Get Started (routes to /login?mode=register)"
+      ],
+      "style": "backdrop-blur-xl bg-[#120B2E]/80 border-b border-white/10 fixed top-0 left-0 right-0 z-50"
     },
-    "grid_strategy": "The Tetris Grid for metrics and High Density Grid for data analytics tables and goal progress widgets."
-  },
-  "motion_and_interactions": {
-    "transitions": "transition-colors duration-200 ease-in-out, hover:-translate-y-0.5 transform transition-transform duration-150",
-    "glassmorphism": "backdrop-blur-md bg-white/90 border border-[#E2E8F0]",
-    "prohibited_animations": "No universal transition:all. No excessive spring effects in data tables."
-  },
-  "media_assets": {
-    "image_urls": {
-      "wealth_advisory_hero": "https://images.unsplash.com/photo-1714974528703-e5ad41abc259?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHwyfHx3ZWFsdGglMjBhZHZpc29yJTIwY2xpZW50JTIwZGlzY3Vzc2lvbiUyMHRldGlyZW1lbnQlMjBwbGFubmluZ3xlbnwwfHx8fDE3OTA3MzM0NzF8MA&ixlib=rb-4.1.0&q=85",
-      "advisor_client_meeting": "https://images.unsplash.com/photo-1714974528737-3e6c7e4d11af?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHwxfHx3ZWFsdGglMjBhZHZpc29yJTIwY2xpZW50JTIwZGlzY3Vzc2lvbiUyMHRldGlyZW1lbnQlMjBwbGFubmluZ3xlbnwwfHx8fDE3OTA3MzM0NzF8MA&ixlib=rb-4.1.0&q=85",
-      "senior_retirement_planning": "https://images.unsplash.com/photo-1758686254415-9348b5b5df01?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHw0fHx3ZWFsdGglMjBhZHZpc29yJTIwY2xpZW50JTIwZGlzY3Vzc2lvbiUyMHRldGlyZW1lbnQlMjBwbGFubmluZ3xlbnwwfHx8fDE3OTA3MzM0NzF8MA&ixlib=rb-4.1.0&q=85",
-      "toronto_financial_district": "https://images.pexels.com/photos/2676848/pexels-photo-2676848.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-      "canadian_skyscraper_skyline": "https://images.pexels.com/photos/27638092/pexels-photo-27638092.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+    {
+      "section_id": "hero",
+      "name": "Hero Section with Live Monte Carlo Interactive Preview",
+      "test_id": "landing-hero",
+      "headline_en": "Your Canadian Financial Future, Clearly Mapped.",
+      "headline_fr": "Votre avenir financier canadien, clairement tracé.",
+      "subtext_en": "Precision retirement planning built for Canadian tax rules, CPP/OAS timing, RESP/RRSP/TFSA optimization, Monte Carlo simulations, and cross-border US routing.",
+      "subtext_fr": "Planification de retraite de précision conçue pour les règles fiscales canadiennes, le RPC/SV, le REEE/REER/CELI et la gestion transfrontalière.",
+      "cta_primary": {
+        "text_en": "Start Free Plan",
+        "text_fr": "Commencer gratuitement",
+        "test_id": "hero-get-started-btn",
+        "route": "/login?mode=register"
+      },
+      "cta_secondary": {
+        "text_en": "Sign In to Compass",
+        "text_fr": "Se connecter à Compass",
+        "test_id": "hero-sign-in-btn",
+        "route": "/login"
+      },
+      "hero_visual": "Interactive 3D-effect Monte Carlo Projection Card showing 1,000 simulated pathways, 94.2% success rate gauge, guardrails triggers, and CPP/OAS claim age sliders (60 to 70)."
+    },
+    {
+      "section_id": "trust_band",
+      "name": "Canadian Compliance & Trust Band",
+      "test_id": "landing-trust-band",
+      "items": [
+        "PIPEDA Compliant & Privacy Standard",
+        "100% Canadian Data Residency (Montreal & Toronto Data Centers)",
+        "TOTP MFA Security & 256-Bit Bank-Grade Encryption",
+        "CRA Tax & Estate Engine Updated for 2026 Rules",
+        "EN/FR Full Localization Standard"
+      ]
+    },
+    {
+      "section_id": "feature_highlights",
+      "name": "Feature Highlights Bento Grid",
+      "test_id": "landing-features-grid",
+      "cards": [
+        {
+          "title": "Monte Carlo + Guardrails Engine",
+          "span": "col-span-full md:col-span-8",
+          "description": "Stress-test retirement portfolios across 10,000 market scenarios with Guyton-Klinger dynamic spending guardrails.",
+          "badge": "Core Engine"
+        },
+        {
+          "title": "CRA & US/Cross-Border Tax Math",
+          "span": "col-span-full md:col-span-4",
+          "description": "RRSP vs TFSA drawdown sequence, clawback avoidance for OAS, and 401k/IRA cross-border tax credits.",
+          "badge": "Tax Optimization"
+        },
+        {
+          "title": "Net Worth & Full Balance Sheet",
+          "span": "col-span-full md:col-span-4",
+          "description": "Consolidated balance sheet tracking real estate, corporate holdings, pensions, and debt amortization.",
+          "badge": "Balance Sheet"
+        },
+        {
+          "title": "AI Financial Reports (Claude Vision + Whisper)",
+          "span": "col-span-full md:col-span-8",
+          "description": "Plain-language executive summaries, document vault OCR for tax notices, and voice-assisted meeting summaries.",
+          "badge": "AI Intelligence"
+        }
+      ]
+    },
+    {
+      "section_id": "who_its_for",
+      "name": "Three-Tier Isolation Showcase ('Who It's For')",
+      "test_id": "landing-tiers-showcase",
+      "tiers": [
+        {
+          "id": "solo",
+          "title": "Solo Individuals & Couples",
+          "subtitle": "Self-directed Canadian retirement mapping",
+          "highlights": ["Personalized RRSP/TFSA math", "CPP/OAS optimization tool", "RESP education grant tracker", "Instant PDF plan export"]
+        },
+        {
+          "id": "advisor",
+          "title": "Advisor-Led Practices",
+          "subtitle": "For Wealth Managers & CFP® Professionals",
+          "highlights": ["Multi-client household dashboard", "Whitelabel client reports", "Document Vault with OCR", "CRM sync & meeting notes"]
+        },
+        {
+          "id": "enterprise",
+          "title": "Enterprise & Pension Funds",
+          "subtitle": "Institutional grade infrastructure",
+          "highlights": ["Dedicated isolated tenant", "Custom SLA & SSO/SAML", "Audit logs & compliance rules", "Custom API & batch Monte Carlo"]
+        }
+      ]
+    },
+    {
+      "section_id": "interactive_simulator",
+      "name": "Interactive Quick Retirement Calculator Preview",
+      "test_id": "landing-calculator-preview",
+      "description": "Allows prospective users to adjust current age, target retirement age, household savings, and expected CPP income to see real-time Monte Carlo probability metrics directly on the sales page before signing up."
+    },
+    {
+      "section_id": "pricing",
+      "name": "Transparent Canadian Dollar Pricing Section",
+      "test_id": "landing-pricing",
+      "plans": [
+        {
+          "name": "Solo Plan",
+          "price_monthly": "$29 CAD / mo",
+          "price_annual": "$24 CAD / mo (billed annually)",
+          "cta": "Get Started Solo",
+          "badge": "For Individuals",
+          "features": ["1 Household plan", "Monte Carlo projections", "Tax optimization math", "Plain-language AI reports", "PIPEDA encrypted vault"]
+        },
+        {
+          "name": "Advisor Practice",
+          "price_monthly": "$149 CAD / mo",
+          "price_annual": "$119 CAD / mo (billed annually)",
+          "cta": "Start Advisor Trial",
+          "badge": "Most Popular",
+          "features": ["Up to 50 active households", "Custom branded client PDF reports", "Advisor queue & tasks", "Claude OCR tax slip reader", "Whisper meeting transcripts"]
+        },
+        {
+          "name": "Enterprise Isolation",
+          "price_monthly": "Custom Pricing",
+          "price_annual": "Custom Pricing",
+          "cta": "Contact Enterprise Sales",
+          "badge": "Institutional",
+          "features": ["Unlimited households & advisors", "Isolated data tenant", "SSO / SAML + Audit Logging", "Dedicated Canadian Account Manager", "99.95% Uptime SLA"]
+        }
+      ]
+    },
+    {
+      "section_id": "testimonials",
+      "name": "Endorsements & Testimonials",
+      "test_id": "landing-testimonials",
+      "quotes": [
+        {
+          "author": "Sarah Tremblay, CFP®",
+          "role": "Senior Wealth Advisor, Toronto",
+          "quote": "Compass Planning transformed how we present retirement projections to clients. The CRA tax math and OAS clawback calculations save us hours on every plan."
+        },
+        {
+          "author": "Marcus & Elena Vance",
+          "role": "Solo Tier Subscribers, Vancouver",
+          "quote": "Knowing our Monte Carlo success rate across different CPP claim ages gave us the confidence to retire 3 years earlier than planned."
+        }
+      ]
+    },
+    {
+      "section_id": "faq",
+      "name": "Frequently Asked Questions Accordion",
+      "test_id": "landing-faq",
+      "questions": [
+        "How does Compass Planning handle Canadian tax rules and CRA updates?",
+        "Is my financial data stored in Canada according to PIPEDA regulations?",
+        "Can I use Compass Planning if I hold US assets or dual CAD/USD accounts?",
+        "How do the three tiers (Solo, Advisor, Enterprise) isolate client data?",
+        "Does Compass Planning require linking live bank accounts?"
+      ]
+    },
+    {
+      "section_id": "cta_banner",
+      "name": "High Conversion Bottom CTA Banner",
+      "test_id": "landing-cta-banner",
+      "headline_en": "Ready to map your financial future?",
+      "headline_fr": "Prêt à tracer votre avenir financier?",
+      "cta_btn": "Get Started Now"
+    },
+    {
+      "section_id": "footer",
+      "name": "Comprehensive Footer with Compliance Notices",
+      "test_id": "landing-footer",
+      "links": [
+        "Product: Features, Monte Carlo, Tax Math, Pricing, Security",
+        "Solutions: Solo Households, Wealth Advisors, Enterprise",
+        "Legal & Compliance: Privacy Policy, PIPEDA Compliance, Terms of Service, Security Whitepaper",
+        "Localization: English / Français switch",
+        "Copyright: © 2026 Compass Planning SaaS Inc. Made in Canada 🍁"
+      ]
     }
+  ],
+  "image_urls": {
+    "financial_advisor_meeting": "https://images.unsplash.com/photo-1714974528703-e5ad41abc259?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "tablet_finance_dashboard": "https://images.unsplash.com/photo-1628348068343-c6a848d2b6dd?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "laptop_planning": "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "toronto_skyline": "https://images.unsplash.com/photo-1543962226-818f4301073f?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "happy_retirees": "https://images.unsplash.com/photo-1514415008039-efa173293080?crop=entropy&cs=srgb&fm=jpg&q=85"
   },
-  "component_guidelines": {
-    "auth_mfa": "Prominent MFA modal/step with 6-digit TOTP code input, copyable secret key, and mock QR code.",
-    "pipeda_panel": "Dedicated PIPEDA Compliance Drawer/Modal featuring: active consent toggles, Right-to-Access export (JSON/CSV download), Right-to-Erasure request modal, and Audit Log timeline.",
-    "crm_connector": "Pluggable Salesforce sync indicator card showing real-time sync status, last synced record timestamp, and Manual Re-sync trigger button.",
-    "promotion_flow": "Solo to Advisor/Enterprise promotion wizard with explicit PIPEDA consent re-capture, data sharing agreement, and advisor selection.",
-    "testing_attributes": "All interactive and key informational elements MUST include a data-testid attribute in kebab-case format (e.g. data-testid=\"login-submit-button\", data-testid=\"mfa-totp-input\", data-testid=\"pipeda-export-btn\")."
+  "motion": {
+    "library": "framer-motion",
+    "hero_entrance": "Staggered fade-up for headline, subtext, dual CTAs, and glowing floating dashboard preview",
+    "hover_effects": "Micro scale-up (1.02x) on feature cards and primary CTA buttons with glowing green border transition",
+    "smooth_scroll": "Lenis smooth scroll or Framer Motion scroll animations for smooth anchor navigation"
   },
-  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
-    "Strictly enforce locked visual tokens across Enterprise, Advisor, and Solo tiers to prevent visual drift.",
-    "Never use raw transparent backgrounds on dropdowns or floating headers; use solid or blurred backdrops.",
-    "Ensure all interactive elements have explicit hover/active states with contrasting text.",
-    "Include data-testid on every button, input, tab, card, and modal for automated test suites.",
-    "Use Montserrat for Wordmark/H1-H3 headers and Inter for clean body and dashboard tables."
-  ]
+  "accessibility": {
+    "wcag": "AA compliant",
+    "data_testid_policy": "All key buttons, toggles, sections, inputs, and links MUST have role-based kebab-case data-testid attributes",
+    "reduced_motion": "Respect prefers-reduced-motion via Framer Motion"
+  },
+  "instructions_to_main_agent": [
+    "Build the public sales page at path '/' in frontend React application.",
+    "Ensure unauthenticated visitors at '/' see this rich marketing page with Sign In and Get Started buttons pointing to '/login'.",
+    "Maintain complete EN/FR bilingual toggle state using the existing i18n system or local state so French visitors get a full native experience.",
+    "Reuse the exact purple diagonal background gradient 'linear-gradient(135deg, #2E1B6A 0%, #3B1F80 55%, #4B1D93 100%)' for high-impact hero/banner elements.",
+    "Ensure all interactive elements have data-testid attributes as specified in the test_id fields."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": {
+    "anti_slop": "Do not build a generic boring centered white card landing page. Use deep purple gradients, glassmorphism, glowing green accents, bento grids, and high-density financial metrics.",
+    "no_transparent_header": "Header MUST have blur background 'backdrop-blur-xl bg-[#120B2E]/80 border-b border-white/10' so text is always readable over scrolled content.",
+    "test_ids": "Every button, link, toggle, input, card, and section MUST include data-testid."
+  }
 }

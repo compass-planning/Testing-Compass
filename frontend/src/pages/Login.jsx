@@ -32,7 +32,8 @@ const err = (e, fb) => toast.error(formatApiError(e.response?.data?.detail) || f
 export default function Login() {
   const { login, applySession } = useAuth();
   const nav = useNavigate();
-  const [mode, setMode] = useState("signin"); // signin | register
+  const initialMode = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mode") === "register" ? "register" : "signin";
+  const [mode, setMode] = useState(initialMode); // signin | register
   const [step, setStep] = useState("password");
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
