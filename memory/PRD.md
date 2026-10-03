@@ -182,6 +182,10 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - All existing multi-step auth logic preserved verbatim (password → MFA/setup → security question → forced change → forgot/reset); only markup + the button label ("Continue"→"Sign In") changed. All data-testids retained; tabs hidden during sub-steps.
 - Verified: clean webpack compile, no console/React errors, backend login→MFA→token e2e still passes. Brand audit: zero purple/violet anywhere in the codebase.
 
+## Phase 3n — Logo asset + purple hero (added 2026-06) ✅
+- Brand logo swapped to the user-provided artwork `frontend/public/compass-logo.png` (clock-compass, blue→green gradient ring, teal/grey needle, COMPASS/PLANNING lockup). `components/Logo.jsx`: light surfaces render the full-colour PNG + green "Canadian Retirement Intelligence" tagline; the **dark** variant (login hero) renders the coloured `CompassMark` SVG + white COMPASS + green PLANNING + tagline so it stays legible on dark/purple. `large` prop added for the hero. Small `CompassMark` SVG still used in the mobile topbar + ProtectedRoute spinner.
+- Login hero background now matches compassplanning.app's purple: `linear-gradient(135deg,#2E1B6A,#3B1F80,#4B1D93)` (sampled from the original). Sign In button + tab underline keep the blue→green brand gradient. User approved ("looks fantastic").
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.
