@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Download } from "lucide-react";
 import api from "@/lib/api";
@@ -15,6 +15,7 @@ const LABEL = {
 const COLOR = (a) => (a.includes("refund") || a.includes("suspend") ? "#EE5D50" : a.includes("pay") ? "#00DF89" : "#0052FF");
 
 export default function AdminAudit() {
+  const qc = useQueryClient();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [action, setAction] = useState("");
@@ -23,6 +24,20 @@ export default function AdminAudit() {
   const { data } = useQuery({ queryKey: ["admin-audit", from, to, action], queryFn: () => api.get("/admin/audit", { params }).then((r) => r.data) });
   const entries = data?.entries || [];
   const actions = data?.actions || [];
+  const archivesQ = useQuery({ queryKey: ["audit-archives"], queryFn: () => api.get("/admin/audit/archives").then((r) => r.data) });
+  const archives = archivesQ.data?.archives || [];
+  const makeArchive = useMutation({
+    mutationFn: () => api.post("/admin/audit/archives/run").then((r) => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["audit-archives"] }); toast.success("Archive created"); },
+    onError: () => toast.error("Could not create archive"),
+  });
+  const downloadArchive = async (a) => {
+    try {
+      const res = await api.get(`/admin/audit/archives/${a.id}/download`, { responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      const el = document.createElement("a"); el.href = url; el.download = `audit_${a.period}.csv`; document.body.appendChild(el); el.click(); el.remove(); URL.revokeObjectURL(url);
+    } catch (e) { toast.error("Download failed"); }
+  };
 
   const exportFile = async (format) => {
     setBusy(true);
@@ -71,6 +86,24 @@ export default function AdminAudit() {
             {!entries.length && <tr><td colSpan={4} className="px-4 py-8 text-center text-compass-muted">No admin actions match these filters.</td></tr>}
           </tbody>
         </table>
+      </Card>
+
+      <Card className="p-6" data-testid="audit-archives">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-heading font-bold text-compass-navy">Monthly archives</h3>
+          <Button size="sm" variant="outline" onClick={() => makeArchive.mutate()} disabled={makeArchive.isPending} data-testid="archive-now">Create archive now</Button>
+        </div>
+        <p className="text-sm text-compass-muted mb-3">A snapshot of the audit trail is archived automatically on the 1st of each month for long-term compliance records.</p>
+        <div className="space-y-2">
+          {archives.map((a) => (
+            <div key={a.id} className="flex items-center justify-between text-sm" data-testid={`archive-${a.id}`}>
+              <span className="font-semibold text-compass-navy">{a.period}</span>
+              <span className="text-compass-muted">{a.count} entries</span>
+              <Button size="sm" variant="ghost" onClick={() => downloadArchive(a)} data-testid={`archive-dl-${a.id}`}><Download size={14} /> CSV</Button>
+            </div>
+          ))}
+          {!archives.length && <div className="text-sm text-compass-muted">No archives yet.</div>}
+        </div>
       </Card>
     </div>
   );

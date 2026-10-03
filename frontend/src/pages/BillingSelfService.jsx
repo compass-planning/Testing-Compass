@@ -42,6 +42,12 @@ export default function BillingSelfService() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-sub"] }); toast.success("Billing info saved"); setCard((c) => ({ ...c, card_last4: "" })); },
     onError: (e) => toast.error(formatApiError(e.response?.data?.detail)),
   });
+  const payInvoice = useMutation({
+    mutationFn: (id) => api.post(`/me/invoices/${id}/pay`).then((r) => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-sub"] }); qc.invalidateQueries({ queryKey: ["notices"] }); toast.success("Payment received — thank you"); },
+    onError: (e) => toast.error(formatApiError(e.response?.data?.detail)),
+  });
+  const openInvoices = data?.open_invoices || [];
 
   const openChange = async (tier) => {
     try { const { data: pr } = await api.post("/me/subscription/preview-change", { tier }); setPreview(pr); setChangeTier(tier); }
@@ -68,6 +74,21 @@ export default function BillingSelfService() {
   return (
     <div className="space-y-6" data-testid="billing-self">
       <PageHeader title="Plan & Billing" subtitle="Manage your plan, seats, features and payment method." />
+
+      {openInvoices.length > 0 && (
+        <Card className="p-6 border-compass-red/40 bg-compass-red/5" data-testid="outstanding-invoices">
+          <h3 className="font-heading font-bold text-compass-navy mb-3">Outstanding invoices</h3>
+          <div className="space-y-2">
+            {openInvoices.map((inv) => (
+              <div key={inv.id} className="flex items-center justify-between gap-3 text-sm" data-testid={`open-invoice-${inv.id}`}>
+                <span className="font-mono text-xs text-compass-navy">{inv.number}</span>
+                <span className="text-compass-navy">${Number(inv.amount || 0).toLocaleString()} {inv.currency}</span>
+                <Button size="sm" onClick={() => payInvoice.mutate(inv.id)} disabled={payInvoice.isPending} data-testid={`pay-now-${inv.id}`}>Pay now</Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card className="p-6">
         <div className="flex items-center justify-between">

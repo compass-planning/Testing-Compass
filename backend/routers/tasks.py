@@ -286,6 +286,8 @@ async def cron_renewal_reminders(background: BackgroundTasks, authorization: str
     if not secret or not token or not _secrets.compare_digest(token, secret):
         raise HTTPException(status_code=401, detail="Unauthorized")
     background.add_task(_run_renewal_reminders)
+    from routers import platform_admin
+    background.add_task(platform_admin.run_platform_ops)
     return {"status": "accepted"}
 
 

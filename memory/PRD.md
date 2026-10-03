@@ -206,6 +206,13 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - **Audit export + filters** (`pages/admin/AdminAudit.jsx`): `GET /api/admin/audit?from=&to=&action=` filters by date range + action; `GET /api/admin/audit/export?format=csv|pdf` streams CSV or a reportlab PDF (date-range in header). Frontend exports via an authenticated axios blob download with a success toast.
 - Testing: iteration_44.json — frontend 6/6 (backend curl-verified). No bugs.
 
+## Phase 4c — Email Notifications + Overdue Billing + Audit Retention (added 2026-06) ✅
+- **Email notifications (Resend)** via existing `email_service.send_email` (best-effort `_safe_send`, fired with BackgroundTasks): confirmation when a user files a support request; alert to the requester when an admin replies (`/admin/tickets/{id}/reply`) or marks the ticket resolved (`PATCH /admin/tickets/{id}`). Emails are link-free/informational to satisfy the email safety guard.
+- **Overdue billing**: `run_platform_ops()` flags subscriptions with open invoices as `past_due` and emails the owner a reminder (deduped ~daily). `GET /api/notices` now returns `billing_due` for the owner → NoticeBanner shows a red "Payment due — Pay now" banner linking to /billing. `GET /api/me/subscription` returns `open_invoices`; owners pay via `POST /api/me/invoices/{id}/pay` (Chase mock) which flips the sub back to active. Admin trigger: `POST /api/admin/ops/run`.
+- **Audit retention**: `_create_audit_archive(period)` snapshots the admin audit trail to an `audit_archives` record (CSV). `GET /api/admin/audit/archives`, `POST .../archives/run`, `GET .../archives/{id}/download`. AdminAudit page has a "Monthly archives" card (create now + CSV download). Runs automatically on the 1st of each month.
+- **Scheduling**: no new cron added (app is at the 5-cron limit). `run_platform_ops` piggybacks on the existing daily `renewal-reminders` cron (`routers/tasks.py`), which also gates the monthly archive (day==1).
+- Verified via curl: ops run 200, billing_due surfaces + clears after owner pay (Chase receipt), archive create/list (csv stripped from list), support ticket 2xx. Frontend compiles clean. NOTE: full UI E2E for these additive cards/banners not run via testing agent this pass.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.

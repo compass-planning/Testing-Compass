@@ -6,8 +6,9 @@ so the admin sees everything. Billing uses the Chase MOCK gateway for now.
 from datetime import datetime, timezone, timedelta
 import io
 import csv
+import html as _html
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -16,6 +17,7 @@ from models import _id
 from deps import get_current_user, get_admin_user, _public, audit
 import metrics
 import chase_mock
+import email_service
 
 router = APIRouter()
 
@@ -51,7 +53,13 @@ async def notices(user: dict = Depends(get_current_user)):
     outages = [s for s in _plist("status_posts")
                if s.get("severity") not in (None, "operational") and not s.get("resolved_at")]
     anns.sort(key=lambda a: a.get("created_at", ""), reverse=True)
-    return {"announcements": anns, "outages": outages}
+    sub = _my_sub(user)
+    billing_due = None
+    if sub:
+        inv = next((i for i in _plist("invoices") if i.get("subscription_id") == sub["id"] and i.get("status") == "open"), None)
+        if inv:
+            billing_due = {"invoice_id": inv["id"], "amount": inv.get("amount"), "currency": inv.get("currency", "CAD"), "past_due": sub.get("status") == "past_due"}
+    return {"announcements": anns, "outages": outages, "billing_due": billing_due}
 
 
 # ---------------- Overview ----------------
@@ -206,7 +214,7 @@ async def create_ticket(body: TicketIn, admin: dict = Depends(get_admin_user)):
 
 
 @router.patch("/admin/tickets/{rid}")
-async def patch_ticket(rid: str, body: TicketPatch, admin: dict = Depends(get_admin_user)):
+async def patch_ticket(rid: str, body: TicketPatch, background: BackgroundTasks, admin: dict = Depends(get_admin_user)):
     cur = repo.get(PLATFORM, "tickets", rid, {})
     if not cur:
         raise HTTPException(status_code=404, detail="Not found")
@@ -219,7 +227,11 @@ async def patch_ticket(rid: str, body: TicketPatch, admin: dict = Depends(get_ad
         notes = list(cur.get("notes", []))
         notes.append({"by": admin["email"], "at": _now(), "text": body.note})
         patch["notes"] = notes
-    return _pupdate("tickets", rid, patch)
+    r = _pupdate("tickets", rid, patch)
+    if body.status == "resolved" and cur.get("status") != "resolved" and cur.get("requester_email"):
+        background.add_task(_safe_send, cur["requester_email"], "Your Compass support request is resolved",
+                            f"<p>Hi,</p><p>Your request <strong>{_esc(cur.get('subject', ''))}</strong> has been marked resolved. If you still need help, reply in Compass under Support and we'll reopen it.</p>")
+    return r
 
 
 # ---------------- Status posts (downtime / incidents) ----------------
@@ -435,11 +447,13 @@ def _my_sub(user):
 async def my_subscription(user: dict = Depends(get_current_user)):
     sub = _my_sub(user)
     tier = (sub or {}).get("tier", user.get("tier"))
+    opens = [i for i in _plist("invoices") if sub and i.get("subscription_id") == sub["id"] and i.get("status") == "open"] if sub else []
     return {
         "subscription": sub,
         "features_catalog": FEATURE_CATALOG.get(tier, []),
         "seat_price": SEAT_PRICE.get(tier, 0),
         "seats_editable": SEATS_EDITABLE.get(tier, False),
+        "open_invoices": opens,
     }
 
 
@@ -500,13 +514,15 @@ class SupportTicketIn(BaseModel):
 
 
 @router.post("/support/tickets")
-async def submit_support_ticket(body: SupportTicketIn, user: dict = Depends(get_current_user)):
+async def submit_support_ticket(body: SupportTicketIn, background: BackgroundTasks, user: dict = Depends(get_current_user)):
     doc = _pcreate("tickets", {
         "type": "service_request", "subject": body.subject, "description": body.description,
         "priority": body.priority, "status": "open", "requester_email": user["email"],
         "source": "in_app", "notes": [],
     })
     audit(user, "support.create", "ticket", body.subject)
+    background.add_task(_safe_send, user["email"], "We received your Compass support request",
+                        f"<p>Hi {_esc(user.get('name', ''))},</p><p>Thanks for reaching out. We've logged your request <strong>{_esc(body.subject)}</strong> and our team will respond shortly. You can follow it anytime in Compass under Support.</p><p>&mdash; Compass Planning Support</p>")
     return doc
 
 
@@ -606,7 +622,7 @@ class ReplyIn(BaseModel):
 
 
 @router.post("/admin/tickets/{rid}/reply")
-async def admin_reply(rid: str, body: ReplyIn, admin: dict = Depends(get_admin_user)):
+async def admin_reply(rid: str, body: ReplyIn, background: BackgroundTasks, admin: dict = Depends(get_admin_user)):
     cur = repo.get(PLATFORM, "tickets", rid, {})
     if not cur:
         raise HTTPException(status_code=404, detail="Not found")
@@ -615,6 +631,9 @@ async def admin_reply(rid: str, body: ReplyIn, admin: dict = Depends(get_admin_u
     new_status = cur.get("status") if cur.get("status") == "resolved" else "in_progress"
     r = _pupdate("tickets", rid, {"replies": replies, "status": new_status, "updated_at": _now()})
     audit(admin, "admin.ticket.reply", "ticket", cur.get("subject", rid))
+    if cur.get("requester_email"):
+        background.add_task(_safe_send, cur["requester_email"], "Compass Support replied to your request",
+                            f"<p>Hi,</p><p>Our support team replied to your request <strong>{_esc(cur.get('subject', ''))}</strong>:</p><blockquote>{_esc(body.text)}</blockquote><p>Sign in to Compass under Support to continue the conversation.</p>")
     return r
 
 
@@ -626,3 +645,103 @@ async def user_reply(rid: str, body: ReplyIn, user: dict = Depends(get_current_u
     replies = list(cur.get("replies", []))
     replies.append({"by": user["email"], "role": "user", "at": _now(), "text": body.text})
     return _pupdate("tickets", rid, {"replies": replies, "updated_at": _now()})
+
+
+# ---------------- Email + platform ops (overdue billing, audit archive) ----------------
+def _esc(s):
+    return _html.escape(str(s or ""))
+
+
+async def _safe_send(to, subject, html):
+    try:
+        await email_service.send_email(to=to, subject=subject, html=html)
+    except Exception:
+        pass  # email is best-effort; never block the request/cron
+
+
+def _billing_html(sub, inv):
+    amt = f"{inv.get('amount')} {inv.get('currency', 'CAD')}"
+    return (f"<p>Hi,</p><p>Your Compass subscription <strong>{_esc(sub.get('plan'))}</strong> "
+            f"has an outstanding balance of <strong>{_esc(amt)}</strong>. Please sign in to Compass under "
+            f"Plan &amp; Billing to settle it and keep your service active.</p><p>&mdash; Compass Planning</p>")
+
+
+async def run_platform_ops():
+    """Daily: flag past-due subs + remind owners; monthly (1st): archive the audit trail."""
+    now = datetime.now(timezone.utc)
+    for inv in _plist("invoices"):
+        if inv.get("status") != "open" or not inv.get("subscription_id"):
+            continue
+        sub = repo.get(PLATFORM, "subscriptions", inv["subscription_id"], {})
+        if not sub:
+            continue
+        if sub.get("status") != "past_due":
+            _pupdate("subscriptions", sub["id"], {"status": "past_due"})
+        last = inv.get("last_reminded")
+        due = True
+        if last:
+            try:
+                due = (now - datetime.fromisoformat(last)).total_seconds() > 72000
+            except Exception:
+                due = True
+        if due:
+            _pupdate("invoices", inv["id"], {"last_reminded": now.isoformat()})
+            if sub.get("owner_email"):
+                await _safe_send(sub["owner_email"], "Payment due on your Compass subscription", _billing_html(sub, inv))
+    if now.day == 1:
+        _create_audit_archive(now.strftime("%Y-%m"))
+
+
+def _create_audit_archive(period):
+    existing = [a for a in _plist("audit_archives") if a.get("period") == period]
+    if existing:
+        return existing[0]
+    entries = _filter_audit(None, None, None)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["Timestamp", "Admin", "Action", "Resource", "Detail"])
+    for e in entries:
+        w.writerow([e.get("timestamp", ""), e.get("actor_email", ""), e.get("action", ""), e.get("resource", ""), e.get("detail", "")])
+    return _pcreate("audit_archives", {"period": period, "count": len(entries), "csv": buf.getvalue()})
+
+
+@router.post("/admin/ops/run")
+async def run_ops(background: BackgroundTasks, admin: dict = Depends(get_admin_user)):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    background.add_task(run_platform_ops)
+    return {"status": "accepted"}
+
+
+@router.get("/admin/audit/archives")
+async def list_archives(admin: dict = Depends(get_admin_user)):
+    items = sorted(_plist("audit_archives"), key=lambda a: a.get("period", ""), reverse=True)
+    return {"archives": [{k: v for k, v in a.items() if k != "csv"} for a in items]}
+
+
+@router.post("/admin/audit/archives/run")
+async def run_archive(admin: dict = Depends(get_admin_user)):
+    return _create_audit_archive(datetime.now(timezone.utc).strftime("%Y-%m"))
+
+
+@router.get("/admin/audit/archives/{rid}/download")
+async def download_archive(rid: str, admin: dict = Depends(get_admin_user)):
+    a = repo.get(PLATFORM, "audit_archives", rid, {})
+    if not a:
+        raise HTTPException(status_code=404, detail="Archive not found")
+    return Response(content=a.get("csv", ""), media_type="text/csv",
+                    headers={"Content-Disposition": f"attachment; filename=audit_{a.get('period')}.csv"})
+
+
+@router.post("/me/invoices/{rid}/pay")
+async def pay_my_invoice(rid: str, user: dict = Depends(get_current_user)):
+    sub = _my_sub(user)
+    inv = repo.get(PLATFORM, "invoices", rid, {})
+    if not inv or not sub or inv.get("subscription_id") != sub["id"]:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if inv.get("status") == "paid":
+        return inv
+    receipt = chase_mock.charge(inv.get("amount", 0), inv.get("currency", "CAD"), f"Invoice {inv.get('number')}")
+    r = _pupdate("invoices", rid, {"status": "paid", "paid_at": _now(), "receipt": receipt})
+    _pupdate("subscriptions", sub["id"], {"status": "active"})
+    audit(user, "billing.self_pay", "invoice", inv.get("number", rid))
+    return r
