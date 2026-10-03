@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { CreditCard, Minus, Plus, Check } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
-import { Card, Button, Input, Select, Badge } from "@/components/ui-kit";
+import { Card, Button, Input, Select, Badge, Modal } from "@/components/ui-kit";
 
 const SUB_COLOR = { active: "#00DF89", past_due: "#EE5D50", canceled: "#A3AED0", trialing: "#0052FF" };
 
@@ -15,6 +15,9 @@ export default function BillingSelfService() {
   const catalog = data?.features_catalog || [];
   const seatPrice = data?.seat_price || 0;
   const seatsEditable = data?.seats_editable;
+  const plansQ = useQuery({ queryKey: ["my-plans"], queryFn: () => api.get("/me/plans").then((r) => r.data) });
+  const [changeTier, setChangeTier] = useState(null);
+  const [preview, setPreview] = useState(null);
 
   const [seats, setSeats] = useState(1);
   const [features, setFeatures] = useState([]);
@@ -37,6 +40,16 @@ export default function BillingSelfService() {
   const saveCard = useMutation({
     mutationFn: () => api.put("/me/billing", card).then((r) => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-sub"] }); toast.success("Billing info saved"); setCard((c) => ({ ...c, card_last4: "" })); },
+    onError: (e) => toast.error(formatApiError(e.response?.data?.detail)),
+  });
+
+  const openChange = async (tier) => {
+    try { const { data: pr } = await api.post("/me/subscription/preview-change", { tier }); setPreview(pr); setChangeTier(tier); }
+    catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
+  const confirmChange = useMutation({
+    mutationFn: () => api.post("/me/subscription/change", { tier: changeTier }).then((r) => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-sub"] }); qc.invalidateQueries({ queryKey: ["my-plans"] }); setChangeTier(null); setPreview(null); toast.success("Plan changed"); },
     onError: (e) => toast.error(formatApiError(e.response?.data?.detail)),
   });
 
@@ -63,6 +76,23 @@ export default function BillingSelfService() {
             <div className="font-heading text-xl font-extrabold text-compass-navy">{sub.plan}</div>
           </div>
           <Badge color={SUB_COLOR[sub.status] || "#A3AED0"} bg="rgba(0,0,0,0.04)" data-testid="my-sub-status">{sub.status}</Badge>
+        </div>
+      </Card>
+
+      <Card className="p-6 space-y-4" data-testid="change-plan">
+        <h3 className="font-heading font-bold text-compass-navy">Change plan</h3>
+        <div className="grid sm:grid-cols-3 gap-3">
+          {(plansQ.data?.plans || []).map((p) => (
+            <div key={p.tier} className={`rounded-xl border p-4 ${p.current ? "border-compass-blue bg-compass-blue/5" : "border-compass-border"}`} data-testid={`plan-${p.tier}`}>
+              <div className="font-heading font-bold text-compass-navy">{p.label}</div>
+              <div className="text-sm text-compass-muted">${p.price.toLocaleString()}/mo · {p.seats} seat{p.seats > 1 ? "s" : ""}</div>
+              <div className="mt-3">
+                {p.current
+                  ? <Badge color="#0052FF" bg="rgba(0,82,255,0.1)">Current plan</Badge>
+                  : <Button size="sm" variant="outline" onClick={() => openChange(p.tier)} data-testid={`switch-${p.tier}`}>Switch to {p.label}</Button>}
+              </div>
+            </div>
+          ))}
         </div>
       </Card>
 
@@ -113,6 +143,23 @@ export default function BillingSelfService() {
         <p className="text-xs text-compass-muted">Processed via Chase Payment Solutions (test mode). Only the last 4 digits are stored.</p>
         <Button onClick={() => (card.card_name && card.card_last4.length >= 4 ? saveCard.mutate() : toast.error("Enter card name and number"))} disabled={saveCard.isPending} data-testid="save-card">Save payment method</Button>
       </Card>
+
+      <Modal open={!!changeTier} onClose={() => { setChangeTier(null); setPreview(null); }} title="Confirm plan change" testid="proration-modal">
+        {preview && (
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between"><span className="text-compass-muted">New plan</span><span className="font-semibold text-compass-navy">{preview.new_plan} · ${preview.new_amount.toLocaleString()}/mo</span></div>
+            <div className="flex justify-between"><span className="text-compass-muted">Days left in cycle</span><span>{preview.days_remaining}</span></div>
+            <div className="flex justify-between"><span className="text-compass-muted">Credit (unused)</span><span className="text-compass-green">−${preview.credit.toLocaleString()}</span></div>
+            <div className="flex justify-between"><span className="text-compass-muted">Prorated charge</span><span>${preview.charge.toLocaleString()}</span></div>
+            <div className="flex justify-between border-t border-compass-border pt-2 font-bold text-compass-navy"><span>Due today</span><span data-testid="net-due">${preview.net_due > 0 ? preview.net_due.toLocaleString() : "0.00"} {preview.currency}</span></div>
+            {preview.net_due <= 0 && <div className="text-xs text-compass-muted">This is a downgrade — the credit is applied to your next invoice.</div>}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { setChangeTier(null); setPreview(null); }} data-testid="proration-cancel">Cancel</Button>
+              <Button onClick={() => confirmChange.mutate()} disabled={confirmChange.isPending} data-testid="proration-confirm">Confirm change</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

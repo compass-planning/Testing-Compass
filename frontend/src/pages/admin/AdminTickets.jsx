@@ -8,9 +8,38 @@ import { Card, Input, Select, Button, Badge } from "@/components/ui-kit";
 const STATUS_COLOR = { open: "#FFB800", in_progress: "#0052FF", resolved: "#00DF89" };
 const PRIO_COLOR = { low: "#A3AED0", normal: "#0052FF", high: "#FFB800", urgent: "#EE5D50" };
 
+function Thread({ ticket }) {
+  const qc = useQueryClient();
+  const [text, setText] = useState("");
+  const reply = useMutation({
+    mutationFn: (t) => api.post(`/admin/tickets/${ticket.id}/reply`, { text: t }).then((r) => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-tickets"] }); setText(""); toast.success("Reply sent"); },
+    onError: (e) => toast.error(formatApiError(e.response?.data?.detail)),
+  });
+  const replies = ticket.replies || [];
+  return (
+    <div className="mt-3 border-t border-compass-border pt-3 space-y-2" data-testid={`admin-thread-${ticket.id}`}>
+      {replies.map((m, i) => (
+        <div key={i} className={`flex ${m.role === "admin" ? "justify-end" : "justify-start"}`}>
+          <div className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${m.role === "admin" ? "bg-compass-blue/10 text-compass-navy" : "bg-compass-bg text-compass-navy"}`}>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-compass-muted mb-0.5">{m.role === "admin" ? "You (Support)" : m.by}</div>
+            {m.text}
+          </div>
+        </div>
+      ))}
+      {!replies.length && <div className="text-xs text-compass-muted">No replies yet.</div>}
+      <div className="flex gap-2">
+        <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Reply to requester…" data-testid={`admin-reply-input-${ticket.id}`} />
+        <Button size="sm" onClick={() => text.trim() && reply.mutate(text)} disabled={!text.trim() || reply.isPending} data-testid={`admin-reply-send-${ticket.id}`}>Send</Button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminTickets() {
   const qc = useQueryClient();
   const [form, setForm] = useState({ type: "service_request", subject: "", description: "", priority: "normal", requester_email: "" });
+  const [open, setOpen] = useState(null);
   const { data } = useQuery({ queryKey: ["admin-tickets"], queryFn: () => api.get("/admin/tickets").then((r) => r.data) });
   const tickets = data?.tickets || [];
   const inval = () => qc.invalidateQueries({ queryKey: ["admin-tickets"] });
@@ -52,14 +81,19 @@ export default function AdminTickets() {
                   <Badge color="#1B2559" bg="rgba(0,0,0,0.04)">{t.type === "incident" ? "Incident" : "Service"}</Badge>
                   <Badge color={PRIO_COLOR[t.priority] || "#A3AED0"} bg="rgba(0,0,0,0.04)">{t.priority}</Badge>
                   <Badge color={STATUS_COLOR[t.status] || "#A3AED0"} bg="rgba(0,0,0,0.04)">{t.status.replace("_", " ")}</Badge>
+                  {t.source === "in_app" && <Badge color="#00DF89" bg="rgba(0,223,137,0.12)">in-app</Badge>}
                 </div>
                 {t.description && <div className="text-sm text-compass-muted mt-1">{t.description}</div>}
                 {t.requester_email && <div className="text-xs text-compass-muted mt-1">From: {t.requester_email}</div>}
               </div>
-              <Select value={t.status} onChange={(e) => patch.mutate({ id: t.id, body: { status: e.target.value } })} className="max-w-[160px] shrink-0" data-testid={`ticket-status-${t.id}`}>
-                <option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option>
-              </Select>
+              <div className="flex items-center gap-2 shrink-0">
+                <Select value={t.status} onChange={(e) => patch.mutate({ id: t.id, body: { status: e.target.value } })} className="max-w-[150px]" data-testid={`ticket-status-${t.id}`}>
+                  <option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option>
+                </Select>
+                <Button size="sm" variant="outline" onClick={() => setOpen(open === t.id ? null : t.id)} data-testid={`ticket-reply-toggle-${t.id}`}>Reply</Button>
+              </div>
             </div>
+            {open === t.id && <Thread ticket={t} />}
           </Card>
         ))}
         {!tickets.length && <div className="text-sm text-compass-muted">No tickets.</div>}

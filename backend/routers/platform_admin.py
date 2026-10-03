@@ -3,9 +3,12 @@
 Global (platform-wide) collections live in the shared store with an empty scope
 so the admin sees everything. Billing uses the Chase MOCK gateway for now.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+import io
+import csv
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from repository import repo
@@ -326,11 +329,72 @@ async def refund_invoice(rid: str, admin: dict = Depends(get_admin_user)):
 
 
 # ---------------- Admin audit trail ----------------
-@router.get("/admin/audit")
-async def admin_audit(admin: dict = Depends(get_admin_user)):
+ADMIN_ACTIONS = [
+    "admin.suspend", "admin.reactivate", "admin.invoice.pay", "admin.invoice.refund",
+    "admin.announcement.create", "admin.ticket.create", "admin.ticket.reply",
+    "admin.status.create", "admin.sub.create",
+]
+
+
+def _filter_audit(from_, to, action):
     entries = [a for a in repo.list("shared", "audit_log", {}) if str(a.get("action", "")).startswith("admin.")]
+    if from_:
+        entries = [a for a in entries if a.get("timestamp", "") >= from_]
+    if to:
+        entries = [a for a in entries if a.get("timestamp", "") <= to + "T23:59:59"]
+    if action:
+        entries = [a for a in entries if a.get("action") == action]
     entries.sort(key=lambda a: a.get("timestamp", ""), reverse=True)
-    return {"entries": entries[:300]}
+    return entries
+
+
+@router.get("/admin/audit")
+async def admin_audit(from_: Optional[str] = Query(None, alias="from"), to: Optional[str] = None,
+                      action: Optional[str] = None, admin: dict = Depends(get_admin_user)):
+    entries = _filter_audit(from_, to, action)
+    return {"entries": entries[:500], "actions": ADMIN_ACTIONS}
+
+
+@router.get("/admin/audit/export")
+async def export_audit(format: str = "csv", from_: Optional[str] = Query(None, alias="from"),
+                       to: Optional[str] = None, action: Optional[str] = None,
+                       admin: dict = Depends(get_admin_user)):
+    entries = _filter_audit(from_, to, action)
+    rng = f"{from_ or 'all'} to {to or 'now'}"
+    if format == "pdf":
+        from reportlab.lib.pagesizes import landscape, letter
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=landscape(letter), title="Compass Audit Trail")
+        styles = getSampleStyleSheet()
+        elems = [Paragraph("Compass Planning — Admin Audit Trail", styles["Title"]),
+                 Paragraph(f"Range: {rng} &middot; {len(entries)} entries", styles["Normal"]), Spacer(1, 12)]
+        data = [["Timestamp", "Admin", "Action", "Detail"]]
+        for e in entries:
+            data.append([e.get("timestamp", "")[:19].replace("T", " "), e.get("actor_email", ""),
+                         e.get("action", ""), (e.get("detail", "") or "")[:70]])
+        t = Table(data, repeatRows=1, colWidths=[120, 150, 150, 280])
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0052FF")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTSIZE", (0, 0), (-1, -1), 8), ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#E2E8F0")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F7FAFC")]),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ]))
+        elems.append(t)
+        doc.build(elems)
+        return Response(content=buf.getvalue(), media_type="application/pdf",
+                        headers={"Content-Disposition": "attachment; filename=audit_trail.pdf"})
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["Timestamp", "Admin", "Action", "Resource", "Detail"])
+    for e in entries:
+        w.writerow([e.get("timestamp", ""), e.get("actor_email", ""), e.get("action", ""),
+                    e.get("resource", ""), e.get("detail", "")])
+    return Response(content=buf.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=audit_trail.csv"})
 
 
 # ---------------- Client self-service billing ----------------
@@ -451,3 +515,114 @@ async def my_support_tickets(user: dict = Depends(get_current_user)):
     mine = [t for t in _plist("tickets") if t.get("requester_email") == user.get("email")]
     mine.sort(key=lambda t: t.get("created_at", ""), reverse=True)
     return {"tickets": mine}
+
+
+# ---------------- Plan upgrade / downgrade (owner, with proration) ----------------
+PLANS = {
+    "solo": {"label": "Solo", "price": 19, "seats": 1, "features": ["monte_carlo", "ai_reports"]},
+    "advisor": {"label": "Advisor Pro", "price": 300, "seats": 5, "features": ["client_portal", "ai_reports", "ocr_import"]},
+    "enterprise": {"label": "Enterprise", "price": 1250, "seats": 25, "features": ["sso", "api_access", "priority_support"]},
+}
+CYCLE_DAYS = 30
+
+
+def _period_end(sub):
+    pe = sub.get("current_period_end")
+    if pe:
+        try:
+            dt = datetime.fromisoformat(pe)
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            pass
+    end = datetime.now(timezone.utc) + timedelta(days=CYCLE_DAYS)
+    _pupdate("subscriptions", sub["id"], {"current_period_end": end.isoformat()})
+    return end
+
+
+def _proration(sub, new_tier):
+    now = datetime.now(timezone.utc)
+    days_remaining = max(0, min(CYCLE_DAYS, (_period_end(sub) - now).days))
+    cur_amt = sub.get("amount", 0)
+    new_amt = PLANS[new_tier]["price"]
+    credit = round(cur_amt / CYCLE_DAYS * days_remaining, 2)
+    charge = round(new_amt / CYCLE_DAYS * days_remaining, 2)
+    return {"current_plan": sub.get("plan"), "current_amount": cur_amt,
+            "new_tier": new_tier, "new_plan": PLANS[new_tier]["label"], "new_amount": new_amt,
+            "days_remaining": days_remaining, "credit": credit, "charge": charge,
+            "net_due": round(charge - credit, 2), "currency": sub.get("currency", "CAD")}
+
+
+@router.get("/me/plans")
+async def my_plans(user: dict = Depends(get_current_user)):
+    sub = _my_sub(user)
+    cur = (sub or {}).get("tier")
+    plans = [{"tier": t, "label": p["label"], "price": p["price"], "seats": p["seats"],
+              "features": [f["label"] for f in FEATURE_CATALOG.get(t, []) if f["key"] in p["features"]],
+              "current": t == cur} for t, p in PLANS.items()]
+    return {"plans": plans, "has_sub": bool(sub)}
+
+
+class PlanChangeIn(BaseModel):
+    tier: str
+
+
+@router.post("/me/subscription/preview-change")
+async def preview_change(body: PlanChangeIn, user: dict = Depends(get_current_user)):
+    sub = _my_sub(user)
+    if not sub:
+        raise HTTPException(status_code=404, detail="No subscription on your account")
+    if body.tier not in PLANS:
+        raise HTTPException(status_code=400, detail="Unknown plan")
+    return _proration(sub, body.tier)
+
+
+@router.post("/me/subscription/change")
+async def change_plan(body: PlanChangeIn, user: dict = Depends(get_current_user)):
+    sub = _my_sub(user)
+    if not sub:
+        raise HTTPException(status_code=404, detail="No subscription on your account")
+    if body.tier not in PLANS:
+        raise HTTPException(status_code=400, detail="Unknown plan")
+    if body.tier == sub.get("tier"):
+        raise HTTPException(status_code=400, detail="You're already on this plan")
+    pr = _proration(sub, body.tier)
+    p = PLANS[body.tier]
+    updated = _pupdate("subscriptions", sub["id"], {
+        "tier": body.tier, "plan": p["label"], "seats": p["seats"],
+        "amount": p["price"], "features": list(p["features"]), "status": "active",
+    })
+    if pr["net_due"] > 0:
+        _pcreate("invoices", {"subscription_id": sub["id"], "account_label": sub.get("account_label"),
+                              "amount": pr["net_due"], "currency": sub.get("currency", "CAD"),
+                              "status": "open", "number": "INV-" + _id()[:6].upper(),
+                              "issued_at": _now(), "note": f"Proration: {sub.get('plan')} to {p['label']}"})
+    audit(user, "billing.plan_change", "subscription", f"{sub.get('tier')} -> {body.tier} (net ${pr['net_due']})")
+    return {"subscription": updated, "proration": pr}
+
+
+# ---------------- Ticket replies (shared thread) ----------------
+class ReplyIn(BaseModel):
+    text: str
+
+
+@router.post("/admin/tickets/{rid}/reply")
+async def admin_reply(rid: str, body: ReplyIn, admin: dict = Depends(get_admin_user)):
+    cur = repo.get(PLATFORM, "tickets", rid, {})
+    if not cur:
+        raise HTTPException(status_code=404, detail="Not found")
+    replies = list(cur.get("replies", []))
+    replies.append({"by": admin["email"], "role": "admin", "at": _now(), "text": body.text})
+    new_status = cur.get("status") if cur.get("status") == "resolved" else "in_progress"
+    r = _pupdate("tickets", rid, {"replies": replies, "status": new_status, "updated_at": _now()})
+    audit(admin, "admin.ticket.reply", "ticket", cur.get("subject", rid))
+    return r
+
+
+@router.post("/support/tickets/{rid}/reply")
+async def user_reply(rid: str, body: ReplyIn, user: dict = Depends(get_current_user)):
+    cur = repo.get(PLATFORM, "tickets", rid, {})
+    if not cur or cur.get("requester_email") != user.get("email"):
+        raise HTTPException(status_code=404, detail="Not found")
+    replies = list(cur.get("replies", []))
+    replies.append({"by": user["email"], "role": "user", "at": _now(), "text": body.text})
+    return _pupdate("tickets", rid, {"replies": replies, "updated_at": _now()})
