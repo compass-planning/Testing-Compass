@@ -13,6 +13,8 @@ User language: **English** (respond in English).
 
 ## Implemented (latest first)
 ### 2026-06 — Landing follow-ups: Legal pages, Demo modal, Lead capture (DONE, tested)
+- **How It Works**: 3-step PURPLE-band strip (Add details → Run projection → Act with confidence), bilingual, between Features and Who-It's-For (`#how-it-works`, `data-testid="landing-how-it-works"`).
+- **Lead routing**: `SALES_LEAD_EMAIL="sales@westoak.dev"` (comma-separated supported → `SALES_EMAILS` loop). No CC. Prospect also gets a confirmation email.
 - **Legal pages** (`/app/frontend/src/pages/Legal.jsx`): real bilingual Privacy Policy, PIPEDA Compliance, Terms of Service for **Westoak Innovations** / **privacy@westoak.dev**. Public routes `/privacy-policy`, `/pipeda`, `/terms`; landing footer Legal links now open them.
 - **Demo video**: hero "Watch demo" button → `VideoModal` with placeholder poster ("Product walkthrough — coming soon"). Swap real video later.
 - **Lead capture**: Enterprise pricing CTA opens `ContactModal` → `POST /api/leads/contact-sales` (public, rate-limited 3/5min). Emails sales (`SALES_LEAD_EMAIL`=privacy@westoak.dev) + prospect confirmation via Resend; logs lead in new **Admin → Leads** console (`/admin/leads`, `AdminLeads.jsx`, nav added). Backend: `platform_admin.py` adds `/leads/contact-sales`, `/admin/leads`, `/admin/leads/{id}` + `admin.lead.update` audit action. New env `SALES_LEAD_EMAIL` in backend/.env.

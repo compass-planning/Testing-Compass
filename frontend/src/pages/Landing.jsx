@@ -5,6 +5,7 @@ import {
   ArrowRight, Check, ShieldCheck, Lock, MapPin, Languages, Menu, X,
   TrendingUp, Calculator, Wallet, Sparkles, Building2, UserCog, User as UserIcon,
   ChevronDown, Star, FileText, Mic, ScanLine, PlayCircle, Send, Loader2, CheckCircle2,
+  ClipboardList, Rocket,
 } from "lucide-react";
 import { toast } from "sonner";
 import { CompassMark } from "@/components/Logo";
@@ -60,6 +61,14 @@ const COPY = {
       { icon: FileText, t: "Document vault" },
       { icon: ScanLine, t: "OCR letters importer" },
       { icon: Mic, t: "Voice transcription" },
+    ],
+    howEyebrow: "How it works",
+    howTitle: "From sign-up to plan in three steps",
+    howSub: "No bank logins, no spreadsheets. Just clear answers.",
+    how: [
+      { t: "Add your details", d: "Enter your income, savings, goals and timeline — in minutes, at your own pace." },
+      { t: "Run your projection", d: "Our Monte Carlo engine stress-tests thousands of market paths and tax scenarios instantly." },
+      { t: "Act with confidence", d: "Get a plain-language plan and AI report you can download, share, or refine with an advisor." },
     ],
     whoEyebrow: "Who it's for",
     whoTitle: "One platform, three isolated tiers",
@@ -153,6 +162,14 @@ const COPY = {
       { icon: ScanLine, t: "Importateur OCR" },
       { icon: Mic, t: "Transcription vocale" },
     ],
+    howEyebrow: "Comment ça marche",
+    howTitle: "De l'inscription au plan en trois étapes",
+    howSub: "Aucune connexion bancaire, aucun tableur. Que des réponses claires.",
+    how: [
+      { t: "Ajoutez vos renseignements", d: "Saisissez vos revenus, votre épargne, vos objectifs et votre échéancier — en quelques minutes, à votre rythme." },
+      { t: "Lancez votre projection", d: "Notre moteur Monte-Carlo teste instantanément des milliers de trajectoires de marché et de scénarios fiscaux." },
+      { t: "Agissez en confiance", d: "Obtenez un plan en langage clair et un rapport IA à télécharger, partager ou peaufiner avec un conseiller." },
+    ],
     whoEyebrow: "Pour qui",
     whoTitle: "Une plateforme, trois paliers isolés",
     whoSub: "L'application stricte du périmètre garde chaque espace séparé et sécurisé.",
@@ -216,6 +233,7 @@ const FOOTER_ROUTES = [
   ["/privacy-policy", "/pipeda", "/terms"],
 ];
 const FIELD_CLS = "w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-[#8C82B5] outline-none transition-colors focus:border-[#00DF89]/50";
+const HOW_ICONS = [ClipboardList, TrendingUp, Rocket];
 
 /* ----------------------------------------------------------- building blocks */
 function Eyebrow({ children }) {
@@ -437,6 +455,33 @@ export default function Landing() {
               <div key={m.t} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-[#C0B8E3]"><m.icon size={16} className="text-[#00DF89]" />{m.t}</div>
             ))}
           </motion.div>
+        </div>
+      </section>
+
+      {/* ---------------- how it works ---------------- */}
+      <section id="how-it-works" className="relative overflow-hidden py-20 lg:py-28" style={{ background: PURPLE }}>
+        <div className="pointer-events-none absolute -left-32 top-1/2 h-80 w-80 -translate-y-1/2 rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(0,223,137,0.15), transparent 70%)" }} />
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <motion.div {...fade} className="mx-auto max-w-2xl text-center">
+            <Eyebrow>{t.howEyebrow}</Eyebrow>
+            <h2 className="mt-5 font-heading text-3xl font-bold tracking-tight sm:text-4xl">{t.howTitle}</h2>
+            <p className="mt-4 text-base text-[#C0B8E3]">{t.howSub}</p>
+          </motion.div>
+          <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3" data-testid="landing-how-it-works">
+            {t.how.map((s, i) => {
+              const Icon = HOW_ICONS[i];
+              return (
+                <motion.div key={i} {...fade} transition={{ ...fade.transition, delay: i * 0.12 }} className="relative rounded-3xl border border-white/15 bg-white/[0.06] p-8 backdrop-blur" data-testid={`how-step-${i}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#00DF89]/15 text-[#00DF89]"><Icon size={24} /></div>
+                    <span className="font-heading text-5xl font-extrabold text-white/15">{i + 1}</span>
+                  </div>
+                  <h3 className="mt-5 font-heading text-xl font-bold text-white">{s.t}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[#C0B8E3]">{s.d}</p>
+                </motion.div>
+              );
+            })}
+          </div>
         </div>
       </section>
 

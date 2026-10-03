@@ -749,7 +749,7 @@ async def pay_my_invoice(rid: str, user: dict = Depends(get_current_user)):
 
 
 # ---------------- Sales leads (public "Contact sales" + admin inbox) ----------------
-SALES_EMAIL = os.environ.get("SALES_LEAD_EMAIL", "privacy@westoak.dev")
+SALES_EMAILS = [e.strip() for e in os.environ.get("SALES_LEAD_EMAIL", "privacy@westoak.dev").split(",") if e.strip()]
 LEAD_STATUSES = ("new", "contacted", "closed")
 
 
@@ -800,7 +800,8 @@ async def contact_sales(body: ContactSalesIn, background: BackgroundTasks):
         "locale": body.locale if body.locale in ("en", "fr") else "en",
         "status": "new", "source": "landing",
     })
-    background.add_task(_safe_send, SALES_EMAIL, f"New Enterprise lead — {name}", _lead_notify_html(doc))
+    for rcpt in SALES_EMAILS:
+        background.add_task(_safe_send, rcpt, f"New Enterprise lead — {name}", _lead_notify_html(doc))
     background.add_task(_safe_send, email, "Thanks for contacting Compass Planning", _lead_ack_html(doc))
     return {"ok": True}
 
