@@ -29,22 +29,22 @@ export function CompassMark({ size = 36 }) {
   );
 }
 
-export function Logo({ compact = false, dark = false }) {
+const LOGO_SRC = `${process.env.PUBLIC_URL || ""}/compass-logo.png`;
+
+export function Logo({ compact = false, dark = false, large = false }) {
+  const h = compact ? "h-10" : large ? "h-28" : "h-14";
   return (
-    <div className="flex items-center gap-4" data-testid="brand-logo">
-      <CompassMark size={compact ? 75 : 95} />
+    <div className="inline-flex flex-col items-start" data-testid="brand-logo">
+      <img
+        src={LOGO_SRC}
+        alt="Compass Planning"
+        className={`${h} w-auto`}
+        style={dark ? { filter: "brightness(0) invert(1)" } : undefined}
+      />
       {!compact && (
-        <div className="leading-none">
-          <div
-            className="font-heading font-extrabold uppercase tracking-tight text-[26px]"
-            style={{ color: dark ? "#FFFFFF" : "#1B2559", fontWeight: 800 }}
-          >
-            Compass
-          </div>
-          <div className="text-[13px] font-bold tracking-[0.3em] text-compass-green uppercase mt-1">
-            Planning
-          </div>
-        </div>
+        <span className={`mt-1 ml-1 text-[10px] font-bold tracking-[0.22em] uppercase ${dark ? "text-white/70" : "text-compass-green"}`}>
+          Canadian Retirement Intelligence
+        </span>
       )}
     </div>
   );
