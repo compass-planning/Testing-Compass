@@ -12,6 +12,11 @@ User language: **English** (respond in English).
 - i18n: `/app/frontend/src/lib/i18n.jsx` — `useLang()` → {lang, setLang, t, tr}; persisted in localStorage `compass_lang`.
 
 ## Implemented (latest first)
+### 2026-06 — Landing follow-ups: Legal pages, Demo modal, Lead capture (DONE, tested)
+- **Legal pages** (`/app/frontend/src/pages/Legal.jsx`): real bilingual Privacy Policy, PIPEDA Compliance, Terms of Service for **Westoak Innovations** / **privacy@westoak.dev**. Public routes `/privacy-policy`, `/pipeda`, `/terms`; landing footer Legal links now open them.
+- **Demo video**: hero "Watch demo" button → `VideoModal` with placeholder poster ("Product walkthrough — coming soon"). Swap real video later.
+- **Lead capture**: Enterprise pricing CTA opens `ContactModal` → `POST /api/leads/contact-sales` (public, rate-limited 3/5min). Emails sales (`SALES_LEAD_EMAIL`=privacy@westoak.dev) + prospect confirmation via Resend; logs lead in new **Admin → Leads** console (`/admin/leads`, `AdminLeads.jsx`, nav added). Backend: `platform_admin.py` adds `/leads/contact-sales`, `/admin/leads`, `/admin/leads/{id}` + `admin.lead.update` audit action. New env `SALES_LEAD_EMAIL` in backend/.env.
+
 ### 2026-06 — Public Marketing / Sales Landing Page (DONE, tested EN+FR desktop)
 - New `/app/frontend/src/pages/Landing.jsx` served at route `/` (public). Unauthenticated visitors see it before sign-in.
 - Sections: sticky glass header + EN/FR toggle, hero (purple gradient + Monte Carlo preview card w/ success gauge + fan chart), trust/compliance band (PIPEDA, Canadian residency, TOTP MFA, bilingual), feature bento grid, "Who it's for" 3 tiers, imagery split (retirement couple), pricing (Solo $29 / Advisor $149 / Enterprise Custom, CAD), testimonials, FAQ accordion, CTA banner, footer.

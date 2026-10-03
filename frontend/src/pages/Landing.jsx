@@ -4,11 +4,13 @@ import { motion } from "framer-motion";
 import {
   ArrowRight, Check, ShieldCheck, Lock, MapPin, Languages, Menu, X,
   TrendingUp, Calculator, Wallet, Sparkles, Building2, UserCog, User as UserIcon,
-  ChevronDown, Star, FileText, Mic, ScanLine,
+  ChevronDown, Star, FileText, Mic, ScanLine, PlayCircle, Send, Loader2, CheckCircle2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { CompassMark } from "@/components/Logo";
 import { useLang } from "@/lib/i18n";
 import { useAuth } from "@/context/AuthContext";
+import apiClient, { formatApiError } from "@/lib/api";
 
 /* ----------------------------------------------------------- copy (EN/FR) */
 const COPY = {
@@ -22,6 +24,17 @@ const COPY = {
     heroSub: "Precision retirement planning built for Canadian tax rules — CPP/OAS timing, RRSP/TFSA/RESP optimization, Monte Carlo simulations and cross-border US routing.",
     heroCtaPrimary: "Start your free plan",
     heroCtaSecondary: "Sign in",
+    watchDemo: "Watch demo",
+    video: { title: "Product walkthrough", soon: "Our full demo video is coming soon." },
+    contact: {
+      title: "Talk to our Enterprise team",
+      sub: "Tell us about your firm and we'll be in touch within one business day.",
+      name: "Your name", email: "Work email", company: "Company", seats: "Number of advisors / seats",
+      message: "What are you looking to solve?", submit: "Request a call", sending: "Sending…",
+      required: "Please enter your name and a valid email", error: "Could not send — please try again",
+      successTitle: "Thanks — we've got it", successBody: "A member of our Enterprise team will reach out shortly. Check your inbox for a confirmation.",
+      close: "Done", seatsOpts: ["1–5", "6–25", "26–100", "100+"],
+    },
     heroCardTitle: "Retirement projection",
     heroCardScenario: "Base case · retire at 65",
     heroSuccess: "Success rate",
@@ -103,6 +116,17 @@ const COPY = {
     heroSub: "Planification de retraite de précision conçue pour les règles fiscales canadiennes — calendrier RPC/SV, optimisation REER/CELI/REEE, simulations Monte-Carlo et gestion transfrontalière.",
     heroCtaPrimary: "Commencer gratuitement",
     heroCtaSecondary: "Se connecter",
+    watchDemo: "Voir la démo",
+    video: { title: "Visite guidée du produit", soon: "Notre vidéo de démonstration complète arrive bientôt." },
+    contact: {
+      title: "Parlez à notre équipe Entreprise",
+      sub: "Parlez-nous de votre cabinet et nous vous répondrons en un jour ouvrable.",
+      name: "Votre nom", email: "Courriel professionnel", company: "Entreprise", seats: "Nombre de conseillers / sièges",
+      message: "Que cherchez-vous à résoudre ?", submit: "Demander un appel", sending: "Envoi…",
+      required: "Veuillez saisir votre nom et un courriel valide", error: "Échec de l'envoi — réessayez",
+      successTitle: "Merci — c'est bien reçu", successBody: "Un membre de notre équipe Entreprise vous contactera sous peu. Vérifiez votre boîte de réception.",
+      close: "Terminé", seatsOpts: ["1–5", "6–25", "26–100", "100+"],
+    },
     heroCardTitle: "Projection de retraite",
     heroCardScenario: "Scénario de base · retraite à 65 ans",
     heroSuccess: "Taux de réussite",
@@ -186,6 +210,12 @@ const IMG = {
 
 const PURPLE = "linear-gradient(135deg, #2E1B6A 0%, #3B1F80 55%, #4B1D93 100%)";
 const fade = { initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: "-80px" }, transition: { duration: 0.6, ease: "easeOut" } };
+const FOOTER_ROUTES = [
+  ["#features", "#pricing", "#trust", "#faq"],
+  ["#who", "#who", "#pricing"],
+  ["/privacy-policy", "/pipeda", "/terms"],
+];
+const FIELD_CLS = "w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-[#8C82B5] outline-none transition-colors focus:border-[#00DF89]/50";
 
 /* ----------------------------------------------------------- building blocks */
 function Eyebrow({ children }) {
@@ -232,6 +262,8 @@ export default function Landing() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState(0);
   const [scrolled, setScrolled] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -323,6 +355,7 @@ export default function Landing() {
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <button onClick={go("/login?mode=register")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00DF89] px-7 py-3.5 text-base font-bold text-[#0B061E] shadow-[0_10px_30px_rgba(0,223,137,0.4)] transition-transform hover:-translate-y-0.5" data-testid="hero-get-started-btn">{t.heroCtaPrimary}<ArrowRight size={18} /></button>
               <button onClick={go("/login")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/5 px-7 py-3.5 text-base font-semibold text-white backdrop-blur transition-colors hover:bg-white/10" data-testid="hero-sign-in-btn">{t.heroCtaSecondary}</button>
+              <button onClick={() => setVideoOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-base font-semibold text-white/90 transition-colors hover:text-white" data-testid="hero-watch-demo"><PlayCircle size={20} className="text-[#00DF89]" />{t.watchDemo}</button>
             </div>
           </motion.div>
 
@@ -485,7 +518,7 @@ export default function Landing() {
                     <li key={f} className="flex items-start gap-2.5 text-sm text-[#C0B8E3]"><Check size={17} className="mt-0.5 shrink-0 text-[#00DF89]" />{f}</li>
                   ))}
                 </ul>
-                <button onClick={go(p.name.toLowerCase() === "enterprise" || p.name.toLowerCase() === "entreprise" ? "/login" : "/login?mode=register")}
+                <button onClick={() => (["enterprise", "entreprise"].includes(p.name.toLowerCase()) ? setContactOpen(true) : nav("/login?mode=register"))}
                   className={`mt-8 inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold transition-transform hover:-translate-y-0.5 ${p.featured ? "bg-[#00DF89] text-[#0B061E] shadow-[0_8px_24px_rgba(0,223,137,0.35)]" : "border border-white/20 bg-white/5 text-white hover:bg-white/10"}`}
                   data-testid={`pricing-cta-${p.name.toLowerCase()}`}>{p.cta}<ArrowRight size={16} /></button>
               </motion.div>
@@ -570,13 +603,20 @@ export default function Landing() {
               <p className="mt-4 max-w-xs text-sm text-[#8C82B5]">{t.footerTagline}</p>
               <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-[#C0B8E3]"><MapPin size={13} className="text-[#00DF89]" />{t.madeIn}</div>
             </div>
-            {t.footerCols.map((col) => (
+            {t.footerCols.map((col, ci) => (
               <div key={col.h}>
                 <div className="text-sm font-bold text-white">{col.h}</div>
                 <ul className="mt-4 space-y-2.5">
-                  {col.links.map((l) => (
-                    <li key={l}><Link to="/login" className="text-sm text-[#8C82B5] transition-colors hover:text-white">{l}</Link></li>
-                  ))}
+                  {col.links.map((l, li) => {
+                    const to = (FOOTER_ROUTES[ci] || [])[li] || "/login";
+                    return (
+                      <li key={l}>
+                        {to.startsWith("#")
+                          ? <a href={to} className="text-sm text-[#8C82B5] transition-colors hover:text-white">{l}</a>
+                          : <Link to={to} className="text-sm text-[#8C82B5] transition-colors hover:text-white" data-testid={`footer-link-${to.replace(/\//g, "")}`}>{l}</Link>}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ))}
@@ -591,6 +631,77 @@ export default function Landing() {
           </div>
         </div>
       </footer>
+
+      {videoOpen && <VideoModal t={t} onClose={() => setVideoOpen(false)} />}
+      {contactOpen && <ContactModal t={t} lang={lang} onClose={() => setContactOpen(false)} />}
+    </div>
+  );
+}
+
+function VideoModal({ t, onClose }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={onClose} data-testid="video-modal">
+      <div className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-white/15 bg-[#160D36]" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute right-3 top-3 z-10 rounded-full bg-black/40 p-2 text-white transition-colors hover:bg-black/60" data-testid="video-close"><X size={18} /></button>
+        <div className="relative aspect-video">
+          <img src={IMG.advisor} alt="" className="h-full w-full object-cover opacity-50" />
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-t from-[#160D36] via-transparent text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#00DF89] text-[#0B061E] shadow-[0_8px_30px_rgba(0,223,137,0.5)]"><PlayCircle size={36} /></div>
+            <div className="mt-4 font-heading text-lg font-bold text-white">{t.video.title}</div>
+            <div className="mt-1 text-sm text-[#C0B8E3]">{t.video.soon}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ContactModal({ t, lang, onClose }) {
+  const [form, setForm] = useState({ name: "", email: "", company: "", seats: "", message: "" });
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim()) { toast.error(t.contact.required); return; }
+    setLoading(true);
+    try {
+      await apiClient.post("/leads/contact-sales", { ...form, locale: lang });
+      setDone(true);
+    } catch (er) { toast.error(formatApiError(er.response?.data?.detail) || t.contact.error); }
+    finally { setLoading(false); }
+  };
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose} data-testid="contact-sales-modal">
+      <div className="relative w-full max-w-lg rounded-2xl border border-white/15 bg-[#160D36] p-7" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute right-3 top-3 rounded-full bg-white/5 p-2 text-white transition-colors hover:bg-white/10" data-testid="contact-close"><X size={18} /></button>
+        {done ? (
+          <div className="py-8 text-center" data-testid="contact-success">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#00DF89]/15 text-[#00DF89]"><CheckCircle2 size={30} /></div>
+            <h3 className="mt-4 font-heading text-xl font-bold text-white">{t.contact.successTitle}</h3>
+            <p className="mt-2 text-sm text-[#C0B8E3]">{t.contact.successBody}</p>
+            <button onClick={onClose} className="mt-6 rounded-xl bg-[#00DF89] px-6 py-2.5 text-sm font-bold text-[#0B061E]" data-testid="contact-done">{t.contact.close}</button>
+          </div>
+        ) : (
+          <>
+            <h3 className="font-heading text-xl font-extrabold text-white">{t.contact.title}</h3>
+            <p className="mt-1 text-sm text-[#C0B8E3]">{t.contact.sub}</p>
+            <form onSubmit={submit} className="mt-5 space-y-3" data-testid="contact-form">
+              <input required value={form.name} onChange={set("name")} placeholder={t.contact.name} className={FIELD_CLS} data-testid="contact-name" />
+              <input required type="email" value={form.email} onChange={set("email")} placeholder={t.contact.email} className={FIELD_CLS} data-testid="contact-email" />
+              <input value={form.company} onChange={set("company")} placeholder={t.contact.company} className={FIELD_CLS} data-testid="contact-company" />
+              <select value={form.seats} onChange={set("seats")} className={FIELD_CLS} data-testid="contact-seats">
+                <option value="" className="bg-[#160D36]">{t.contact.seats}</option>
+                {t.contact.seatsOpts.map((o) => <option key={o} value={o} className="bg-[#160D36]">{o}</option>)}
+              </select>
+              <textarea value={form.message} onChange={set("message")} placeholder={t.contact.message} rows={3} className={FIELD_CLS} data-testid="contact-message" />
+              <button type="submit" disabled={loading} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#00DF89] px-6 py-3 text-sm font-bold text-[#0B061E] transition-transform hover:-translate-y-0.5 disabled:opacity-60" data-testid="contact-submit">
+                {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}{loading ? t.contact.sending : t.contact.submit}
+              </button>
+            </form>
+          </>
+        )}
+      </div>
     </div>
   );
 }

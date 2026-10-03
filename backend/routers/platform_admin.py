@@ -4,6 +4,7 @@ Global (platform-wide) collections live in the shared store with an empty scope
 so the admin sees everything. Billing uses the Chase MOCK gateway for now.
 """
 from datetime import datetime, timezone, timedelta
+import os
 import io
 import csv
 import html as _html
@@ -344,7 +345,7 @@ async def refund_invoice(rid: str, admin: dict = Depends(get_admin_user)):
 ADMIN_ACTIONS = [
     "admin.suspend", "admin.reactivate", "admin.invoice.pay", "admin.invoice.refund",
     "admin.announcement.create", "admin.ticket.create", "admin.ticket.reply",
-    "admin.status.create", "admin.sub.create",
+    "admin.status.create", "admin.sub.create", "admin.lead.update",
 ]
 
 
@@ -744,4 +745,83 @@ async def pay_my_invoice(rid: str, user: dict = Depends(get_current_user)):
     r = _pupdate("invoices", rid, {"status": "paid", "paid_at": _now(), "receipt": receipt})
     _pupdate("subscriptions", sub["id"], {"status": "active"})
     audit(user, "billing.self_pay", "invoice", inv.get("number", rid))
+    return r
+
+
+# ---------------- Sales leads (public "Contact sales" + admin inbox) ----------------
+SALES_EMAIL = os.environ.get("SALES_LEAD_EMAIL", "privacy@westoak.dev")
+LEAD_STATUSES = ("new", "contacted", "closed")
+
+
+class ContactSalesIn(BaseModel):
+    name: str
+    email: str
+    company: str = ""
+    seats: str = ""
+    message: str = ""
+    locale: str = "en"
+
+
+def _lead_rows(doc):
+    def row(label, value):
+        return (f'<tr><td style="padding:4px 12px 4px 0;color:#60708f">{_esc(label)}</td>'
+                f'<td style="padding:4px 0;color:#0B1437">{_esc(value) or "&mdash;"}</td></tr>')
+    return (row("Name", doc.get("name")) + row("Email", doc.get("email"))
+            + row("Company", doc.get("company")) + row("Seats", doc.get("seats")))
+
+
+def _lead_notify_html(doc):
+    msg = _esc(doc.get("message")) or "&mdash;"
+    return (f"<p>A new Enterprise enquiry came in from the Compass Planning website.</p>"
+            f'<table role="presentation" style="font-size:14px">{_lead_rows(doc)}</table>'
+            f"<p style='margin-top:12px;color:#0B1437'><strong>Message</strong><br>{msg}</p>"
+            f"<p style='font-size:12px;color:#9aa5b9;margin-top:16px'>Sign in to the Compass Admin console under Leads to follow up.</p>")
+
+
+def _lead_ack_html(doc):
+    first = _esc((doc.get("name") or "there").split()[0]) if doc.get("name") else "there"
+    return (f"<p>Hi {first},</p>"
+            f"<p>Thanks for your interest in Compass Planning Enterprise. We've received your enquiry and a member of our team will reach out shortly to understand your needs.</p>"
+            f"<p>&mdash; Compass Planning</p>"
+            f"<p style='font-size:12px;color:#9aa5b9;margin-top:16px'>We never ask for your password or card details by email.</p>")
+
+
+@router.post("/leads/contact-sales")
+async def contact_sales(body: ContactSalesIn, background: BackgroundTasks):
+    name = (body.name or "").strip()
+    email = (body.email or "").strip()
+    if not name or "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(status_code=400, detail="A name and valid email are required")
+    if not email_service.rate_ok(f"lead:{email.lower()}", limit=3, window=300):
+        raise HTTPException(status_code=429, detail="Too many requests — please try again in a few minutes")
+    doc = _pcreate("leads", {
+        "name": name, "email": email, "company": (body.company or "").strip()[:200],
+        "seats": (body.seats or "").strip()[:60], "message": (body.message or "").strip()[:4000],
+        "locale": body.locale if body.locale in ("en", "fr") else "en",
+        "status": "new", "source": "landing",
+    })
+    background.add_task(_safe_send, SALES_EMAIL, f"New Enterprise lead — {name}", _lead_notify_html(doc))
+    background.add_task(_safe_send, email, "Thanks for contacting Compass Planning", _lead_ack_html(doc))
+    return {"ok": True}
+
+
+@router.get("/admin/leads")
+async def list_leads(admin: dict = Depends(get_admin_user)):
+    items = sorted(_plist("leads"), key=lambda l: l.get("created_at", ""), reverse=True)
+    return {"leads": items, "counts": {s: len([l for l in items if l.get("status") == s]) for s in LEAD_STATUSES}}
+
+
+class LeadPatch(BaseModel):
+    status: str
+
+
+@router.patch("/admin/leads/{rid}")
+async def patch_lead(rid: str, body: LeadPatch, admin: dict = Depends(get_admin_user)):
+    if body.status not in LEAD_STATUSES:
+        raise HTTPException(status_code=400, detail="Unknown status")
+    cur = repo.get(PLATFORM, "leads", rid, {})
+    if not cur:
+        raise HTTPException(status_code=404, detail="Not found")
+    r = _pupdate("leads", rid, {"status": body.status, "updated_at": _now()})
+    audit(admin, "admin.lead.update", "lead", f"{cur.get('company') or cur.get('name')} -> {body.status}")
     return r

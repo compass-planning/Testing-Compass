@@ -47,6 +47,8 @@ import AdminAnnouncements from "@/pages/admin/AdminAnnouncements";
 import AdminTickets from "@/pages/admin/AdminTickets";
 import AdminStatus from "@/pages/admin/AdminStatus";
 import AdminAudit from "@/pages/admin/AdminAudit";
+import AdminLeads from "@/pages/admin/AdminLeads";
+import Legal from "@/pages/Legal";
 
 function TierRoute({ tiers, children }) {
   const { user } = useAuth();
@@ -70,6 +72,9 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/privacy-policy" element={<Legal doc="privacy" />} />
+            <Route path="/pipeda" element={<Legal doc="pipeda" />} />
+            <Route path="/terms" element={<Legal doc="terms" />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/activate" element={<Activate />} />
@@ -122,6 +127,7 @@ function App() {
               <Route path="/admin/tickets" element={<AdminTickets />} />
               <Route path="/admin/status" element={<AdminStatus />} />
               <Route path="/admin/audit" element={<AdminAudit />} />
+              <Route path="/admin/leads" element={<AdminLeads />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

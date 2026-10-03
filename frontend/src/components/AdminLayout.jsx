@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink, Outlet, useNavigate, Navigate } from "react-router-dom";
-import { LayoutDashboard, Users, CreditCard, Megaphone, LifeBuoy, Activity, LogOut, ShieldCheck, ScrollText } from "lucide-react";
+import { LayoutDashboard, Users, CreditCard, Megaphone, LifeBuoy, Activity, LogOut, ShieldCheck, ScrollText, Inbox } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Logo } from "@/components/Logo";
 
@@ -10,6 +10,7 @@ const NAV = [
   { to: "/admin/billing", label: "Billing", icon: CreditCard },
   { to: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { to: "/admin/tickets", label: "Tickets", icon: LifeBuoy },
+  { to: "/admin/leads", label: "Leads", icon: Inbox },
   { to: "/admin/status", label: "Status & Health", icon: Activity },
   { to: "/admin/audit", label: "Audit Trail", icon: ScrollText },
 ];
