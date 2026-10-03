@@ -40,6 +40,7 @@ export default function AdminAnnouncements() {
           <label className="flex items-center gap-2 text-sm text-compass-navy">Active <Toggle checked={form.active} onChange={(v) => setForm({ ...form, active: v })} testid="ann-active" /></label>
           <Button onClick={() => form.title && create.mutate(form)} disabled={!form.title || create.isPending} data-testid="ann-create">Post announcement</Button>
         </div>
+        <p className="text-xs text-compass-muted">Only <span className="font-semibold">active</span> announcements are shown to users.</p>
       </Card>
       <div className="space-y-3">
         {items.map((a) => (
