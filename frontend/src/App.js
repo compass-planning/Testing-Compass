@@ -36,6 +36,13 @@ import TaskBoard from "@/pages/TaskBoard";
 import Education from "@/pages/Education";
 import CrossBorder from "@/pages/CrossBorder";
 import SecuritySettings from "@/pages/SecuritySettings";
+import AdminLayout from "@/components/AdminLayout";
+import AdminOverview from "@/pages/admin/AdminOverview";
+import AdminAccounts from "@/pages/admin/AdminAccounts";
+import AdminBilling from "@/pages/admin/AdminBilling";
+import AdminAnnouncements from "@/pages/admin/AdminAnnouncements";
+import AdminTickets from "@/pages/admin/AdminTickets";
+import AdminStatus from "@/pages/admin/AdminStatus";
 
 function TierRoute({ tiers, children }) {
   const { user } = useAuth();
@@ -93,6 +100,20 @@ function App() {
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/audit" element={<AuditLog />} />
               <Route path="/security" element={<SecuritySettings />} />
+            </Route>
+            <Route
+              element={
+                <ProtectedRoute>
+                  <AdminLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="/admin" element={<AdminOverview />} />
+              <Route path="/admin/accounts" element={<AdminAccounts />} />
+              <Route path="/admin/billing" element={<AdminBilling />} />
+              <Route path="/admin/announcements" element={<AdminAnnouncements />} />
+              <Route path="/admin/tickets" element={<AdminTickets />} />
+              <Route path="/admin/status" element={<AdminStatus />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

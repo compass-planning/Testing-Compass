@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, Navigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Target, ShieldCheck, ScrollText, RefreshCw,
   ArrowUpCircle, LogOut, Menu, X, Building2, UserCog, User as UserIcon,
@@ -15,6 +15,7 @@ import { TIER_META } from "@/lib/format";
 import CommandPalette from "@/components/CommandPalette";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import SessionWarningModal from "@/components/SessionWarningModal";
+import NoticeBanner from "@/components/NoticeBanner";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 
 function LangToggle() {
@@ -125,6 +126,8 @@ export default function Shell() {
       toast("Signed out due to inactivity", { description: "Please sign in again to continue." });
     },
   });
+
+  if (user.tier === "admin") return <Navigate to="/admin" replace />;
 
   const SidebarInner = (
     <div className="flex h-full flex-col">
@@ -253,6 +256,7 @@ export default function Shell() {
         </header>
 
         <main className="px-4 sm:px-8 py-6 sm:py-8 max-w-[1400px] mx-auto animate-fade-up" data-testid="app-main">
+          <NoticeBanner />
           <Outlet />
         </main>
       </div>

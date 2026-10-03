@@ -108,7 +108,59 @@ def _audit(store, scope, actor, action, resource, detail):
     }
 
 
+def _ensure_platform_seed():
+    """Idempotently seed the platform super-admin + admin-console demo data."""
+    if repo.find_user_by_email("admin@compass.ca"):
+        return
+    ph = hash_password(os.environ.get("DEMO_PASSWORD", "Compass2026!"))
+    answer_hash = hash_password("toronto")
+    repo.insert_user({
+        "id": _id(), "email": "admin@compass.ca", "password_hash": ph,
+        "name": "Platform Admin", "tier": "admin", "role": "platform_admin",
+        "scope": {"corp_id": None, "org_id": None, "advisor_id": None, "client_id": None},
+        "mfa_enabled": False, "mfa_secret": None, "must_change_password": False,
+        "status": "active",
+        "security_question": "What city were you born in?", "security_answer_hash": answer_hash,
+        "consent": {"marketing": False, "data_processing": True, "crm_sharing": False, "updated_at": _now()},
+        "created_at": _now(),
+    })
+
+    def pr(coll, doc):
+        return repo.create("shared", coll, {"id": _id(), "store": "shared", "scope": {}, "created_at": _now(), **doc})
+
+    pr("announcements", {"title": "Scheduled maintenance Sunday 2 AM ET",
+                         "body": "Compass will be briefly unavailable during a database upgrade.",
+                         "audience": "all", "active": True, "created_by": "admin@compass.ca"})
+    pr("announcements", {"title": "New: Education (RESP) planning is live",
+                         "body": "Advisors can now model CESG/CLB grants per child.",
+                         "audience": "advisor", "active": False, "created_by": "admin@compass.ca"})
+    pr("status_posts", {"title": "All systems operational", "body": "No incidents reported.",
+                        "severity": "operational", "resolved_at": None})
+    pr("tickets", {"type": "service_request", "subject": "Add 3 advisor seats — Maple Advisory",
+                   "description": "Firm admin requested additional seats.", "status": "open",
+                   "priority": "normal", "requester_email": "firmadmin@compass.ca", "notes": []})
+    pr("tickets", {"type": "incident", "subject": "Book report PDF slow for 50+ households",
+                   "description": "Export takes >20s for large books.", "status": "in_progress",
+                   "priority": "high", "requester_email": "advisor@compass.ca", "notes": []})
+    subs = [
+        {"account_label": "Sweston Financial (Enterprise)", "tier": "enterprise", "plan": "Enterprise",
+         "seats": 25, "status": "active", "amount": 1250, "currency": "CAD", "billing_period": "monthly"},
+        {"account_label": "Maple Advisory (Advisor)", "tier": "advisor", "plan": "Advisor Pro",
+         "seats": 5, "status": "active", "amount": 299, "currency": "CAD", "billing_period": "monthly"},
+        {"account_label": "Jordan Blake (Solo)", "tier": "solo", "plan": "Solo",
+         "seats": 1, "status": "past_due", "amount": 19, "currency": "CAD", "billing_period": "monthly"},
+    ]
+    for s in subs:
+        sub = pr("subscriptions", {**s, "provider": "chase_mock"})
+        pr("invoices", {"subscription_id": sub["id"], "account_label": s["account_label"],
+                        "amount": s["amount"], "currency": s["currency"],
+                        "status": "paid" if s["status"] == "active" else "open",
+                        "number": "INV-" + sub["id"][:6].upper(), "issued_at": _now(),
+                        "paid_at": _now() if s["status"] == "active" else None})
+
+
 def seed():
+    _ensure_platform_seed()
     if repo.find_user_by_email("scott@sweston.ca"):
         return  # already seeded
 

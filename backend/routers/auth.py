@@ -57,6 +57,8 @@ async def login(body: LoginInput):
     user = repo.find_user_by_email(body.email.lower())
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    if user.get("status") == "suspended":
+        raise HTTPException(status_code=403, detail="This account has been suspended. Please contact your administrator.")
     if user.get("mfa_enabled") and user.get("mfa_secret"):
         challenge = create_scoped_token({"sub": user["id"]}, 10, "mfa_verify")
         return {"status": "mfa_required", "challenge": challenge}

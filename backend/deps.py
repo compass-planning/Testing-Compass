@@ -65,6 +65,13 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
+async def get_admin_user(request: Request) -> dict:
+    user = await get_current_user(request)
+    if user.get("tier") != "admin":
+        raise HTTPException(status_code=403, detail="Platform admin access required")
+    return user
+
+
 def scope_context(user: dict):
     """Return (store, read_scope_filter) enforced for this user's tier."""
     tier = user["tier"]

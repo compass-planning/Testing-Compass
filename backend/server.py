@@ -15,7 +15,8 @@ from starlette.middleware.cors import CORSMiddleware
 
 import storage
 import seed
-from routers import auth, planning, advisor, tasks, compliance, retirement, protection, estate, insights, documents, education, crossborder, letters
+import metrics
+from routers import auth, planning, advisor, tasks, compliance, retirement, protection, estate, insights, documents, education, crossborder, letters, platform_admin
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("compass")
@@ -55,8 +56,18 @@ api.include_router(planning.router)
 api.include_router(advisor.router)
 api.include_router(tasks.router)
 api.include_router(compliance.router)
+api.include_router(platform_admin.router)
 
 app.include_router(api)
+
+
+@app.middleware("http")
+async def _count_errors(request, call_next):
+    resp = await call_next(request)
+    if resp.status_code >= 500:
+        metrics.record_error()
+    return resp
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=False,
