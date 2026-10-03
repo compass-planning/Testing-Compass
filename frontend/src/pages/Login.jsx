@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
-import { ShieldCheck, ArrowRight, Building2, UserCog, User as UserIcon, ArrowLeft, KeyRound, QrCode, Check, X } from "lucide-react";
+import { ShieldCheck, ArrowRight, Building2, UserCog, User as UserIcon, ArrowLeft, KeyRound, QrCode, Check, X, TrendingUp, Calculator, Wallet, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Logo } from "@/components/Logo";
-import { Button, Input, Field, Select } from "@/components/ui-kit";
+import { Button, Input, Field, Select, Toggle } from "@/components/ui-kit";
 import api, { formatApiError } from "@/lib/api";
 
 const DEMOS = [
@@ -13,11 +13,26 @@ const DEMOS = [
   { email: "solo@compass.ca", label: "Solo Planner", icon: UserIcon, desc: "Self-serve retirement" },
 ];
 
+const FEATURES = [
+  { icon: TrendingUp, title: "Retirement projections", desc: "Monte Carlo + guardrails engine" },
+  { icon: Calculator, title: "Tax optimization", desc: "Canada & United States" },
+  { icon: Wallet, title: "Net worth & goals", desc: "Full balance sheet tracking" },
+  { icon: Sparkles, title: "AI financial reports", desc: "Plain-language plan summaries" },
+];
+
+const tabCls = (active) =>
+  `py-3.5 text-sm font-bold text-center transition-colors border-b-2 ${
+    active
+      ? "text-compass-blue bg-white border-compass-blue"
+      : "text-compass-muted bg-compass-bg hover:text-compass-navy border-transparent"
+  }`;
+
 const err = (e, fb) => toast.error(formatApiError(e.response?.data?.detail) || fb);
 
 export default function Login() {
   const { login, applySession } = useAuth();
   const nav = useNavigate();
+  const [mode, setMode] = useState("signin"); // signin | register
   const [step, setStep] = useState("password");
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -51,88 +66,166 @@ export default function Login() {
     } catch (e) { err(e, "Invalid code"); } finally { setLoading(false); }
   };
 
+  const showTabs = mode === "register" || step === "password";
+
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
-      <div className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden gradient-bg">
+      {/* Hero */}
+      <div
+        className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden"
+        style={{ background: "linear-gradient(150deg, #071233 0%, #0A2E6B 48%, #06402F 100%)" }}
+      >
         <div className="relative z-10"><Logo dark /></div>
         <div className="relative z-10 text-white max-w-md">
-          <h2 className="font-heading text-4xl font-extrabold leading-tight">Retirement planning built on trust and isolation.</h2>
-          <p className="mt-4 text-white/80">Three tiers, one locked design system. Every account is protected with two-factor authentication.</p>
-          <div className="mt-8 flex items-center gap-2 text-sm font-semibold"><ShieldCheck size={18} /> PIPEDA compliant · TOTP MFA · Canadian-resident</div>
+          <h2 className="font-heading text-4xl xl:text-5xl font-extrabold leading-[1.1]">Your financial future,<br />clearly mapped.</h2>
+          <p className="mt-5 text-white/70 leading-relaxed">
+            Retirement projections, tax planning, net worth tracking, and AI-powered insights — built for Canadians and Americans planning their own financial future.
+          </p>
         </div>
-        <div className="absolute -right-24 -bottom-24 h-96 w-96 rounded-full bg-white/10" />
+        <div className="relative z-10 grid grid-cols-2 gap-x-6 gap-y-5 max-w-md">
+          {FEATURES.map((f) => (
+            <div key={f.title} className="flex items-start gap-3">
+              <div className="mt-0.5 h-7 w-7 shrink-0 rounded-full flex items-center justify-center" style={{ background: "rgba(0,223,137,0.16)" }}>
+                <Check size={15} className="text-compass-green" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-white">{f.title}</div>
+                <div className="text-xs text-white/55">{f.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="absolute -right-32 -top-24 h-96 w-96 rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(0,82,255,0.5), transparent 70%)" }} />
+        <div className="absolute -left-24 bottom-6 h-72 w-72 rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(0,223,137,0.4), transparent 70%)" }} />
       </div>
 
-      <div className="flex items-center justify-center p-6 sm:p-12 bg-white">
-        <div className="w-full max-w-sm">
-          <div className="lg:hidden mb-8"><Logo /></div>
+      {/* Form */}
+      <div className="flex flex-col items-center justify-center p-6 sm:p-12 bg-compass-bg">
+        <div className="w-full max-w-md">
+          <div className="lg:hidden mb-6 flex justify-center"><Logo /></div>
 
-          {step === "password" && (
-            <>
-              <h1 className="font-heading text-2xl font-extrabold text-compass-navy">Sign in</h1>
-              <p className="text-sm text-compass-muted mt-1 mb-6">Access your Compass Planning workspace.</p>
-              <form onSubmit={submitPassword} className="space-y-4" data-testid="login-form">
-                <Field label="Email"><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@firm.ca" data-testid="login-email" /></Field>
-                <Field label="Password"><Input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" data-testid="login-password" /></Field>
-                <Button type="submit" className="w-full" disabled={loading} data-testid="login-submit">{loading ? "Checking…" : "Continue"} <ArrowRight size={16} /></Button>
-              </form>
-              <button onClick={() => { setCtx({}); setStep("forgot"); }} className="mt-3 text-sm font-semibold text-compass-blue" data-testid="forgot-link">Forgot password?</button>
-              <div className="mt-6">
-                <div className="muted-label mb-2">Try a demo workspace</div>
-                <div className="space-y-2">
-                  {DEMOS.map((d) => (
-                    <button key={d.email} onClick={() => { setEmail(d.email); setPassword("Compass2026!"); }} data-testid={`demo-${d.label.split(" ")[0].toLowerCase()}`}
-                      className="flex w-full items-center gap-3 rounded-xl border border-compass-border px-3 py-2.5 text-left hover:border-compass-blue transition-colors">
-                      <d.icon size={18} className="text-compass-blue" />
-                      <div className="flex-1"><div className="text-sm font-semibold text-compass-navy">{d.label}</div><div className="text-xs text-compass-muted">{d.desc}</div></div>
-                      <span className="text-xs text-compass-muted">use</span>
-                    </button>
-                  ))}
-                </div>
+          <div className="compass-card overflow-hidden">
+            {showTabs && (
+              <div className="grid grid-cols-2">
+                <button onClick={() => { setMode("signin"); setStep("password"); }} data-testid="tab-signin" className={tabCls(mode === "signin")}>Sign In</button>
+                <button onClick={() => setMode("register")} data-testid="tab-register" className={tabCls(mode === "register")}>Register</button>
               </div>
-              <p className="text-sm text-compass-muted mt-6 text-center">New here? <Link to="/register" className="font-semibold text-compass-blue" data-testid="go-register">Create a Solo account</Link></p>
-            </>
-          )}
+            )}
 
-          {(step === "mfa" || step === "setup") && (
-            <>
-              <button onClick={() => setStep("password")} className="flex items-center gap-1 text-sm font-semibold text-compass-blue mb-4"><ArrowLeft size={14} /> Back</button>
-              <div className="h-11 w-11 rounded-xl gradient-bg flex items-center justify-center text-white mb-4">{step === "setup" ? <QrCode size={22} /> : <KeyRound size={22} />}</div>
-              <h1 className="font-heading text-2xl font-extrabold text-compass-navy">{step === "setup" ? "Set up two-factor auth" : "Enter your code"}</h1>
-              {step === "setup" ? (
-                <>
-                  <p className="text-sm text-compass-muted mt-1 mb-4">Scan this QR code with Google Authenticator, Authy or 1Password, then enter the 6-digit code to finish enrollment.</p>
-                  {ctx.qr && <img src={ctx.qr} alt="TOTP QR" className="h-44 w-44 rounded-xl border border-compass-border p-2 mb-3" data-testid="mfa-qr" />}
-                  <div className="text-xs text-compass-muted mb-4">Can't scan? Enter this key manually: <span className="font-mono text-compass-navy break-all">{ctx.secret}</span></div>
-                </>
+            <div className="p-8">
+              {mode === "register" ? (
+                <RegisterInline onDone={() => { setMode("signin"); setStep("password"); }} />
               ) : (
-                <p className="text-sm text-compass-muted mt-1 mb-4">Open your authenticator app and enter the current 6-digit code for Compass Planning.</p>
+                <>
+                  {step === "password" && (
+                    <>
+                      <h1 className="font-heading text-2xl font-extrabold text-compass-navy">Welcome back</h1>
+                      <p className="text-sm text-compass-muted mt-1 mb-6">Sign in to your Compass Planning account.</p>
+                      <form onSubmit={submitPassword} className="space-y-4" data-testid="login-form">
+                        <Field label="Email"><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@firm.ca" data-testid="login-email" /></Field>
+                        <Field label="Password"><Input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" data-testid="login-password" /></Field>
+                        <Button type="submit" className="w-full" disabled={loading} data-testid="login-submit">{loading ? "Checking…" : "Sign In"} <ArrowRight size={16} /></Button>
+                      </form>
+                      <button onClick={() => { setCtx({}); setStep("forgot"); }} className="mt-3 text-sm font-semibold text-compass-blue" data-testid="forgot-link">Forgot password?</button>
+                      <div className="mt-6">
+                        <div className="muted-label mb-2">Try a demo workspace</div>
+                        <div className="space-y-2">
+                          {DEMOS.map((d) => (
+                            <button key={d.email} onClick={() => { setEmail(d.email); setPassword("Compass2026!"); }} data-testid={`demo-${d.label.split(" ")[0].toLowerCase()}`}
+                              className="flex w-full items-center gap-3 rounded-xl border border-compass-border px-3 py-2.5 text-left hover:border-compass-blue transition-colors">
+                              <d.icon size={18} className="text-compass-blue" />
+                              <div className="flex-1"><div className="text-sm font-semibold text-compass-navy">{d.label}</div><div className="text-xs text-compass-muted">{d.desc}</div></div>
+                              <span className="text-xs text-compass-muted">use</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {(step === "mfa" || step === "setup") && (
+                    <>
+                      <button onClick={() => setStep("password")} className="flex items-center gap-1 text-sm font-semibold text-compass-blue mb-4"><ArrowLeft size={14} /> Back</button>
+                      <div className="h-11 w-11 rounded-xl gradient-bg flex items-center justify-center text-white mb-4">{step === "setup" ? <QrCode size={22} /> : <KeyRound size={22} />}</div>
+                      <h1 className="font-heading text-2xl font-extrabold text-compass-navy">{step === "setup" ? "Set up two-factor auth" : "Enter your code"}</h1>
+                      {step === "setup" ? (
+                        <>
+                          <p className="text-sm text-compass-muted mt-1 mb-4">Scan this QR code with Google Authenticator, Authy or 1Password, then enter the 6-digit code to finish enrollment.</p>
+                          {ctx.qr && <img src={ctx.qr} alt="TOTP QR" className="h-44 w-44 rounded-xl border border-compass-border p-2 mb-3" data-testid="mfa-qr" />}
+                          <div className="text-xs text-compass-muted mb-4">Can't scan? Enter this key manually: <span className="font-mono text-compass-navy break-all">{ctx.secret}</span></div>
+                        </>
+                      ) : (
+                        <p className="text-sm text-compass-muted mt-1 mb-4">Open your authenticator app and enter the current 6-digit code for Compass Planning.</p>
+                      )}
+                      <form onSubmit={submitCode} className="space-y-4" data-testid="mfa-form">
+                        <Field label="Authentication code"><Input inputMode="numeric" maxLength={6} required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="123456" className="tracking-[0.4em] text-center text-lg" data-testid="mfa-code" /></Field>
+                        <Button type="submit" className="w-full" disabled={loading || code.length < 6} data-testid="mfa-submit">{loading ? "Verifying…" : "Verify"} <ArrowRight size={16} /></Button>
+                      </form>
+                    </>
+                  )}
+
+                  {step === "security" && (
+                    <SecurityStep questions={ctx.questions} setupToken={ctx.setup_token} onDone={handleAuth} />
+                  )}
+
+                  {step === "change" && (
+                    <ChangeStep changeToken={ctx.change_token} onDone={finish} />
+                  )}
+
+                  {step === "forgot" && (
+                    <ForgotStep onBack={() => setStep("password")} onFound={(em, q, mfa) => { setEmail(em); setCtx({ resetQuestion: q, mfa }); setStep("reset"); }} />
+                  )}
+
+                  {step === "reset" && (
+                    <ResetStep email={email} question={ctx.resetQuestion} mfa={ctx.mfa} onDone={() => { setStep("password"); setPassword(""); }} />
+                  )}
+                </>
               )}
-              <form onSubmit={submitCode} className="space-y-4" data-testid="mfa-form">
-                <Field label="Authentication code"><Input inputMode="numeric" maxLength={6} required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="123456" className="tracking-[0.4em] text-center text-lg" data-testid="mfa-code" /></Field>
-                <Button type="submit" className="w-full" disabled={loading || code.length < 6} data-testid="mfa-submit">{loading ? "Verifying…" : "Verify"} <ArrowRight size={16} /></Button>
-              </form>
-            </>
-          )}
+            </div>
+          </div>
 
-          {step === "security" && (
-            <SecurityStep questions={ctx.questions} setupToken={ctx.setup_token} onDone={handleAuth} />
-          )}
-
-          {step === "change" && (
-            <ChangeStep changeToken={ctx.change_token} onDone={finish} />
-          )}
-
-          {step === "forgot" && (
-            <ForgotStep onBack={() => setStep("password")} onFound={(em, q, mfa) => { setEmail(em); setCtx({ resetQuestion: q, mfa }); setStep("reset"); }} />
-          )}
-
-          {step === "reset" && (
-            <ResetStep email={email} question={ctx.resetQuestion} mfa={ctx.mfa} onDone={() => { setStep("password"); setPassword(""); }} />
-          )}
+          <p className="text-xs text-compass-muted text-center mt-6">© 2026 Compass Planning. All rights reserved.</p>
         </div>
       </div>
     </div>
+  );
+}
+
+function RegisterInline({ onDone }) {
+  const { register } = useAuth();
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [consent, setConsent] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!consent) return toast.error("Data-processing consent is required to create an account");
+    setLoading(true);
+    try {
+      await register({ ...form, consent_data_processing: consent });
+      toast.success("Account created — sign in and set up two-factor authentication");
+      onDone();
+    } catch (er) { err(er, "Registration failed"); } finally { setLoading(false); }
+  };
+
+  return (
+    <>
+      <h1 className="font-heading text-2xl font-extrabold text-compass-navy">Create your account</h1>
+      <p className="text-sm text-compass-muted mt-1 mb-6">Self-serve retirement planning. Upgrade to an advisor anytime.</p>
+      <form onSubmit={submit} className="space-y-4" data-testid="register-form">
+        <Field label="Full name"><Input required value={form.name} onChange={set("name")} placeholder="Jordan Blake" data-testid="register-name" /></Field>
+        <Field label="Email"><Input type="email" required value={form.email} onChange={set("email")} placeholder="you@email.ca" data-testid="register-email" /></Field>
+        <Field label="Password" hint="At least 6 characters"><Input type="password" required minLength={6} value={form.password} onChange={set("password")} placeholder="••••••••" data-testid="register-password" /></Field>
+        <div className="flex items-start gap-3 rounded-xl bg-compass-bg p-3">
+          <Toggle checked={consent} onChange={setConsent} testid="register-consent" />
+          <div className="text-xs text-compass-navy">
+            I consent to Compass Planning processing my personal data to provide retirement planning services, in accordance with <span className="font-semibold">PIPEDA</span>. You can export or erase your data at any time.
+          </div>
+        </div>
+        <Button type="submit" className="w-full" disabled={loading} data-testid="register-submit">{loading ? "Creating…" : "Create account"} <ArrowRight size={16} /></Button>
+      </form>
+    </>
   );
 }
 

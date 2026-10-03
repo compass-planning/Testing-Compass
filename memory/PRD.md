@@ -175,6 +175,13 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - FR i18n added for the modal strings in `lib/i18n.jsx`.
 - Testing: iteration_40.json — frontend 4/4 pass, no regressions. Code-review note (future): consider rate-limiting `/auth/change-password-self`.
 
+## Phase 3m — Login redesign to match original (compassplanning.app) in brand colours (added 2026-06) ✅
+- Rebuilt `pages/Login.jsx` to mirror the ORIGINAL app's login layout (reference: compassplanning.app) but in the locked blue→green brand scheme (#0052FF → #00DF89), replacing the original's purple theme.
+- Left hero: dark navy→blue→green gradient (`linear-gradient(150deg,#071233,#0A2E6B,#06402F)`) with "Your financial future, clearly mapped." headline, the Canadian/US descriptor copy, and a 2×2 feature grid (Retirement projections / Tax optimization / Net worth & goals / AI financial reports) with green check chips + blurred gradient orbs.
+- Right card: flush **Sign In | Register** tabs (`tab-signin`/`tab-register`), "Welcome back" heading, blue→green `Sign In` button, Forgot-password, demo-workspace shortcuts, and a "© 2026 Compass Planning" footer. Register is now an inline tab (`RegisterInline`) within the same card (the standalone `/register` route still exists).
+- All existing multi-step auth logic preserved verbatim (password → MFA/setup → security question → forced change → forgot/reset); only markup + the button label ("Continue"→"Sign In") changed. All data-testids retained; tabs hidden during sub-steps.
+- Verified: clean webpack compile, no console/React errors, backend login→MFA→token e2e still passes. Brand audit: zero purple/violet anywhere in the codebase.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.
