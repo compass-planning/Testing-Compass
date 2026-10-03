@@ -13,6 +13,8 @@ User language: **English** (respond in English).
 
 ## Implemented (latest first)
 ### 2026-06 — Landing follow-ups: Legal pages, Demo modal, Lead capture (DONE, tested)
+- **Leads analytics**: `/admin/leads` now returns `by_source`; Admin → Leads shows a "By source" breakdown panel (`data-testid="leads-source-breakdown"`, chips `source-{name}`).
+- **More lead entry points**: "Talk to sales" link in the hero (source `hero`) and footer (source `footer`), both opening the contact modal via `openContact(source)`. Verified by_source = {hero, footer, pricing, landing}.
 - **Scrollspy nav**: active section highlighted in the sticky nav via IntersectionObserver (green underline, `data-testid="nav-active-{id}"`) as the visitor scrolls.
 - **Lead source tracking**: `ContactSalesIn.source` (default "landing") stored on each lead and shown as a purple badge in Admin → Leads. Landing passes `source="pricing"` from the Enterprise CTA via `openContact(source)`.
 - **Nav shortcut**: "How it works" link added to top nav (`data-testid="nav-how-it-works"`), scrolls to `#how-it-works`; bilingual.

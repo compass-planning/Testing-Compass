@@ -26,6 +26,7 @@ const COPY = {
     heroCtaPrimary: "Start your free plan",
     heroCtaSecondary: "Sign in",
     watchDemo: "Watch demo",
+    talkToSales: "Talk to sales",
     video: { title: "Product walkthrough", soon: "Our full demo video is coming soon." },
     contact: {
       title: "Talk to our Enterprise team",
@@ -127,6 +128,7 @@ const COPY = {
     heroCtaPrimary: "Commencer gratuitement",
     heroCtaSecondary: "Se connecter",
     watchDemo: "Voir la démo",
+    talkToSales: "Parler aux ventes",
     video: { title: "Visite guidée du produit", soon: "Notre vidéo de démonstration complète arrive bientôt." },
     contact: {
       title: "Parlez à notre équipe Entreprise",
@@ -400,6 +402,7 @@ export default function Landing() {
               <button onClick={go("/login")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/5 px-7 py-3.5 text-base font-semibold text-white backdrop-blur transition-colors hover:bg-white/10" data-testid="hero-sign-in-btn">{t.heroCtaSecondary}</button>
               <button onClick={() => setVideoOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-base font-semibold text-white/90 transition-colors hover:text-white" data-testid="hero-watch-demo"><PlayCircle size={20} className="text-[#00DF89]" />{t.watchDemo}</button>
             </div>
+            <button onClick={() => openContact("hero")} className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#C0B8E3] transition-colors hover:text-white" data-testid="hero-talk-sales">{t.talkToSales} <ArrowRight size={14} /></button>
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 40, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.8, delay: 0.15, ease: "easeOut" }} className="relative" data-testid="hero-preview-card">
@@ -681,6 +684,7 @@ export default function Landing() {
               </div>
               <p className="mt-4 max-w-xs text-sm text-[#8C82B5]">{t.footerTagline}</p>
               <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-[#C0B8E3]"><MapPin size={13} className="text-[#00DF89]" />{t.madeIn}</div>
+              <button onClick={() => openContact("footer")} className="mt-4 block text-sm font-semibold text-[#00DF89] transition-opacity hover:opacity-80" data-testid="footer-talk-sales">{t.talkToSales} →</button>
             </div>
             {t.footerCols.map((col, ci) => (
               <div key={col.h}>

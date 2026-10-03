@@ -12,6 +12,7 @@ export default function AdminLeads() {
   const { data } = useQuery({ queryKey: ["admin-leads"], queryFn: () => api.get("/admin/leads").then((r) => r.data) });
   const leads = data?.leads || [];
   const counts = data?.counts || {};
+  const bySource = data?.by_source || {};
   const patch = useMutation({
     mutationFn: ({ id, status }) => api.patch(`/admin/leads/${id}`, { status }).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-leads"] }),
@@ -29,6 +30,19 @@ export default function AdminLeads() {
           </Card>
         ))}
       </div>
+      {Object.keys(bySource).length > 0 && (
+        <Card className="p-4" data-testid="leads-source-breakdown">
+          <div className="muted-label mb-2">By source</div>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(bySource).map(([s, c]) => (
+              <span key={s} className="inline-flex items-center gap-1.5 rounded-full bg-compass-bg px-3 py-1 text-xs font-semibold text-compass-navy" data-testid={`source-${s}`}>
+                <span className="capitalize">{s}</span>
+                <span className="rounded-full bg-compass-blue/10 px-1.5 text-compass-blue">{c}</span>
+              </span>
+            ))}
+          </div>
+        </Card>
+      )}
       <div className="space-y-3">
         {leads.map((l) => (
           <Card key={l.id} className="p-4" data-testid={`lead-${l.id}`}>

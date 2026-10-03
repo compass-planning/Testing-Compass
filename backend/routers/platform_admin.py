@@ -823,7 +823,13 @@ async def contact_sales(body: ContactSalesIn, background: BackgroundTasks):
 @router.get("/admin/leads")
 async def list_leads(admin: dict = Depends(get_admin_user)):
     items = sorted(_plist("leads"), key=lambda l: l.get("created_at", ""), reverse=True)
-    return {"leads": items, "counts": {s: len([l for l in items if l.get("status") == s]) for s in LEAD_STATUSES}}
+    by_source = {}
+    for l in items:
+        s = l.get("source") or "unknown"
+        by_source[s] = by_source.get(s, 0) + 1
+    return {"leads": items,
+            "counts": {s: len([l for l in items if l.get("status") == s]) for s in LEAD_STATUSES},
+            "by_source": by_source}
 
 
 class LeadPatch(BaseModel):
