@@ -71,7 +71,7 @@ export default function Login() {
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* Hero */}
-      <div className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden gradient-bg">
+      <div className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden" style={{ background: "linear-gradient(135deg, #2E1B6A 0%, #3B1F80 55%, #4B1D93 100%)" }}>
         <div className="relative z-10"><Logo dark large /></div>
         <div className="relative z-10 text-white max-w-md">
           <h2 className="font-heading text-4xl xl:text-5xl font-extrabold leading-[1.1]">Your financial future,<br />clearly mapped.</h2>
@@ -92,8 +92,8 @@ export default function Login() {
             </div>
           ))}
         </div>
-        <div className="absolute -right-32 -top-24 h-96 w-96 rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(0,82,255,0.5), transparent 70%)" }} />
-        <div className="absolute -left-24 bottom-6 h-72 w-72 rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(0,223,137,0.4), transparent 70%)" }} />
+        <div className="absolute -right-32 -top-24 h-96 w-96 rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(255,255,255,0.10), transparent 70%)" }} />
+        <div className="absolute -left-24 bottom-6 h-72 w-72 rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(123,97,255,0.45), transparent 70%)" }} />
       </div>
 
       {/* Form */}

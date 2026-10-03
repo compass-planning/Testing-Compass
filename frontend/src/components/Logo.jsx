@@ -32,6 +32,21 @@ export function CompassMark({ size = 36 }) {
 const LOGO_SRC = `${process.env.PUBLIC_URL || ""}/compass-logo.png`;
 
 export function Logo({ compact = false, dark = false, large = false }) {
+  if (dark) {
+    // Coloured clock mark + white wordmark — for dark / purple backgrounds (mirrors compassplanning.app).
+    return (
+      <div className="flex items-center gap-4" data-testid="brand-logo">
+        <CompassMark size={large ? 74 : 48} />
+        {!compact && (
+          <div className="leading-none">
+            <div className="font-heading font-extrabold uppercase tracking-tight text-white" style={{ fontSize: large ? 30 : 22 }}>Compass</div>
+            <div className="font-bold uppercase tracking-[0.3em] text-compass-green" style={{ fontSize: large ? 14 : 11, marginTop: 4 }}>Planning</div>
+            <div className="font-bold uppercase tracking-[0.22em] text-white/70 mt-1.5" style={{ fontSize: 9 }}>Canadian Retirement Intelligence</div>
+          </div>
+        )}
+      </div>
+    );
+  }
   const h = compact ? "h-10" : large ? "h-28" : "h-14";
   return (
     <div className="inline-flex flex-col items-start" data-testid="brand-logo">
