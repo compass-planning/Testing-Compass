@@ -1,7 +1,9 @@
 import React from "react";
 import { NavLink, Outlet, useNavigate, Navigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { LayoutDashboard, Users, CreditCard, Megaphone, LifeBuoy, Activity, LogOut, ShieldCheck, ScrollText, Inbox } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import api from "@/lib/api";
 import { Logo } from "@/components/Logo";
 
 const NAV = [
@@ -23,6 +25,13 @@ const linkCls = ({ isActive }) =>
 export default function AdminLayout() {
   const { user, logout } = useAuth();
   const nav = useNavigate();
+  const { data: leadData } = useQuery({
+    queryKey: ["admin-leads-badge"],
+    queryFn: () => api.get("/admin/leads").then((r) => r.data),
+    enabled: user?.tier === "admin",
+    refetchInterval: 60000,
+  });
+  const newLeads = leadData?.counts?.new || 0;
   if (user === undefined) return null;
   if (!user || user.tier !== "admin") return <Navigate to="/dashboard" replace />;
   const doLogout = () => { logout(); nav("/login"); };
@@ -37,6 +46,9 @@ export default function AdminLayout() {
           {NAV.map((it) => (
             <NavLink key={it.to} to={it.to} end={it.end} data-testid={`admin-nav-${it.label.toLowerCase().split(" ")[0]}`} className={linkCls}>
               <it.icon size={18} /> {it.label}
+              {it.to === "/admin/leads" && newLeads > 0 && (
+                <span className="ml-auto inline-flex min-w-[18px] items-center justify-center rounded-full bg-compass-green px-1.5 text-[10px] font-bold text-compass-navy" data-testid="leads-badge">{newLeads}</span>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -59,6 +71,7 @@ export default function AdminLayout() {
           {NAV.map((it) => (
             <NavLink key={it.to} to={it.to} end={it.end} className={({ isActive }) => `whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold ${isActive ? "gradient-bg text-white" : "text-compass-navy bg-compass-bg"}`}>
               {it.label}
+              {it.to === "/admin/leads" && newLeads > 0 && <span className="ml-1 inline-flex min-w-[16px] items-center justify-center rounded-full bg-compass-green px-1 text-[10px] font-bold text-compass-navy">{newLeads}</span>}
             </NavLink>
           ))}
         </nav>

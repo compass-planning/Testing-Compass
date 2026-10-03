@@ -83,9 +83,10 @@ const COPY = {
     pricingTitle: "Simple, transparent pricing",
     pricingSub: "Prices in CAD. Cancel anytime. No bank-linking required.",
     perMo: "/mo",
+    billMonthly: "Monthly", billAnnual: "Annual", annualBadge: "2 months free", billedAnnually: "billed annually",
     plans: [
-      { name: "Solo", price: "$29", note: "For individuals & couples", cta: "Start free", features: ["1 household plan", "Monte Carlo projections", "Tax optimization math", "Plain-language AI reports", "PIPEDA-encrypted vault"] },
-      { name: "Advisor", price: "$149", note: "For advisory practices", cta: "Start advisor trial", featured: true, features: ["Up to 50 households", "Branded client PDF reports", "Advisor queue & tasks", "Claude OCR tax-slip reader", "Whisper meeting transcripts"] },
+      { name: "Solo", price: "$29", note: "For individuals & couples", cta: "Start free", monthly: 29, features: ["1 household plan", "Monte Carlo projections", "Tax optimization math", "Plain-language AI reports", "PIPEDA-encrypted vault"] },
+      { name: "Advisor", price: "$149", note: "For advisory practices", cta: "Start advisor trial", featured: true, monthly: 149, features: ["Up to 50 households", "Branded client PDF reports", "Advisor queue & tasks", "Claude OCR tax-slip reader", "Whisper meeting transcripts"] },
       { name: "Enterprise", price: "Custom", note: "For firms & pension funds", cta: "Contact sales", features: ["Unlimited households & seats", "Isolated data tenant", "SSO / SAML + audit logging", "Dedicated account manager", "99.95% uptime SLA"] },
     ],
     quotesEyebrow: "Trusted by planners",
@@ -183,9 +184,10 @@ const COPY = {
     pricingTitle: "Des tarifs simples et transparents",
     pricingSub: "Prix en CAD. Annulable à tout moment. Aucune liaison bancaire requise.",
     perMo: "/mois",
+    billMonthly: "Mensuel", billAnnual: "Annuel", annualBadge: "2 mois offerts", billedAnnually: "facturé annuellement",
     plans: [
-      { name: "Solo", price: "29 $", note: "Pour particuliers et couples", cta: "Commencer", features: ["1 plan de ménage", "Projections Monte-Carlo", "Calculs d'optimisation fiscale", "Rapports IA en langage clair", "Coffre chiffré LPRPDE"] },
-      { name: "Conseiller", price: "149 $", note: "Pour les cabinets-conseils", cta: "Essai conseiller", featured: true, features: ["Jusqu'à 50 ménages", "Rapports PDF personnalisés", "File et tâches du conseiller", "Lecteur OCR de feuillets", "Transcriptions de réunions"] },
+      { name: "Solo", price: "29 $", note: "Pour particuliers et couples", cta: "Commencer", monthly: 29, features: ["1 plan de ménage", "Projections Monte-Carlo", "Calculs d'optimisation fiscale", "Rapports IA en langage clair", "Coffre chiffré LPRPDE"] },
+      { name: "Conseiller", price: "149 $", note: "Pour les cabinets-conseils", cta: "Essai conseiller", featured: true, monthly: 149, features: ["Jusqu'à 50 ménages", "Rapports PDF personnalisés", "File et tâches du conseiller", "Lecteur OCR de feuillets", "Transcriptions de réunions"] },
       { name: "Entreprise", price: "Sur mesure", note: "Firmes et caisses de retraite", cta: "Contacter les ventes", features: ["Ménages et sièges illimités", "Locataire de données isolé", "SSO / SAML + journal d'audit", "Gestionnaire de compte dédié", "SLA de disponibilité 99,95 %"] },
     ],
     quotesEyebrow: "Approuvé par les planificateurs",
@@ -234,6 +236,7 @@ const FOOTER_ROUTES = [
 ];
 const FIELD_CLS = "w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-[#8C82B5] outline-none transition-colors focus:border-[#00DF89]/50";
 const HOW_ICONS = [ClipboardList, TrendingUp, Rocket];
+const fmtPrice = (n, lang) => (lang === "fr" ? `${n} $` : `$${n}`);
 
 /* ----------------------------------------------------------- building blocks */
 function Eyebrow({ children }) {
@@ -282,6 +285,7 @@ export default function Landing() {
   const [scrolled, setScrolled] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  const [billing, setBilling] = useState("monthly");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -546,7 +550,15 @@ export default function Landing() {
             <p className="mt-4 text-base text-[#C0B8E3]">{t.pricingSub}</p>
           </motion.div>
 
-          <div className="mt-14 grid grid-cols-1 gap-6 lg:grid-cols-3" data-testid="landing-pricing">
+          <div className="mt-8 flex items-center justify-center gap-3" data-testid="pricing-billing-toggle">
+            <div className="inline-flex items-center rounded-full border border-white/15 bg-white/5 p-1">
+              <button onClick={() => setBilling("monthly")} data-testid="billing-monthly" className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${billing === "monthly" ? "bg-white text-[#2E1B6A]" : "text-[#C0B8E3] hover:text-white"}`}>{t.billMonthly}</button>
+              <button onClick={() => setBilling("annual")} data-testid="billing-annual" className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${billing === "annual" ? "bg-white text-[#2E1B6A]" : "text-[#C0B8E3] hover:text-white"}`}>{t.billAnnual}</button>
+            </div>
+            <span className="rounded-full bg-[#00DF89]/15 px-3 py-1 text-xs font-bold text-[#00DF89]">{t.annualBadge}</span>
+          </div>
+
+          <div className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-3" data-testid="landing-pricing">
             {t.plans.map((p, i) => (
               <motion.div key={p.name} {...fade} transition={{ ...fade.transition, delay: i * 0.1 }}
                 className={`relative flex flex-col rounded-3xl p-8 ${p.featured ? "border-2 border-[#00DF89]/50 bg-gradient-to-b from-white/[0.09] to-white/[0.03]" : "border border-white/10 bg-white/[0.03]"}`}
@@ -555,9 +567,10 @@ export default function Landing() {
                 <div className="font-heading text-lg font-bold text-white">{p.name}</div>
                 <div className="mt-1 text-xs text-[#8C82B5]">{p.note}</div>
                 <div className="mt-5 flex items-baseline gap-1">
-                  <span className="font-heading text-4xl font-extrabold text-white">{p.price}</span>
-                  {p.price.match(/\d/) && <span className="text-sm text-[#8C82B5]">{t.perMo}</span>}
+                  <span className="font-heading text-4xl font-extrabold text-white">{p.monthly ? fmtPrice(billing === "annual" ? Math.round(p.monthly * 10 / 12) : p.monthly, lang) : p.price}</span>
+                  {p.monthly && <span className="text-sm text-[#8C82B5]">{t.perMo}</span>}
                 </div>
+                {p.monthly && billing === "annual" && <div className="-mt-1 text-xs font-semibold text-[#00DF89]">{t.billedAnnually}</div>}
                 <ul className="mt-6 flex-1 space-y-3">
                   {p.features.map((f) => (
                     <li key={f} className="flex items-start gap-2.5 text-sm text-[#C0B8E3]"><Check size={17} className="mt-0.5 shrink-0 text-[#00DF89]" />{f}</li>

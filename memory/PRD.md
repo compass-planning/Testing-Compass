@@ -13,6 +13,8 @@ User language: **English** (respond in English).
 
 ## Implemented (latest first)
 ### 2026-06 — Landing follow-ups: Legal pages, Demo modal, Lead capture (DONE, tested)
+- **Annual pricing toggle**: Monthly/Annual switch on landing pricing (`data-testid="pricing-billing-toggle"`, `billing-monthly`/`billing-annual`). Annual = 2 months free (monthly×10/12): Solo $29→$24, Advisor $149→$124, with "billed annually" note + "2 months free" badge. Bilingual, currency formatted per lang via `fmtPrice`.
+- **Leads nav badge**: Admin → Leads nav shows a live green count of `counts.new` (polls every 60s) on desktop + mobile (`data-testid="leads-badge"`).
 - **How It Works**: 3-step PURPLE-band strip (Add details → Run projection → Act with confidence), bilingual, between Features and Who-It's-For (`#how-it-works`, `data-testid="landing-how-it-works"`).
 - **Lead routing**: `SALES_LEAD_EMAIL="sales@westoak.dev"` (comma-separated supported → `SALES_EMAILS` loop). No CC. Prospect also gets a confirmation email.
 - **Legal pages** (`/app/frontend/src/pages/Legal.jsx`): real bilingual Privacy Policy, PIPEDA Compliance, Terms of Service for **Westoak Innovations** / **privacy@westoak.dev**. Public routes `/privacy-policy`, `/pipeda`, `/terms`; landing footer Legal links now open them.
