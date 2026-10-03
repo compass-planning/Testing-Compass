@@ -13,6 +13,8 @@ User language: **English** (respond in English).
 
 ## Implemented (latest first)
 ### 2026-06 — Landing follow-ups: Legal pages, Demo modal, Lead capture (DONE, tested)
+- **Nav shortcut**: "How it works" link added to top nav (`data-testid="nav-how-it-works"`), scrolls to `#how-it-works`; bilingual.
+- **Lead auto-reply tuning**: prospect confirmation email now bilingual (follows lead locale) and signed by the team with a promised response time, via env `SALES_TEAM_NAME` ("Compass Planning Enterprise Team"), `SALES_RESPONSE_TIME` ("within one business day"), `SALES_RESPONSE_TIME_FR` ("en un jour ouvrable"). Subject localized too.
 - **Annual pricing toggle**: Monthly/Annual switch on landing pricing (`data-testid="pricing-billing-toggle"`, `billing-monthly`/`billing-annual`). Annual = 2 months free (monthly×10/12): Solo $29→$24, Advisor $149→$124, with "billed annually" note + "2 months free" badge. Bilingual, currency formatted per lang via `fmtPrice`.
 - **Leads nav badge**: Admin → Leads nav shows a live green count of `counts.new` (polls every 60s) on desktop + mobile (`data-testid="leads-badge"`).
 - **How It Works**: 3-step PURPLE-band strip (Add details → Run projection → Act with confidence), bilingual, between Features and Who-It's-For (`#how-it-works`, `data-testid="landing-how-it-works"`).

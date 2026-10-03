@@ -16,7 +16,7 @@ import apiClient, { formatApiError } from "@/lib/api";
 /* ----------------------------------------------------------- copy (EN/FR) */
 const COPY = {
   en: {
-    nav: { features: "Features", who: "Who it's for", pricing: "Pricing", trust: "Security", faq: "FAQ" },
+    nav: { features: "Features", how: "How it works", who: "Who it's for", pricing: "Pricing", trust: "Security", faq: "FAQ" },
     signin: "Sign In", getStarted: "Get Started",
     goApp: "Open app",
     heroEyebrow: "Canadian Retirement Intelligence",
@@ -117,7 +117,7 @@ const COPY = {
     rights: "© 2026 Compass Planning. All rights reserved.",
   },
   fr: {
-    nav: { features: "Fonctions", who: "Pour qui", pricing: "Tarifs", trust: "Sécurité", faq: "FAQ" },
+    nav: { features: "Fonctions", how: "Comment ça marche", who: "Pour qui", pricing: "Tarifs", trust: "Sécurité", faq: "FAQ" },
     signin: "Se connecter", getStarted: "Commencer",
     goApp: "Ouvrir l'app",
     heroEyebrow: "Intelligence de retraite canadienne",
@@ -296,6 +296,7 @@ export default function Landing() {
   const go = (path) => () => nav(path);
   const navItems = [
     { id: "features", label: t.nav.features },
+    { id: "how-it-works", label: t.nav.how },
     { id: "who", label: t.nav.who },
     { id: "pricing", label: t.nav.pricing },
     { id: "trust", label: t.nav.trust },

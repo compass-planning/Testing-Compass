@@ -750,6 +750,9 @@ async def pay_my_invoice(rid: str, user: dict = Depends(get_current_user)):
 
 # ---------------- Sales leads (public "Contact sales" + admin inbox) ----------------
 SALES_EMAILS = [e.strip() for e in os.environ.get("SALES_LEAD_EMAIL", "privacy@westoak.dev").split(",") if e.strip()]
+SALES_TEAM = os.environ.get("SALES_TEAM_NAME", "Compass Planning Enterprise Team")
+SALES_RESPONSE_TIME = os.environ.get("SALES_RESPONSE_TIME", "within one business day")
+SALES_RESPONSE_TIME_FR = os.environ.get("SALES_RESPONSE_TIME_FR", "en un jour ouvrable")
 LEAD_STATUSES = ("new", "contacted", "closed")
 
 
@@ -779,10 +782,19 @@ def _lead_notify_html(doc):
 
 
 def _lead_ack_html(doc):
-    first = _esc((doc.get("name") or "there").split()[0]) if doc.get("name") else "there"
+    fr = doc.get("locale") == "fr"
+    team = _esc(SALES_TEAM)
+    first = _esc((doc.get("name") or ("là" if fr else "there")).split()[0])
+    if fr:
+        rt = _esc(SALES_RESPONSE_TIME_FR)
+        return (f"<p>Bonjour {first},</p>"
+                f"<p>Merci de votre intérêt pour Compass Planning Entreprise. Nous avons bien reçu votre demande et un membre de {team} vous contactera personnellement {rt} pour comprendre vos besoins.</p>"
+                f"<p>&mdash; {team}</p>"
+                f"<p style='font-size:12px;color:#9aa5b9;margin-top:16px'>Nous ne demandons jamais votre mot de passe ni vos coordonnées bancaires par courriel.</p>")
+    rt = _esc(SALES_RESPONSE_TIME)
     return (f"<p>Hi {first},</p>"
-            f"<p>Thanks for your interest in Compass Planning Enterprise. We've received your enquiry and a member of our team will reach out shortly to understand your needs.</p>"
-            f"<p>&mdash; Compass Planning</p>"
+            f"<p>Thanks for your interest in Compass Planning Enterprise. We've received your enquiry and a member of {team} will personally reach out {rt} to understand your needs.</p>"
+            f"<p>&mdash; {team}</p>"
             f"<p style='font-size:12px;color:#9aa5b9;margin-top:16px'>We never ask for your password or card details by email.</p>")
 
 
@@ -802,7 +814,8 @@ async def contact_sales(body: ContactSalesIn, background: BackgroundTasks):
     })
     for rcpt in SALES_EMAILS:
         background.add_task(_safe_send, rcpt, f"New Enterprise lead — {name}", _lead_notify_html(doc))
-    background.add_task(_safe_send, email, "Thanks for contacting Compass Planning", _lead_ack_html(doc))
+    ack_subject = "Merci d'avoir contacté Compass Planning" if doc.get("locale") == "fr" else "Thanks for contacting Compass Planning"
+    background.add_task(_safe_send, email, ack_subject, _lead_ack_html(doc))
     return {"ok": True}
 
 
