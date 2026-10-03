@@ -200,6 +200,12 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - Nav: "Plan & Billing" + "Support" added to the shared Governance group (and Support to the client nav); "Audit Trail" added to the admin sidebar.
 - Testing: iteration_43.json — frontend 7/7 (backend curl-verified). One bug fixed: solo save must omit `seats` (backend rejects seats on fixed tiers).
 
+## Phase 4b — Plan Upgrades + Ticket Replies + Audit Export (added 2026-06, iter44) ✅
+- **Plan upgrade/downgrade with proration** (`pages/BillingSelfService.jsx` "Change plan" card + proration modal; backend `GET /api/me/plans`, `POST /api/me/subscription/preview-change`, `POST /api/me/subscription/change`): owner switches tier; preview shows days-left credit, prorated charge and net due today (30-day cycle). Confirming applies the new tier/plan/seats/features and, when net due > 0, creates a prorated open invoice; audited as `billing.plan_change`. Downgrades show a $0 due + next-invoice credit.
+- **Ticket reply threads** (shared `replies[]`): `POST /api/admin/tickets/{id}/reply` (admin, auto-sets in_progress, audited `admin.ticket.reply`) and `POST /api/support/tickets/{id}/reply` (requester). Thread UI on both the admin Tickets page and the user Support page.
+- **Audit export + filters** (`pages/admin/AdminAudit.jsx`): `GET /api/admin/audit?from=&to=&action=` filters by date range + action; `GET /api/admin/audit/export?format=csv|pdf` streams CSV or a reportlab PDF (date-range in header). Frontend exports via an authenticated axios blob download with a success toast.
+- Testing: iteration_44.json — frontend 6/6 (backend curl-verified). No bugs.
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.

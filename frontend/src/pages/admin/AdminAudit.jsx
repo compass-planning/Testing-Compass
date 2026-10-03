@@ -32,6 +32,7 @@ export default function AdminAudit() {
       const a = document.createElement("a");
       a.href = url; a.download = `audit_trail.${format}`; document.body.appendChild(a); a.click();
       a.remove(); URL.revokeObjectURL(url);
+      toast.success(`Exported ${format.toUpperCase()}`);
     } catch (e) { toast.error("Export failed"); } finally { setBusy(false); }
   };
 
