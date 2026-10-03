@@ -310,3 +310,144 @@ async def pay_invoice(rid: str, admin: dict = Depends(get_admin_user)):
             _pupdate("subscriptions", sub_id, {"status": "active"})
     audit(admin, "admin.invoice.pay", "invoice", inv.get("number", rid))
     return r
+
+
+# ---------------- Refund (admin) ----------------
+@router.post("/admin/billing/invoices/{rid}/refund")
+async def refund_invoice(rid: str, admin: dict = Depends(get_admin_user)):
+    inv = repo.get(PLATFORM, "invoices", rid, {})
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if inv.get("status") != "paid":
+        raise HTTPException(status_code=400, detail="Only paid invoices can be refunded")
+    r = _pupdate("invoices", rid, {"status": "refunded", "refunded_at": _now()})
+    audit(admin, "admin.invoice.refund", "invoice", inv.get("number", rid))
+    return r
+
+
+# ---------------- Admin audit trail ----------------
+@router.get("/admin/audit")
+async def admin_audit(admin: dict = Depends(get_admin_user)):
+    entries = [a for a in repo.list("shared", "audit_log", {}) if str(a.get("action", "")).startswith("admin.")]
+    entries.sort(key=lambda a: a.get("timestamp", ""), reverse=True)
+    return {"entries": entries[:300]}
+
+
+# ---------------- Client self-service billing ----------------
+FEATURE_CATALOG = {
+    "solo": [
+        {"key": "monte_carlo", "label": "Monte Carlo projections"},
+        {"key": "tax_optimizer", "label": "Tax optimizer"},
+        {"key": "ai_reports", "label": "AI plan reports"},
+        {"key": "document_vault", "label": "Document vault"},
+    ],
+    "advisor": [
+        {"key": "client_portal", "label": "Client portal"},
+        {"key": "voice_notes", "label": "Voice & meeting notes"},
+        {"key": "ocr_import", "label": "OCR letters importer"},
+        {"key": "white_label", "label": "White-label branding"},
+        {"key": "ai_reports", "label": "AI plan reports"},
+    ],
+    "enterprise": [
+        {"key": "sso", "label": "SSO / SAML"},
+        {"key": "api_access", "label": "API access"},
+        {"key": "custom_branding", "label": "Custom branding"},
+        {"key": "priority_support", "label": "Priority support"},
+        {"key": "advanced_analytics", "label": "Advanced analytics"},
+    ],
+}
+SEAT_PRICE = {"solo": 19, "advisor": 60, "enterprise": 50}
+SEATS_EDITABLE = {"solo": False, "advisor": True, "enterprise": True}
+
+
+def _my_sub(user):
+    for s in _plist("subscriptions"):
+        if s.get("owner_email") == user.get("email"):
+            return s
+    return None
+
+
+@router.get("/me/subscription")
+async def my_subscription(user: dict = Depends(get_current_user)):
+    sub = _my_sub(user)
+    tier = (sub or {}).get("tier", user.get("tier"))
+    return {
+        "subscription": sub,
+        "features_catalog": FEATURE_CATALOG.get(tier, []),
+        "seat_price": SEAT_PRICE.get(tier, 0),
+        "seats_editable": SEATS_EDITABLE.get(tier, False),
+    }
+
+
+class MySubPatch(BaseModel):
+    seats: Optional[int] = None
+    features: Optional[list] = None
+
+
+@router.put("/me/subscription")
+async def update_my_subscription(body: MySubPatch, user: dict = Depends(get_current_user)):
+    sub = _my_sub(user)
+    if not sub:
+        raise HTTPException(status_code=404, detail="No subscription on your account")
+    tier = sub.get("tier")
+    patch = {}
+    if body.features is not None:
+        allowed = {f["key"] for f in FEATURE_CATALOG.get(tier, [])}
+        patch["features"] = [f for f in body.features if f in allowed]
+    if body.seats is not None:
+        if not SEATS_EDITABLE.get(tier):
+            raise HTTPException(status_code=400, detail="Seats are fixed on your plan")
+        if body.seats < 1:
+            raise HTTPException(status_code=400, detail="At least one seat is required")
+        patch["seats"] = body.seats
+        patch["amount"] = body.seats * SEAT_PRICE.get(tier, 0)
+    r = _pupdate("subscriptions", sub["id"], patch)
+    audit(user, "billing.self_update", "subscription", str(patch))
+    return r
+
+
+class BillingInfoIn(BaseModel):
+    card_name: str
+    card_brand: str = "Visa"
+    card_last4: str
+    billing_email: str = ""
+
+
+@router.put("/me/billing")
+async def update_my_billing(body: BillingInfoIn, user: dict = Depends(get_current_user)):
+    sub = _my_sub(user)
+    if not sub:
+        raise HTTPException(status_code=404, detail="No subscription on your account")
+    info = {
+        "card_name": body.card_name, "card_brand": body.card_brand,
+        "card_last4": body.card_last4[-4:], "billing_email": body.billing_email,
+        "updated_at": _now(),
+    }
+    r = _pupdate("subscriptions", sub["id"], {"billing_info": info})
+    audit(user, "billing.self_payment_method", "subscription", f"Card ending {info['card_last4']}")
+    return r
+
+
+# ---------------- Support inbox (advisors & clients) ----------------
+class SupportTicketIn(BaseModel):
+    subject: str
+    description: str = ""
+    priority: str = "normal"
+
+
+@router.post("/support/tickets")
+async def submit_support_ticket(body: SupportTicketIn, user: dict = Depends(get_current_user)):
+    doc = _pcreate("tickets", {
+        "type": "service_request", "subject": body.subject, "description": body.description,
+        "priority": body.priority, "status": "open", "requester_email": user["email"],
+        "source": "in_app", "notes": [],
+    })
+    audit(user, "support.create", "ticket", body.subject)
+    return doc
+
+
+@router.get("/support/tickets")
+async def my_support_tickets(user: dict = Depends(get_current_user)):
+    mine = [t for t in _plist("tickets") if t.get("requester_email") == user.get("email")]
+    mine.sort(key=lambda t: t.get("created_at", ""), reverse=True)
+    return {"tickets": mine}

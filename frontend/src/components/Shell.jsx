@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate, Navigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Target, ShieldCheck, ScrollText, RefreshCw,
   ArrowUpCircle, LogOut, Menu, X, Building2, UserCog, User as UserIcon,
-  Home, TrendingUp, Scale, CreditCard, PiggyBank, Shield, Receipt, Brain, FileText, Sparkles, ArrowLeft, FileBarChart, GraduationCap, Globe, KeyRound,
+  Home, TrendingUp, Scale, CreditCard, PiggyBank, Shield, Receipt, Brain, FileText, Sparkles, ArrowLeft, FileBarChart, GraduationCap, Globe, KeyRound, LifeBuoy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -54,6 +54,8 @@ function getNav(tier, active, isClient) {
     { to: "/privacy", label: "Privacy & PIPEDA", icon: ShieldCheck },
     { to: "/audit", label: "Audit Log", icon: ScrollText },
     { to: "/security", label: "Security", icon: KeyRound },
+    { to: "/billing", label: "Plan & Billing", icon: CreditCard },
+    { to: "/support", label: "Support", icon: LifeBuoy },
   ]};
   if (tier === "solo" && isClient) {
     return [
@@ -62,6 +64,7 @@ function getNav(tier, active, isClient) {
         { to: "/insights", label: "Insights", icon: TrendingUp },
         { to: "/goals", label: "My Goals", icon: Target },
         { to: "/profile", label: "My Profile", icon: UserCog },
+        { to: "/support", label: "Support", icon: LifeBuoy },
       ]},
     ];
   }

@@ -143,12 +143,15 @@ def _ensure_platform_seed():
                    "description": "Export takes >20s for large books.", "status": "in_progress",
                    "priority": "high", "requester_email": "advisor@compass.ca", "notes": []})
     subs = [
-        {"account_label": "Sweston Financial (Enterprise)", "tier": "enterprise", "plan": "Enterprise",
-         "seats": 25, "status": "active", "amount": 1250, "currency": "CAD", "billing_period": "monthly"},
-        {"account_label": "Maple Advisory (Advisor)", "tier": "advisor", "plan": "Advisor Pro",
-         "seats": 5, "status": "active", "amount": 299, "currency": "CAD", "billing_period": "monthly"},
-        {"account_label": "Jordan Blake (Solo)", "tier": "solo", "plan": "Solo",
-         "seats": 1, "status": "past_due", "amount": 19, "currency": "CAD", "billing_period": "monthly"},
+        {"account_label": "Sweston Financial (Enterprise)", "owner_email": "scott@sweston.ca", "tier": "enterprise", "plan": "Enterprise",
+         "seats": 25, "status": "active", "amount": 1250, "currency": "CAD", "billing_period": "monthly",
+         "features": ["sso", "api_access", "priority_support"]},
+        {"account_label": "Maple Advisory (Advisor)", "owner_email": "firmadmin@compass.ca", "tier": "advisor", "plan": "Advisor Pro",
+         "seats": 5, "status": "active", "amount": 300, "currency": "CAD", "billing_period": "monthly",
+         "features": ["client_portal", "ai_reports", "ocr_import"]},
+        {"account_label": "Jordan Blake (Solo)", "owner_email": "solo@compass.ca", "tier": "solo", "plan": "Solo",
+         "seats": 1, "status": "past_due", "amount": 19, "currency": "CAD", "billing_period": "monthly",
+         "features": ["monte_carlo", "ai_reports"]},
     ]
     for s in subs:
         sub = pr("subscriptions", {**s, "provider": "chase_mock"})

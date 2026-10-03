@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Card, Button, Badge } from "@/components/ui-kit";
 
 const SUB_COLOR = { active: "#00DF89", past_due: "#EE5D50", canceled: "#A3AED0", trialing: "#0052FF" };
-const INV_COLOR = { paid: "#00DF89", open: "#FFB800", void: "#A3AED0" };
+const INV_COLOR = { paid: "#00DF89", open: "#FFB800", void: "#A3AED0", refunded: "#A3AED0" };
 const money = (v, c = "CAD") => `$${Number(v || 0).toLocaleString()} ${c}`;
 
 export default function AdminBilling() {
@@ -21,6 +21,11 @@ export default function AdminBilling() {
   const pay = useMutation({
     mutationFn: (id) => api.post(`/admin/billing/invoices/${id}/pay`).then((r) => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-invoices"] }); qc.invalidateQueries({ queryKey: ["admin-subs"] }); toast.success("Payment captured (Chase mock)"); },
+    onError: (e) => toast.error(formatApiError(e.response?.data?.detail)),
+  });
+  const refund = useMutation({
+    mutationFn: (id) => api.post(`/admin/billing/invoices/${id}/refund`).then((r) => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-invoices"] }); toast.success("Invoice refunded"); },
     onError: (e) => toast.error(formatApiError(e.response?.data?.detail)),
   });
 
@@ -72,6 +77,7 @@ export default function AdminBilling() {
                 <td className="px-4 py-3"><Badge color={INV_COLOR[inv.status] || "#A3AED0"} bg="rgba(0,0,0,0.04)">{inv.status}</Badge></td>
                 <td className="px-4 py-3 text-right">
                   {inv.status === "open" && <Button size="sm" onClick={() => pay.mutate(inv.id)} data-testid={`pay-${inv.id}`}>Mark paid</Button>}
+                  {inv.status === "paid" && <Button size="sm" variant="outline" onClick={() => refund.mutate(inv.id)} data-testid={`refund-${inv.id}`}>Refund</Button>}
                 </td>
               </tr>
             ))}
