@@ -31,18 +31,18 @@ export function CompassMark({ size = 36 }) {
 
 export function Logo({ compact = false, dark = false }) {
   return (
-    <div className="flex items-center gap-3" data-testid="brand-logo">
-      <CompassMark size={compact ? 30 : 38} />
+    <div className="flex items-center gap-4" data-testid="brand-logo">
+      <CompassMark size={compact ? 75 : 95} />
       {!compact && (
         <div className="leading-none">
           <div
-            className="font-heading font-extrabold tracking-tight text-[20px]"
+            className="font-heading font-extrabold uppercase tracking-tight text-[26px]"
             style={{ color: dark ? "#FFFFFF" : "#1B2559", fontWeight: 800 }}
           >
-            Compass Planning
+            Compass
           </div>
-          <div className="text-[9px] font-bold tracking-[0.22em] text-compass-green uppercase mt-0.5">
-            Canadian Retirement Intelligence
+          <div className="text-[13px] font-bold tracking-[0.3em] text-compass-green uppercase mt-1">
+            Planning
           </div>
         </div>
       )}
