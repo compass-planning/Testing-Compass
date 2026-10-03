@@ -35,14 +35,9 @@ export function Logo({ compact = false, dark = false, large = false }) {
   const h = compact ? "h-10" : large ? "h-28" : "h-14";
   return (
     <div className="inline-flex flex-col items-start" data-testid="brand-logo">
-      <img
-        src={LOGO_SRC}
-        alt="Compass Planning"
-        className={`${h} w-auto`}
-        style={dark ? { filter: "brightness(0) invert(1)" } : undefined}
-      />
+      <img src={LOGO_SRC} alt="Compass Planning" className={`${h} w-auto`} />
       {!compact && (
-        <span className={`mt-1 ml-1 text-[10px] font-bold tracking-[0.22em] uppercase ${dark ? "text-white/70" : "text-compass-green"}`}>
+        <span className="mt-1 ml-1 text-[10px] font-bold tracking-[0.22em] uppercase text-compass-green">
           Canadian Retirement Intelligence
         </span>
       )}
