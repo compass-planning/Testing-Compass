@@ -71,10 +71,7 @@ export default function Login() {
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* Hero */}
-      <div
-        className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden"
-        style={{ background: "linear-gradient(150deg, #071233 0%, #0A2E6B 48%, #06402F 100%)" }}
-      >
+      <div className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden gradient-bg">
         <div className="relative z-10"><Logo dark large /></div>
         <div className="relative z-10 text-white max-w-md">
           <h2 className="font-heading text-4xl xl:text-5xl font-extrabold leading-[1.1]">Your financial future,<br />clearly mapped.</h2>
