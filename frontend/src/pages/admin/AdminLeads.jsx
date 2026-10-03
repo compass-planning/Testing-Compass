@@ -38,6 +38,7 @@ export default function AdminLeads() {
                   <span className="font-bold text-compass-navy">{l.company || l.name}</span>
                   <Badge color={STATUS_COLOR[l.status]} bg="rgba(0,0,0,0.04)">{l.status}</Badge>
                   {l.seats && <Badge color="#1B2559" bg="rgba(0,0,0,0.04)">{l.seats}</Badge>}
+                  {l.source && <Badge color="#7B61FF" bg="rgba(123,97,255,0.1)">{l.source}</Badge>}
                   {l.locale === "fr" && <Badge color="#0052FF" bg="rgba(0,82,255,0.1)">FR</Badge>}
                 </div>
                 <div className="text-sm text-compass-navy mt-1">{l.name} · <a href={`mailto:${l.email}`} className="text-compass-blue hover:underline">{l.email}</a></div>

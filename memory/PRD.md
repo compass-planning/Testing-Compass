@@ -13,6 +13,8 @@ User language: **English** (respond in English).
 
 ## Implemented (latest first)
 ### 2026-06 — Landing follow-ups: Legal pages, Demo modal, Lead capture (DONE, tested)
+- **Scrollspy nav**: active section highlighted in the sticky nav via IntersectionObserver (green underline, `data-testid="nav-active-{id}"`) as the visitor scrolls.
+- **Lead source tracking**: `ContactSalesIn.source` (default "landing") stored on each lead and shown as a purple badge in Admin → Leads. Landing passes `source="pricing"` from the Enterprise CTA via `openContact(source)`.
 - **Nav shortcut**: "How it works" link added to top nav (`data-testid="nav-how-it-works"`), scrolls to `#how-it-works`; bilingual.
 - **Lead auto-reply tuning**: prospect confirmation email now bilingual (follows lead locale) and signed by the team with a promised response time, via env `SALES_TEAM_NAME` ("Compass Planning Enterprise Team"), `SALES_RESPONSE_TIME` ("within one business day"), `SALES_RESPONSE_TIME_FR` ("en un jour ouvrable"). Subject localized too.
 - **Annual pricing toggle**: Monthly/Annual switch on landing pricing (`data-testid="pricing-billing-toggle"`, `billing-monthly`/`billing-annual`). Annual = 2 months free (monthly×10/12): Solo $29→$24, Advisor $149→$124, with "billed annually" note + "2 months free" badge. Bilingual, currency formatted per lang via `fmtPrice`.

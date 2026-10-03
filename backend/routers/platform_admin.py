@@ -763,6 +763,7 @@ class ContactSalesIn(BaseModel):
     seats: str = ""
     message: str = ""
     locale: str = "en"
+    source: str = "landing"
 
 
 def _lead_rows(doc):
@@ -810,7 +811,7 @@ async def contact_sales(body: ContactSalesIn, background: BackgroundTasks):
         "name": name, "email": email, "company": (body.company or "").strip()[:200],
         "seats": (body.seats or "").strip()[:60], "message": (body.message or "").strip()[:4000],
         "locale": body.locale if body.locale in ("en", "fr") else "en",
-        "status": "new", "source": "landing",
+        "status": "new", "source": (body.source or "landing").strip()[:40],
     })
     for rcpt in SALES_EMAILS:
         background.add_task(_safe_send, rcpt, f"New Enterprise lead — {name}", _lead_notify_html(doc))

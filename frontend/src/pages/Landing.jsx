@@ -286,11 +286,25 @@ export default function Landing() {
   const [videoOpen, setVideoOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [billing, setBilling] = useState("monthly");
+  const [contactSource, setContactSource] = useState("pricing");
+  const [activeSection, setActiveSection] = useState("");
+  const openContact = (source) => { setContactSource(source); setContactOpen(true); };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const ids = ["features", "how-it-works", "who", "pricing", "trust", "faq"];
+    const els = ids.map((id) => document.getElementById(id)).filter(Boolean);
+    const obs = new IntersectionObserver(
+      (entries) => entries.forEach((e) => { if (e.isIntersecting) setActiveSection(e.target.id); }),
+      { rootMargin: "-45% 0px -50% 0px", threshold: 0 }
+    );
+    els.forEach((el) => obs.observe(el));
+    return () => obs.disconnect();
   }, []);
 
   const go = (path) => () => nav(path);
@@ -320,9 +334,15 @@ export default function Landing() {
           </a>
 
           <nav className="hidden items-center gap-8 lg:flex">
-            {navItems.map((n) => (
-              <a key={n.id} href={`#${n.id}`} className="text-sm font-medium text-[#C0B8E3] transition-colors hover:text-white" data-testid={`nav-${n.id}`}>{n.label}</a>
-            ))}
+            {navItems.map((n) => {
+              const active = activeSection === n.id;
+              return (
+                <a key={n.id} href={`#${n.id}`} className={`relative text-sm font-medium transition-colors ${active ? "text-white" : "text-[#C0B8E3] hover:text-white"}`} data-testid={`nav-${n.id}`}>
+                  {n.label}
+                  {active && <span className="absolute -bottom-2 left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full bg-[#00DF89]" data-testid={`nav-active-${n.id}`} />}
+                </a>
+              );
+            })}
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
@@ -577,7 +597,7 @@ export default function Landing() {
                     <li key={f} className="flex items-start gap-2.5 text-sm text-[#C0B8E3]"><Check size={17} className="mt-0.5 shrink-0 text-[#00DF89]" />{f}</li>
                   ))}
                 </ul>
-                <button onClick={() => (["enterprise", "entreprise"].includes(p.name.toLowerCase()) ? setContactOpen(true) : nav("/login?mode=register"))}
+                <button onClick={() => (["enterprise", "entreprise"].includes(p.name.toLowerCase()) ? openContact("pricing") : nav("/login?mode=register"))}
                   className={`mt-8 inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold transition-transform hover:-translate-y-0.5 ${p.featured ? "bg-[#00DF89] text-[#0B061E] shadow-[0_8px_24px_rgba(0,223,137,0.35)]" : "border border-white/20 bg-white/5 text-white hover:bg-white/10"}`}
                   data-testid={`pricing-cta-${p.name.toLowerCase()}`}>{p.cta}<ArrowRight size={16} /></button>
               </motion.div>
@@ -692,7 +712,7 @@ export default function Landing() {
       </footer>
 
       {videoOpen && <VideoModal t={t} onClose={() => setVideoOpen(false)} />}
-      {contactOpen && <ContactModal t={t} lang={lang} onClose={() => setContactOpen(false)} />}
+      {contactOpen && <ContactModal t={t} lang={lang} source={contactSource} onClose={() => setContactOpen(false)} />}
     </div>
   );
 }
@@ -715,7 +735,7 @@ function VideoModal({ t, onClose }) {
   );
 }
 
-function ContactModal({ t, lang, onClose }) {
+function ContactModal({ t, lang, source = "landing", onClose }) {
   const [form, setForm] = useState({ name: "", email: "", company: "", seats: "", message: "" });
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -725,7 +745,7 @@ function ContactModal({ t, lang, onClose }) {
     if (!form.name.trim() || !form.email.trim()) { toast.error(t.contact.required); return; }
     setLoading(true);
     try {
-      await apiClient.post("/leads/contact-sales", { ...form, locale: lang });
+      await apiClient.post("/leads/contact-sales", { ...form, locale: lang, source });
       setDone(true);
     } catch (er) { toast.error(formatApiError(er.response?.data?.detail) || t.contact.error); }
     finally { setLoading(false); }
