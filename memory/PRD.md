@@ -193,6 +193,13 @@ Reference: live app `westoak.brokersedge.app` (KoC Financial Planning Suite). It
 - **Frontend**: `AdminLayout` + pages Overview, Accounts (search, suspend/reactivate), Billing (gateway badge, subs + invoices + Mark paid), Announcements (create/hide/delete), Tickets (create + status), Status & Health (metrics + status posts). `NoticeBanner` shows active announcements/outages to normal users in the Shell.
 - Testing: iteration_42.json — backend + frontend 100% (8/8 flows, access control both directions, Chase-mock pay, notice banner). Client self-service (billing/tier changes) intentionally deferred.
 
+## Phase 4a — Self-Service Billing + Support Inbox + Admin Audit Trail (added 2026-06, iter43) ✅
+- **Client self-service billing** (`pages/BillingSelfService.jsx`, route `/billing`; backend `GET/PUT /api/me/subscription`, `PUT /api/me/billing`): the subscription owner (matched by `owner_email`) manages their own plan — toggle tier features (catalog per tier), add/remove seats (advisor/enterprise; solo fixed → 400), and save a mock payment method (last4 only). Seats reprice at `seats × seat_price` (solo 19, advisor 60, enterprise 50). Non-owners see a "managed by your administrator" card. Subscriptions were back-filled with `owner_email`/`features` (scott→enterprise, firmadmin→advisor, solo→solo).
+- **In-app Support** (`pages/Support.jsx`, route `/support`; backend `POST/GET /api/support/tickets`): advisors, solo users and clients file a service request (source `in_app`) that lands directly in the admin ticket queue (`/admin/tickets`); users see their own requests + status.
+- **Admin Audit Trail** (`pages/admin/AdminAudit.jsx`, route `/admin/audit`; backend `GET /api/admin/audit`): compliance log of every `admin.*` action (suspend/reactivate, invoice pay/refund, announcements, status posts, subscription create). Added `POST /api/admin/billing/invoices/{id}/refund` + a Refund button on paid invoices.
+- Nav: "Plan & Billing" + "Support" added to the shared Governance group (and Support to the client nav); "Audit Trail" added to the admin sidebar.
+- Testing: iteration_43.json — frontend 7/7 (backend curl-verified). One bug fixed: solo save must omit `seats` (backend rejects seats on fixed tiers).
+
 ## Next Tasks
 1. TOTP MFA enrollment + verification (deferred from v1 auth choice).
 2. MongoDB-backed `Repository` implementation swapped behind existing interface.

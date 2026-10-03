@@ -1,0 +1,31 @@
+{
+  "summary": "Frontend-only E2E for iter43 self-service billing, in-app Support, Admin Audit Trail. All 7 flows pass end-to-end after a 1-line frontend fix. Found + fixed a bug where Solo users couldn't save feature toggles because the frontend was sending `seats` with the save, which the backend rejects with 400 for non-editable tiers. After fix, Plan updated toast appears and the toggle persists on reload. Firmadmin seats 5↔6 ($300↔$360) works and was reset to 5. Advisor /billing shows the no-subscription card with no seats/feature controls. Solo support ticket surfaces in /admin/tickets and status change (open→in_progress) persists after reload. Refunding a seeded paid invoice logs an audit entry visible on /admin/audit (7 rows, mentions refund). Admin→/dashboard redirects to /admin; solo→/admin redirects to /dashboard.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Solo self-service: save feature toggles",
+        "issue": "FIXED by testing agent. BillingSelfService.jsx always sent {seats, features} on save; backend rejects seats on solo tier with HTTP 400 'Seats are fixed on your plan', so feature toggle never persisted and no toast fired. Change: only include seats in the PUT body when seatsEditable is true.",
+        "affected_selectors": ["[data-testid=\"save-plan\"]", "[data-testid^=\"feature-\"]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_43.json"],
+  "action_items": [
+    "Review the small frontend fix in BillingSelfService.jsx (conditional seats in save payload). No other changes needed; backend behaviour is already correct and matches the spec (solo seats are FIXED)."
+  ],
+  "critical_code_review_comments": [
+    "BillingSelfService.jsx was coupling two independent concerns in a single save payload. Fix sends seats only when editable to match backend contract.",
+    "Consider also hiding seats from PUT when they haven't changed (idempotent save) to keep the API strict and audit-log noise down."
+  ],
+  "updated_files": ["/app/frontend/src/pages/BillingSelfService.jsx"],
+  "success_rate": { "backend": "not retested (already curl-verified)", "frontend": "100% (7/7 flows after fix)" },
+  "test_credentials": "solo@compass.ca / firmadmin@compass.ca / advisor@compass.ca / admin@compass.ca — all Compass2026!; TOTP JBSWY3DPEHPK3PXP. Solo did NOT prompt for forced password change in this run (already completed in a prior iteration).",
+  "seed_data_creation": "Created one in-app support ticket from solo (TEST_support_<ts>) and refunded one seeded paid Solo invoice; firmadmin seats restored to 5. No accounts left suspended.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter43 features (self-service billing /billing data-testid billing-self, /support data-testid support-page, /admin/audit data-testid admin-audit) are all wired and working after the save-plan payload fix. Firmadmin seat price is $60/seat; solo features catalog keys: monte_carlo, tax_optimizer, ai_reports, document_vault. Status select testid: ticket-status-<id>; refund button testid: refund-<id>; audit row testid: audit-row-<id>.",
+  "rca_of_the_issue": "Solo plan save failed because the frontend savePlan mutation unconditionally sent {seats, features}. Backend PUT /api/me/subscription at /app/backend/routers/platform_admin.py:398 throws HTTPException 400 'Seats are fixed on your plan' when body.seats is provided for a tier with SEATS_EDITABLE=False (solo). Fix: only include seats when seatsEditable. Reproduction before fix: log in as solo → /billing → toggle any feature chip → Save plan → console shows 400, no toast, reload reverts. Verified fixed after change."
+}

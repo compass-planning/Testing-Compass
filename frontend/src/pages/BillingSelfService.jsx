@@ -30,7 +30,7 @@ export default function BillingSelfService() {
   }, [sub]);
 
   const savePlan = useMutation({
-    mutationFn: () => api.put("/me/subscription", { seats, features }).then((r) => r.data),
+    mutationFn: () => api.put("/me/subscription", seatsEditable ? { seats, features } : { features }).then((r) => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-sub"] }); toast.success("Plan updated"); },
     onError: (e) => toast.error(formatApiError(e.response?.data?.detail)),
   });
