@@ -33,7 +33,7 @@ export default function TodayPanel() {
   const total = t.overdue.length + t.due_today.length;
 
   return (
-    <div className="grid lg:grid-cols-2 gap-6 mt-6" data-testid="advisor-today-panel">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6" data-testid="advisor-today-panel">
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-heading font-bold text-compass-navy flex items-center gap-2"><ClipboardCheck size={18} className="text-compass-blue" /> Today's tasks</h3>
@@ -57,7 +57,7 @@ export default function TodayPanel() {
           </div>
         )}
         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-compass-border">
-          <select value={qaClient} onChange={(e) => setQaClient(e.target.value)} data-testid="quick-add-client" className="rounded-lg border border-compass-border bg-white px-2 py-1.5 text-xs text-compass-navy max-w-[40%] focus:border-compass-blue focus:outline-none">
+          <select value={qaClient} onChange={(e) => setQaClient(e.target.value)} data-testid="quick-add-client" className="rounded-lg border border-compass-border bg-white px-2 py-1.5 text-xs text-compass-navy max-w-[40%] min-w-0 focus:border-compass-blue focus:outline-none">
             <option value="">Household…</option>
             {(clientsQ.data || []).map((c) => <option key={c.client_id} value={c.client_id}>{c.primary || c.client_id}</option>)}
           </select>

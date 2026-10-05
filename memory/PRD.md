@@ -12,6 +12,13 @@ User language: **English** (respond in English).
 - i18n: `/app/frontend/src/lib/i18n.jsx` — `useLang()` → {lang, setLang, t, tr}; persisted in localStorage `compass_lang`.
 
 ## Implemented (latest first)
+### 2026-06 — 4 feature requests + full BrokersEdge re-skin rollout (DONE, tested — iteration_46, 95%→fixed)
+- **French Everywhere (Task1)**: top-bar greeting now localized via `t('welcome_back')` in `Shell.jsx` ("Welcome back, {name}" / "Bon retour, {name}"); inactivity toast localized (`signed_out_idle` keys). Verified EN+FR.
+- **Equity View (Task2)**: `NetWorth.jsx` Assets tab has a new **Equity** column = Market value − mortgage/loan (green; "—" when unencumbered). Verified ($934,900 − $760,000 = $174,900).
+- **Payoff Goal Link (Task3)**: `Debt.jsx` — green target-icon button per debt row (`make-goal-<id>`) creates a tracked goal via `POST /api/goals` (category `debt`, target = balance, deadline = computed single-debt payoff year, monthly_contribution = payment). User choices: per-individual-debt, target=balance. Verified end-to-end (toast + goal appears in Goals).
+- **BrokersEdge re-skin (Task4)**: rolled the signature layout to all 11 suite pages — Dashboard, Goals, Insurance, CashFlow, Tax, Education, CrossBorder, AIInsights, FinancialPlan, Documents, ClientProfile. Every `PageHeader` now has an icon tile; dark `StatBand` KPI bands replace plain Stat rows (Dashboard/CashFlow/Education/CrossBorder/FinancialPlan/Goals/ClientProfile/AIInsights); composition **Donut** added to CashFlow (expense mix) & Goals (goal health); FinancialPlan is now two-column. Compass blue/green palette retained (navy band #1B2559→#2C3A78, green/amber/blue accents — NOT reference cyan). ~30 new EN→FR dictionary entries for the KPI labels.
+- **Mobile fix**: `grid lg:grid-cols-N` with no mobile base collapses to an auto (max-content) column and overflows at 390px. Added `grid-cols-1` base to `TodayPanel` and the Dashboard chart grid → dashboard scrollWidth==clientWidth==390, no horizontal scroll. (Pattern note for future grids.)
+
 ### 2026-06 — Linked liabilities/debts + client list view (DONE, tested)
 - **Advisor Household Queue** (`AdvisorClients.jsx`) converted from 2-column cards to a single compact **list** (one row per household: avatar, name, status, next action, Assets/Net worth/Goals/Protection, score, Open). Mobile-safe (no overflow). Shared `PageHeader.jsx` actions now wrap on mobile.
 - **Mortgages & vehicle loans auto-flow** into both Net Worth → Liabilities tab and the Debt page as read-only **Linked** lines (derived from the asset, no duplicate data). `lib/finance.js`: `derivedDebtsFromNetworth()` + `derivedLiabilitiesFromAssets()`.

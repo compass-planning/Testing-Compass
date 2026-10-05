@@ -64,7 +64,7 @@ export default function Dashboard() {
         { label: "Active goals", value: data.goals_count, color: "#FFD36B" },
       ]} />
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="p-6 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-heading font-bold text-compass-navy flex items-center gap-2">

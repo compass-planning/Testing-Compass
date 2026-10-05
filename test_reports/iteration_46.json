@@ -1,0 +1,58 @@
+{
+  "summary": "Frontend-only end-to-end verification for Phase 1 features (greeting EN/FR, NetWorth Equity column, Debt Payoff Goal Link) and Phase 2 BrokersEdge re-skin smoke test across 11 suite pages at desktop (1920) and mobile (390). Logged in as advisor@compass.ca with TOTP, exercised both client_a1 (Nguyen – has debt) and client_0a836c02 (Promo Owner – mortgaged property). All three Phase-1 features PASS end-to-end. 10/11 re-skinned pages render their expected StatBand with no runtime errors; one minor mobile overflow issue on /dashboard.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "CrossBorder /crossborder analyze",
+        "issue": "After clicking the first visible 'Analyze' button on /crossborder, data-testid='cb-us-tax-band' did not render. Likely requires specific US-connection inputs or a different trigger; could not confirm the US-tax StatBand conditionally renders. Needs manual verification or input preconditions.",
+        "affected_selectors": ["[data-testid='cb-us-tax-band']"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "Dashboard (/dashboard)",
+        "issues": [
+          "Horizontal overflow at 390px viewport (documentElement.scrollWidth > clientWidth). All other 10 re-skinned pages pass the 390px overflow check. Likely the dashboard-statband 4-KPI row or the two-column 'Assets by account type' + 'Goal health' grid is not stacking at mobile breakpoint. Minor priority."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix horizontal overflow on /dashboard at 390px mobile viewport — likely the dashboard-statband or the chart grid needs responsive stacking.",
+    "Verify cb-us-tax-band on /crossborder actually renders after a successful Analyze with US-connected inputs (manual check or document the exact input flow)."
+  ],
+  "critical_code_review_comments": [
+    "StatBand responsive behavior: dashboard-statband overflows at 390px while goals/cashflow/plan/profile/ai statbands all fit — audit dashboard StatBand grid classes for a missing flex-wrap / grid-cols-1 breakpoint."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "95%"},
+  "test_credentials": "advisor@compass.ca / Compass2026! + TOTP(JBSWY3DPEHPK3PXP). Active households used: client_a1 (has debt) and client_0a836c02 (mortgaged property).",
+  "seed_data_creation": "Created one 'Pay off Mortgage' goal on client_a1 via the make-goal-<id> button (expected test artifact). Target amount $390,000 matches debt balance.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "feature_results_matrix": {
+    "Auth advisor+TOTP": "PASS",
+    "Greeting EN 'Welcome back'": "PASS",
+    "Greeting FR 'Bon retour'": "PASS (sidebar also localized: Tableau de bord, Objectifs, Flux de trésorerie, Dettes, Valeur nette, Retraite, Fiscalité; 'Client actif' present)",
+    "NetWorth Equity column": "PASS (column 'EQUITY' shown; mortgaged Principal Residence row: value $934,900 - mortgage $760,000 = $174,900 displayed; non-mortgage RRSP row shows '—')",
+    "Payoff Goal Link": "PASS (make-goal-d5c32a3b-47d0-4a04-8860-410d49b30391 button on debt row → toast 'Payoff goal created' → 'Pay off Mortgage' goal appears on /goals with target $390,000)",
+    "Re-skin smoke test (11 pages)": {
+      "/dashboard": "PASS statband; FAIL mobile overflow at 390",
+      "/goals": "PASS statband + mobile ok",
+      "/cashflow": "PASS statband + mobile ok",
+      "/tax": "PASS loads, no overflow (no statband expected here)",
+      "/education": "PASS resp-combined band renders after Project; no overflow",
+      "/crossborder": "LOADS ok, no overflow; cb-us-tax-band NOT observed after Analyze click",
+      "/ai": "PASS insights-statband renders (and after Generate)",
+      "/plan": "PASS plan-statband + two-column layout; no overflow",
+      "/documents": "PASS loads; no statband expected",
+      "/profile": "PASS profile-statband + no overflow",
+      "/insurance": "PASS loads; no overflow"
+    },
+    "Regression New Goal modal": "PASS (New goal button opens 'New financial goal' modal with all fields)"
+  },
+  "context_for_next_testing_agent": "Advisor login + TOTP works. Routes to remember: /crossborder (not /cross-border), /ai (not /ai-insights), /plan (not /financial-plan), /profile (not /client-profile). Active household must be set in localStorage['compass_active_household'] (e.g. client_a1 for debt tests, client_0a836c02 for mortgage/equity). Phase-1 features fully pass end-to-end. Only remaining items: (1) dashboard mobile overflow at 390, (2) manual cb-us-tax-band verification on /crossborder."
+}
