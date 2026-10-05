@@ -52,7 +52,7 @@ const COPY = {
       successLabel: "Projected success rate", paths: "500 simulated market paths",
       nestEgg: "Projected savings at retirement", median: "Median balance at age 95",
       cta: "Create your free plan",
-      disclaimer: "Illustrative only. Assumes 5.5% average return, 10% volatility and 2.1% inflation to age 95. Not financial advice.",
+      disclaimer: "Illustrative only. Assumes a 5.5% average return, 10% volatility, 2.1% inflation and about $22,000/yr of indexed government benefits (CPP/OAS), projected to age 95. Not financial advice.",
       strong: "On track", caution: "Needs attention", risk: "At risk",
     },
     trustTitle: "Built for Canadians, trusted by advisors",
@@ -166,7 +166,7 @@ const COPY = {
       successLabel: "Taux de réussite projeté", paths: "500 trajectoires de marché simulées",
       nestEgg: "Épargne projetée à la retraite", median: "Solde médian à 95 ans",
       cta: "Créez votre plan gratuit",
-      disclaimer: "À titre indicatif seulement. Hypothèses : rendement moyen de 5,5 %, volatilité de 10 % et inflation de 2,1 % jusqu'à 95 ans. Ne constitue pas un conseil financier.",
+      disclaimer: "À titre indicatif seulement. Hypothèses : rendement moyen de 5,5 %, volatilité de 10 %, inflation de 2,1 % et environ 22 000 $/an de prestations gouvernementales indexées (RPC/SV), projeté jusqu'à 95 ans. Ne constitue pas un conseil financier.",
       strong: "Sur la bonne voie", caution: "À surveiller", risk: "À risque",
     },
     trustTitle: "Conçu pour les Canadiens, approuvé par les conseillers",
@@ -305,15 +305,15 @@ function RetirementTeaser({ t, lang, onCta }) {
   const c = t.calc;
   const [currentAge, setCurrentAge] = React.useState(35);
   const [retireAge, setRetireAge] = React.useState(65);
-  const [savings, setSavings] = React.useState(75000);
-  const [monthly, setMonthly] = React.useState(800);
-  const [income, setIncome] = React.useState(4500);
+  const [savings, setSavings] = React.useState(150000);
+  const [monthly, setMonthly] = React.useState(1800);
+  const [income, setIncome] = React.useState(4000);
 
   const res = React.useMemo(() => monteCarlo({
     current: savings, annualContribution: monthly * 12,
     yearsToRetire: Math.max(1, retireAge - currentAge), retireAge,
     meanReturn: 5.5, volatility: 10, inflation: 2.1,
-    monthlyGoal: income, pensionIncome: 0, trials: 500,
+    monthlyGoal: income, pensionIncome: 22000, pensionIndexing: 2.1, trials: 600,
   }), [currentAge, retireAge, savings, monthly, income]);
 
   const prob = res.successProb;

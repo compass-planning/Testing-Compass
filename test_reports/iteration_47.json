@@ -1,0 +1,43 @@
+{
+  "summary": "Frontend-only verification of three new features: (1) public landing retirement-calculator teaser, (2) public legal pages (privacy, PIPEDA, terms) with plain-language badge/effective/disclaimer and EN/FR, (3) advisor digest preview modals on /tasks. All three features PASS end-to-end. Advisor logged in via API (login+MFA verify) and token stored in localStorage.compass_token to drive /tasks.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "(Minor/optional) Escape key does not close the digest-preview modal; only the Close button and backdrop click close it. Consider wiring Escape for accessibility parity.",
+    "(Minor/optional) One background 401 console error was observed after mounting /tasks (unrelated to digest preview flow). Likely a stale/other endpoint call; worth a quick look at network tab to identify."
+  ],
+  "critical_code_review_comments": [
+    "Landing teaser: res.p50 can show $0 at default inputs (success ~6%). This is mathematically correct for the Monte-Carlo decumulation (median path depletes before age 95) but visually it's a bit startling next to a $1M 'projected savings'. Consider labelling it 'Median balance at age 95' (already done) plus a small tooltip explaining that $0 means the median path depletes. Not a bug."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "advisor@compass.ca / Compass2026! + TOTP(JBSWY3DPEHPK3PXP). API-login then set localStorage.compass_token to bypass UI MFA step.",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "feature_results_matrix": {
+    "Landing teaser renders (all sliders + result testids present, values populated)": "PASS",
+    "Teaser slider recomputes band/nest-egg/median": "PASS (verified via native-React setter: income+savings+monthly extremes toggled band between 'On track' and 'At risk', nestEgg and median updated)",
+    "Teaser CTA navigates to /login?mode=register": "PASS (URL after click: /login?mode=register)",
+    "Teaser FR toggle": "PASS (CTA 'Créez votre plan gratuit', band 'À risque', section contains 'Taux de réussite projeté')",
+    "Legal /privacy-policy EN": "PASS (badge 'PLAIN-LANGUAGE SUMMARY', effective 'JUNE 1, 2026', updated 'JUNE 2026', disclaimer present, section-0 'Information we collect', section-1 'How we use your information')",
+    "Legal /pipeda EN": "PASS (section-0 'Accountability', section-1 'Identifying purposes & consent')",
+    "Legal /terms EN": "PASS (section-0 'The service', section-1 'Not financial advice')",
+    "Legal FR toggle (privacy)": "PASS (badge 'RÉSUMÉ EN LANGAGE CLAIR', effective 'DATE D'ENTRÉE EN VIGUEUR : 1 JUIN 2026', updated 'DERNIÈRE MISE À JOUR : JUIN 2026')",
+    "No console/page errors on legal routes": "PASS",
+    "Advisor /tasks digest-settings-card present": "PASS",
+    "digest-preview-daily-btn opens modal with populated iframe": "PASS (srcdoc 1264 chars, body text 'Your morning task digest / Good morning, Lena / You have 1 task needing attention today')",
+    "digest-preview-weekly-btn opens modal with populated iframe": "PASS (srcdoc 4291 chars, body text 'Your weekly book-health summary / 5 Households / 49 Avg score ...')",
+    "digest-preview-summary-btn opens modal with populated iframe": "PASS (srcdoc 1273 chars, body text 'Your end-of-day recap / Nice work today, Lena / You completed 1 task(s)')",
+    "No 'email sent' toast appears for Preview clicks": "PASS (zero toasts observed on preview)",
+    "digest-preview-close button closes modal": "PASS (all 3 kinds)",
+    "Backdrop click closes modal": "PASS",
+    "Escape key closes modal": "FAIL (minor accessibility gap — modal remains open on Esc)"
+  },
+  "context_for_next_testing_agent": "To drive advisor-authenticated UI tests, prefer API-login flow: POST /api/auth/login then /api/auth/mfa/verify with pyotp.TOTP('JBSWY3DPEHPK3PXP').now(); then page.evaluate(\"localStorage.setItem('compass_token', '<token>'); localStorage.setItem('compass_tier','advisor');\") before navigating to /tasks (or any protected route). Driving the login form UI with the TOTP input selector proved brittle. For the landing calculator sliders, standard dispatchEvent won't trigger React updates — use Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set to set range input values, then dispatch input+change events."
+}

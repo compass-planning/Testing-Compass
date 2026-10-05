@@ -66,6 +66,12 @@ function DigestPreviewModal({ kind, onClose }) {
     enabled: !!kind,
     queryFn: async () => (await api.get(`/advisor/digest-preview/${kind}`)).data,
   });
+  React.useEffect(() => {
+    if (!kind) return;
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [kind, onClose]);
   if (!kind) return null;
   const label = { daily: "Daily task digest", weekly: "Weekly book-health summary", summary: "End-of-day recap" }[kind];
   return (

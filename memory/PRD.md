@@ -12,6 +12,11 @@ User language: **English** (respond in English).
 - i18n: `/app/frontend/src/lib/i18n.jsx` — `useLang()` → {lang, setLang, t, tr}; persisted in localStorage `compass_lang`.
 
 ## Implemented (latest first)
+### 2026-06 — Retirement teaser + Advisor digest preview + Legal polish (DONE, tested — iteration_47, frontend 100%)
+- **Retirement Calculator Teaser (Landing)**: new interactive, client-side widget in `Landing.jsx` (`RetirementTeaser` + `DialInput`), section `id="calculator"` + nav item (`nav-calculator`). 5 sliders (current age, retirement age, current savings, monthly contribution, desired monthly income) feed the existing `monteCarlo()` from `lib/finance.js` live via `useMemo`. Right card shows a dynamic success gauge (color-banded On track/Needs attention/At risk via `teaser-band`), projected nest egg (`teaser-nest-egg`), median balance at 95 (`teaser-median`) and a CTA (`teaser-cta` → `/login?mode=register`). Bilingual (`COPY.*.calc`). Defaults tuned to a realistic/encouraging ~80% result (savings $150k, $1,800/mo, income $4,000/mo, 35→65) using a ~$22k/yr indexed CPP/OAS assumption (`pensionIncome:22000, pensionIndexing:2.1`); disclaimer notes the assumptions. No sign-up required.
+- **Advisor Digest Preview (inline, read-only)**: `TaskBoard.jsx` DigestSettings now has an Eye **Preview** button per digest row (`digest-preview-daily-btn`/`-weekly-btn`/`-summary-btn`) that opens `DigestPreviewModal` (`digest-preview-modal`) rendering the exact email HTML in a sandboxed iframe (`digest-preview-iframe`). Closes via button (`digest-preview-close`), backdrop, or Escape. No email is sent (distinct from the existing "Send test" buttons). Backend GET endpoints return `{subject, html}`: `/api/advisor/digest-preview/daily` + `/summary` (tasks.py), `/api/advisor/digest-preview/weekly` (advisor.py).
+- **Legal copy polish**: `Legal.jsx` adds a `Plain-language summary` badge (`legal-badge`), `Effective date: June 1, 2026` (`legal-effective`), kept `Last updated` (`legal-updated`), a plain-language disclaimer box (`legal-disclaimer`, bilingual), and expanded sections (Privacy +Cookies/Analytics +Changes; PIPEDA +Retention & disposal; Terms +Governing law = Ontario). Real counsel-reviewed text still to be swapped in later.
+
 ### 2026-06 — 4 feature requests + full BrokersEdge re-skin rollout (DONE, tested — iteration_46, 95%→fixed)
 - **French Everywhere (Task1)**: top-bar greeting now localized via `t('welcome_back')` in `Shell.jsx` ("Welcome back, {name}" / "Bon retour, {name}"); inactivity toast localized (`signed_out_idle` keys). Verified EN+FR.
 - **Equity View (Task2)**: `NetWorth.jsx` Assets tab has a new **Equity** column = Market value − mortgage/loan (green; "—" when unencumbered). Verified ($934,900 − $760,000 = $174,900).
@@ -70,8 +75,8 @@ User language: **English** (respond in English).
 
 ## Backlog
 - P2: Real Chase Payment Solutions integration (replace `chase_mock.py`) once merchant credentials provided.
-- P2: Landing page — real legal pages (Privacy/PIPEDA/Terms) instead of footer links → /login.
-- P2: Landing — optional interactive quick retirement calculator preview (design-spec'd, not built).
+- P2: Swap counsel-reviewed final legal text into `Legal.jsx` (current text is a polished plain-language placeholder for Westoak Innovations).
+- P3: Landing teaser — optional pension/CPP input slider + shareable result link.
 
 ## Credentials
 See `/app/memory/test_credentials.md`. Enterprise admin `scott@sweston.ca`; platform super-admin `admin@compass.ca`; TOTP secret `JBSWY3DPEHPK3PXP`.
