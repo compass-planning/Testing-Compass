@@ -1,0 +1,21 @@
+{
+  "summary": "Frontend-only regression for Landing retirement teaser additions: pension/CPP-OAS slider, shareable-link prefill via URL params, copy-link button, and FR + CTA regression. All 5 test groups PASS at 100%. Monte-Carlo recomputes as expected when pension slider changes (median $1.79M at $0 pension vs $4.36M at $40k; success band moves from 'Needs attention' to 'On track'). URL params ca/ra/sv/mo/in/pen correctly prefill all 6 sliders. Copy-link writes a URL containing all 6 params + #calculator to clipboard and shows success toast. teaser-cta still navigates to /login?mode=register. FR toggle correctly relabels pension to 'Prestations gouvernementales / an (RPC/SV)' and share button to 'Copier le lien du résultat'. Minor: observed background 401 console errors on an unrelated resource (not blocking any teaser feature).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Background 401 console error on page load (unrelated to teaser) — investigate which resource/endpoint is returning 401 on public landing"
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Teaser pension slider + shareable link (prefill via ?ca&ra&sv&mo&in&pen and copy-link button) verified end-to-end. Clipboard permissions granted via playwright context successfully read copied URL. Monte-Carlo values are stochastic; use directional checks (changed vs unchanged) rather than exact value asserts.",
+  "rca of the issue": "N/A — no issues found."
+}
