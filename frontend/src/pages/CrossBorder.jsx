@@ -5,7 +5,7 @@ import { Globe, Play, Flag, Landmark, PiggyBank, FileWarning, Save, Download } f
 import api, { formatApiError } from "@/lib/api";
 import { crossBorderApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
-import { Card, Button, Input, Field, Select, Badge, Stat } from "@/components/ui-kit";
+import { Card, Button, Input, Field, Select, Badge, StatBand } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
 
@@ -54,7 +54,7 @@ export default function CrossBorder() {
 
   return (
     <div data-testid="crossborder-page">
-      <PageHeader title="US / Cross-Border" subtitle="Classify tax jurisdiction and estimate US federal + state tax and Social Security for cross-border households." />
+      <PageHeader title="US / Cross-Border" icon={Globe} subtitle="Classify tax jurisdiction and estimate US federal + state tax and Social Security for cross-border households." />
 
       <div className="grid lg:grid-cols-3 gap-6">
         <Card className="p-6 lg:col-span-1" data-testid="cb-inputs">
@@ -100,12 +100,12 @@ export default function CrossBorder() {
           {ut && (
             <Card className="p-6" data-testid="cb-us-tax">
               <h3 className="font-heading font-bold text-compass-navy mb-4 flex items-center gap-2"><Landmark size={18} className="text-compass-blue" /> US income tax estimate</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                <Stat label="Federal tax" value={money(ut.federal_tax)} accent />
-                <Stat label={`State (${ut.state})`} value={money(ut.state_tax)} />
-                <Stat label="Total US tax" value={money(ut.total_us_tax)} />
-                <Stat label="Effective rate" value={`${ut.effective_rate}%`} />
-              </div>
+              <StatBand testid="cb-us-tax-band" items={[
+                { label: "Federal tax", value: money(ut.federal_tax), color: "#7CFFC4" },
+                { label: `State (${ut.state})`, value: money(ut.state_tax), color: "#FFD36B" },
+                { label: "Total US tax", value: money(ut.total_us_tax), color: "#8FB3FF" },
+                { label: "Effective rate", value: `${ut.effective_rate}%`, color: "#C9A7FF" },
+              ]} />
               <div className="text-xs text-compass-muted space-y-1">
                 <div>Gross income {money(ut.gross_income)} · standard deduction {money(ut.standard_deduction)}{ut.feie_excluded > 0 ? ` · FEIE excluded ${money(ut.feie_excluded)}` : ""} · taxable {money(ut.taxable_income)}</div>
                 <div>{ut.state_note}</div>

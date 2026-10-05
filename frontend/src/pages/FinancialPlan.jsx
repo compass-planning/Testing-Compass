@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Sparkles, Scale, Target, Shield, PiggyBank, Receipt, FileText, CreditCard } from "lucide-react";
 import { planApi } from "@/lib/planning";
 import api from "@/lib/api";
-import { Card, Stat, Badge, Progress } from "@/components/ui-kit";
+import { Card, StatBand, Badge, Progress } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money, STATUS_META } from "@/lib/format";
 
@@ -25,17 +25,18 @@ export default function FinancialPlan() {
 
   return (
     <div>
-      <PageHeader title="Financial Plan" subtitle="A consolidated snapshot of your household plan across every module." />
+      <PageHeader title="Financial Plan" icon={Sparkles} subtitle="A consolidated snapshot of your household plan across every module." />
       {o && (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Stat label="Net worth" value={money(o.netWorth)} accent />
-            <Stat label="Total assets" value={money(o.totalAssets)} />
-            <Stat label="Total liabilities" value={money(o.totalLiabilities)} />
-            <Stat label="Plan completeness" value={`${completeness}%`} />
-          </div>
+          <StatBand testid="plan-statband" items={[
+            { label: "Net worth", value: money(o.netWorth), color: "#7CFFC4" },
+            { label: "Total assets", value: money(o.totalAssets), color: "#8FB3FF" },
+            { label: "Total liabilities", value: money(o.totalLiabilities), color: "#FF8A8A" },
+            { label: "Plan completeness", value: `${completeness}%`, color: "#FFD36B" },
+          ]} />
 
-          <Card className="p-6 mb-6">
+          <div className="grid lg:grid-cols-3 gap-6">
+          <Card className="p-6 lg:col-span-2">
             <div className="flex items-center gap-2 mb-4"><Sparkles size={18} className="text-compass-blue" /><h3 className="font-heading font-bold text-compass-navy">Plan completeness</h3></div>
             <Progress value={completeness} color="#0052FF" />
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-5">
@@ -73,6 +74,7 @@ export default function FinancialPlan() {
               </div>
             )}
           </Card>
+          </div>
         </>
       )}
     </div>

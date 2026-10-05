@@ -118,6 +118,7 @@ export default function NetWorth() {
                   <th className="muted-label px-5 py-3.5">{tr("Owner")}</th>
                   <th className="muted-label px-5 py-3.5">{tr("Category")}</th>
                   {tab === "assets" && <th className="muted-label px-5 py-3.5 text-right">{tr("Mortgage / Loan")}</th>}
+                  {tab === "assets" && <th className="muted-label px-5 py-3.5 text-right">{tr("Equity")}</th>}
                   <th className="muted-label px-5 py-3.5 text-right">{tab === "liabilities" ? tr("Balance") : tr("Market value")}</th>
                   {!readOnly && <th className="px-5 py-3.5" />}
                 </tr></thead>
@@ -133,6 +134,7 @@ export default function NetWorth() {
                       <td className="px-5 py-3.5 text-compass-muted">{r.owner || "—"}</td>
                       <td className="px-5 py-3.5"><Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{r.category}</Badge></td>
                       {tab === "assets" && <td className="px-5 py-3.5 text-right text-compass-muted">{encumbrance(r) ? money(encumbrance(r)) : "—"}</td>}
+                      {tab === "assets" && <td className="px-5 py-3.5 text-right">{encumbrance(r) > 0 ? <span className="font-semibold text-compass-green">{money(Number(r.value || 0) - encumbrance(r))}</span> : <span className="text-compass-muted">—</span>}</td>}
                       <td className="px-5 py-3.5 text-right font-heading font-bold text-compass-navy">{money(r.value)}</td>
                       {!readOnly && (
                         <td className="px-5 py-3.5 text-right whitespace-nowrap">

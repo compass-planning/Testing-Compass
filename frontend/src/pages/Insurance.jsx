@@ -31,7 +31,7 @@ export default function Insurance() {
   const tr = useTr();
   return (
     <div data-testid="insurance-page">
-      <PageHeader title="Insurance & Protection" subtitle="Life-insurance needs analysis, disability and long-term-care planning.">
+      <PageHeader title="Insurance & Protection" icon={Shield} subtitle="Life-insurance needs analysis, disability and long-term-care planning.">
         <Badge color="#A3AED0" bg="rgba(163,174,208,0.15)">Illustrative</Badge>
       </PageHeader>
       <div className="flex gap-1 mb-6 border-b border-compass-border overflow-x-auto">

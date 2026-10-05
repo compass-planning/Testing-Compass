@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CreditCard, Plus, Pencil, Trash2, TrendingDown, Snowflake, Mountain } from "lucide-react";
+import { CreditCard, Plus, Pencil, Trash2, TrendingDown, Snowflake, Mountain, Target } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { planApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
@@ -50,6 +50,22 @@ export default function Debt() {
     return { base: baseline(rows), ava: strategy(rows, extra, "avalanche"), snow: strategy(rows, extra, "snowball") };
   }, [rows, extra]);
   const tr = useTr();
+
+  const createGoal = useMutation({
+    mutationFn: (body) => api.post("/goals", body).then((r) => r.data),
+    onSuccess: () => { toast.success(tr("Payoff goal created")); qc.invalidateQueries({ queryKey: ["goals"] }); },
+    onError: (e) => toast.error(formatApiError(e.response?.data?.detail)),
+  });
+  const makeGoal = (d) => {
+    const p = singlePayoff(d.balance, d.rate, d.payment);
+    if (p.neverPaysOff) { toast.error(tr("Payment too low to project a payoff date.")); return; }
+    const year = new Date().getFullYear() + Math.ceil(p.months / 12);
+    createGoal.mutate({
+      title: `${tr("Pay off")} ${d.name || tr("Debt")}`, category: "debt",
+      target_amount: Number(d.balance || 0), current_amount: 0, target_year: year,
+      monthly_contribution: Number(d.payment || 0), growth_rate: 0, owner_id: null, linked_asset_ids: [],
+    });
+  };
 
   return (
     <div>
@@ -117,11 +133,12 @@ export default function Debt() {
                       <td className="px-5 py-3.5 text-right text-compass-muted">{p.neverPaysOff ? "—" : money(p.interest)}</td>
                       {!readOnly && (
                         <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                          <button onClick={() => makeGoal(d)} disabled={p.neverPaysOff} title={tr("Track payoff as goal")} className="text-compass-green hover:bg-compass-green/10 rounded-lg p-1.5 disabled:opacity-40" data-testid={`make-goal-${d.id}`}><Target size={15} /></button>
                           {d.linked ? (
-                            <span className="text-xs text-compass-muted">{tr("from")} {tr("Net Worth")}</span>
+                            <span className="text-xs text-compass-muted ml-1">{tr("from")} {tr("Net Worth")}</span>
                           ) : (
                             <>
-                              <button onClick={() => setModal(d)} className="text-compass-blue hover:bg-compass-blue/10 rounded-lg p-1.5"><Pencil size={15} /></button>
+                              <button onClick={() => setModal(d)} className="text-compass-blue hover:bg-compass-blue/10 rounded-lg p-1.5 ml-1"><Pencil size={15} /></button>
                               <button onClick={() => del.mutate(d.id)} className="text-compass-red hover:bg-compass-red/10 rounded-lg p-1.5 ml-1" data-testid={`delete-${d.id}`}><Trash2 size={15} /></button>
                             </>
                           )}

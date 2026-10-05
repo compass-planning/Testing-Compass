@@ -35,6 +35,7 @@ const DICT = {
     us_state_tax: "US state tax", total_us_tax: "Total US tax", ss_67: "Social Security at 67",
     education: "Education funding (RESP)", combined_projected: "Combined projected value", covered: "covered",
     attached_documents: "Attached documents",
+    signed_out_idle: "Signed out due to inactivity", signed_out_idle_desc: "Please sign in again to continue.",
   },
   fr: {
     lang_en: "EN", lang_fr: "FR",
@@ -67,6 +68,7 @@ const DICT = {
     us_state_tax: "Impôt d'État américain", total_us_tax: "Impôt américain total", ss_67: "Sécurité sociale à 67 ans",
     education: "Financement des études (REEE)", combined_projected: "Valeur projetée combinée", covered: "couvert",
     attached_documents: "Documents joints",
+    signed_out_idle: "Déconnecté pour cause d'inactivité", signed_out_idle_desc: "Veuillez vous reconnecter pour continuer.",
   },
 };
 
@@ -222,6 +224,23 @@ const EN2FR = {
   "Avalanche": "Avalanche", "Snowball": "Boule de neige",
   "Highest rate first": "Taux le plus élevé d'abord", "Lowest balance first": "Solde le plus bas d'abord",
   "Saves": "Économise", "vs. minimum payments": "par rapport aux paiements minimums", "Never": "Jamais",
+  "Equity": "Valeur nette", "Pay off": "Rembourser", "Payoff goal created": "Objectif de remboursement créé",
+  "Track payoff as goal": "Suivre le remboursement comme objectif",
+  "Payment too low to project a payoff date.": "Paiement trop faible pour projeter une date de remboursement.",
+  // Suite re-skin KPI bands
+  "Assets under plan": "Actifs sous gestion", "Across all accounts": "Tous comptes confondus",
+  "Client households": "Ménages clients", "In your book": "Dans votre portefeuille",
+  "Corp members": "Membres de l'entreprise", "Household members": "Membres du ménage",
+  "Accounts": "Comptes", "RRSP · TFSA · Pension": "REER · CELI · Pension", "Active goals": "Objectifs actifs",
+  "Monthly income": "Revenu mensuel", "Monthly surplus": "Excédent mensuel", "Monthly shortfall": "Déficit mensuel",
+  "Expenses tracked": "Dépenses suivies",
+  "Combined projected value": "Valeur projetée combinée", "Total free grants": "Subventions gratuites totales",
+  "Your contributions": "Vos cotisations", "Combined coverage": "Couverture combinée", "CESG + CLB": "SCEE + BEC",
+  "Effective rate": "Taux effectif", "Total US tax": "Impôt américain total",
+  "Plan completeness": "Exhaustivité du plan", "Total target": "Cible totale", "Total saved": "Total épargné",
+  "Needs attention": "À surveiller", "Retirement plans": "Plans de retraite",
+  "Insurance analyses": "Analyses d'assurance", "Open action items": "Actions en cours",
+  "Opportunities": "Opportunités", "Insights": "Analyses", "Goal health": "Santé des objectifs",
   // Retirement — Projection tab
   "Planning assumptions": "Hypothèses de planification",
   "Set these once — they seed every projection, Monte Carlo and guardrail run for this household.": "Définissez-les une seule fois — elles alimentent chaque projection, simulation Monte-Carlo et garde-fou de ce ménage.",

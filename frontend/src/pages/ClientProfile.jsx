@@ -5,7 +5,7 @@ import { UserCog, Pencil, Plus, Users, Wallet, Shield, PiggyBank } from "lucide-
 import api, { formatApiError } from "@/lib/api";
 import { planApi, actionItemsApi } from "@/lib/planning";
 import { useHousehold } from "@/context/HouseholdContext";
-import { Card, Button, Input, Field, Select, Badge, Modal, Stat } from "@/components/ui-kit";
+import { Card, Button, Input, Field, Select, Badge, Modal, StatBand } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
 import ActionItems from "@/components/ActionItems";
@@ -54,16 +54,16 @@ export default function ClientProfile() {
 
   return (
     <div>
-      <PageHeader title={primary ? `The ${primary.full_name.split(" ").slice(-1)[0]} Household` : "Client Profile"}
+      <PageHeader title={primary ? `The ${primary.full_name.split(" ").slice(-1)[0]} Household` : "Client Profile"} icon={UserCog}
         subtitle="Household members, income and retirement details that power the plan." />
 
       {o && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <Stat label="Net worth" value={money(o.netWorth)} accent />
-          <Stat label="Retirement plans" value={o.retirementProjections} />
-          <Stat label="Insurance analyses" value={o.insuranceAnalyses} />
-          <Stat label="Open action items" value={actionItems.data?.length ?? 0} />
-        </div>
+        <StatBand testid="profile-statband" items={[
+          { label: "Net worth", value: money(o.netWorth), color: "#7CFFC4" },
+          { label: "Retirement plans", value: o.retirementProjections, color: "#8FB3FF" },
+          { label: "Insurance analyses", value: o.insuranceAnalyses, color: "#C9A7FF" },
+          { label: "Open action items", value: actionItems.data?.length ?? 0, color: "#FFD36B" },
+        ]} />
       )}
 
       <Card className="p-6">

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Brain, AlertTriangle, CheckCircle2, TrendingUp, Sparkles, RefreshCw } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
-import { Card, Badge, Button } from "@/components/ui-kit";
+import { Card, Badge, Button, StatBand } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 
 const META = {
@@ -30,7 +30,7 @@ export default function AIInsights() {
 
   return (
     <div data-testid="ai-insights-page">
-      <PageHeader title="AI Insights" subtitle="Plain-language, plan-aware guidance generated from your household data.">
+      <PageHeader title="AI Insights" icon={Brain} subtitle="Plain-language, plan-aware guidance generated from your household data.">
         <Button onClick={() => generate.mutate()} disabled={generate.isPending} data-testid="generate-insights">
           {generate.isPending ? <RefreshCw size={16} className="animate-spin" /> : <Sparkles size={16} />}
           {generate.isPending ? "Thinking…" : data ? "Regenerate" : "Generate insights"}
@@ -44,6 +44,15 @@ export default function AIInsights() {
           </Badge>
           {data.generated_at && <span className="text-xs text-compass-muted">Updated {new Date(data.generated_at).toLocaleString("en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>}
         </div>
+      )}
+
+      {data && insights.length > 0 && (
+        <StatBand testid="insights-statband" items={[
+          { label: "Insights", value: insights.length, color: "#8FB3FF" },
+          { label: "Needs attention", value: insights.filter((i) => i.severity === "warn" || i.severity === "danger").length, color: "#FFD36B" },
+          { label: "On track", value: insights.filter((i) => i.severity === "good").length, color: "#7CFFC4" },
+          { label: "Opportunities", value: insights.filter((i) => i.severity === "info").length, color: "#C9A7FF" },
+        ]} />
       )}
 
       {!data ? (

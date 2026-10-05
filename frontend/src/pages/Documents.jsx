@@ -20,7 +20,7 @@ export default function Documents() {
   if (!readOnly) tabs.push({ k: "letters", l: "Letters & Policies", i: FileSearch });
   return (
     <div data-testid="documents-page">
-      <PageHeader title="Documents & Meetings" subtitle="A secure vault for plans, statements and wills — plus recorded meeting notes." />
+      <PageHeader title="Documents & Meetings" icon={FileText} subtitle="A secure vault for plans, statements and wills — plus recorded meeting notes." />
       <div className="flex gap-1 mb-6 border-b border-compass-border">
         {tabs.map((t) => (
           <button key={t.k} onClick={() => setTab(t.k)} data-testid={`documents-tab-${t.k}`}

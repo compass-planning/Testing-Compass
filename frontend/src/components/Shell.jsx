@@ -108,6 +108,7 @@ export default function Shell() {
   const [pwOpen, setPwOpen] = useState(false);
   const items = getNav(user.tier, active, user.is_client);
   const tr = useTr();
+  const { t } = useLang();
   const TierIcon = TIER_ICON[user.tier];
   const backTo = user.tier === "enterprise" ? "/owners" : "/clients";
 
@@ -126,7 +127,7 @@ export default function Shell() {
     onIdle: () => {
       setWarnOpen(false);
       doLogout();
-      toast("Signed out due to inactivity", { description: "Please sign in again to continue." });
+      toast(t("signed_out_idle"), { description: t("signed_out_idle_desc") });
     },
   });
 
@@ -234,7 +235,7 @@ export default function Shell() {
             </button>
             <div className="lg:hidden"><CompassMark size={28} /></div>
             <span className="hidden sm:inline text-sm text-compass-muted">
-              Welcome back, <span className="font-semibold text-compass-navy">{user.name.split(" ")[0]}</span>
+              {(() => { const [pre, post] = t("welcome_back").split("{name}"); return (<>{pre}<span className="font-semibold text-compass-navy">{user.name.split(" ")[0]}</span>{post}</>); })()}
             </span>
           </div>
           <div className="flex items-center gap-2">

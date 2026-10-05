@@ -5,7 +5,7 @@ import { Receipt, Plus, Pencil, Trash2, ArrowDownRight, ArrowUpRight, Building2 
 import api, { formatApiError } from "@/lib/api";
 import { planApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
-import { Card, Button, Input, Field, Select, Badge, Modal, Stat, Empty } from "@/components/ui-kit";
+import { Card, Button, Input, Field, Select, Badge, Modal, StatBand, Donut, Empty } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
 import { PersonToggle, matchPerson, OWNER_TAGS } from "@/components/PersonToggle";
@@ -49,10 +49,14 @@ export default function CashFlow() {
   const rows = (expenses.data || []).filter((r) => matchPerson(r.owner, view));
   const totalExpenses = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
   const net = income.total - totalExpenses;
+  const EXP_PALETTE = ["#7CFFC4", "#FFD36B", "#8FB3FF", "#C9A7FF", "#5FE0D0", "#FF9DA0"];
+  const expMap = {};
+  rows.forEach((r) => { expMap[r.category] = (expMap[r.category] || 0) + Number(r.amount || 0); });
+  const expComposition = Object.entries(expMap).filter(([, v]) => v > 0).map(([name, value], i) => ({ name, value, color: EXP_PALETTE[i % EXP_PALETTE.length] }));
 
   return (
     <div>
-      <PageHeader title="Cash Flow" subtitle="Monthly household income versus expenses.">
+      <PageHeader title="Cash Flow" icon={Receipt} subtitle="Monthly household income versus expenses.">
         <div className="flex items-center gap-3">
           <PersonToggle owners={owners.data || []} value={view} onChange={setView} testid="cashflow-person" />
           {readOnly ? <Badge color="#A3AED0" bg="rgba(163,174,208,0.15)">CRM-managed</Badge>
@@ -60,11 +64,29 @@ export default function CashFlow() {
         </div>
       </PageHeader>
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <Stat label="Monthly income" value={money(income.total)} />
-        <Stat label="Monthly expenses" value={money(totalExpenses)} />
-        <Stat label={net >= 0 ? "Monthly surplus" : "Monthly shortfall"} value={money(Math.abs(net))} accent />
-      </div>
+      <StatBand testid="cashflow-statband" items={[
+        { label: "Monthly income", value: money(income.total), color: "#7CFFC4" },
+        { label: "Monthly expenses", value: money(totalExpenses), color: "#FF8A8A" },
+        { label: net >= 0 ? "Monthly surplus" : "Monthly shortfall", value: money(Math.abs(net)), color: net >= 0 ? "#7CFFC4" : "#FFD36B" },
+        { label: "Expenses tracked", value: rows.length, color: "#8FB3FF" },
+      ]}>
+        {expComposition.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <div className="shrink-0">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55 mb-2 text-center sm:text-left">Expense mix</div>
+              <Donut data={expComposition} size={140} thickness={18} />
+            </div>
+            <div className="flex-1 w-full space-y-2">
+              {expComposition.map((d) => (
+                <div key={d.name} className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2 text-white/80"><span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: d.color }} />{d.name}</span>
+                  <span className="font-semibold text-white">{money(d.value)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </StatBand>
 
       <div className="grid lg:grid-cols-2 gap-6">
         <Card className="p-6" data-testid="income-card">

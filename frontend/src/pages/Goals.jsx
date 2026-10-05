@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Plus, Target, Trash2, Pencil, Link2, CalendarCheck, AlertTriangle } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { planApi } from "@/lib/planning";
-import { Card, Button, Input, Field, Select, Badge, Progress, Modal, Empty } from "@/components/ui-kit";
+import { Card, Button, Input, Field, Select, Badge, Progress, Modal, Empty, StatBand, Donut } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { useTr } from "@/lib/i18n";
 import { money, STATUS_META } from "@/lib/format";
@@ -72,6 +72,17 @@ export default function Goals() {
   });
   const del = useMutation({ mutationFn: (id) => api.delete(`/goals/${id}`), onSuccess: () => { toast.success("Goal deleted"); invalidate(); } });
 
+  const goalsList = goals.data || [];
+  const currentOf = (g) => (g.linked_asset_ids && g.linked_asset_ids.length ? linkedTotal(g.linked_asset_ids) : Number(g.current_amount || 0));
+  const totalTarget = goalsList.reduce((s, g) => s + Number(g.target_amount || 0), 0);
+  const totalSaved = goalsList.reduce((s, g) => s + currentOf(g), 0);
+  const onTrackCount = goalsList.filter((g) => (g.status || "on_track") === "on_track" || g.status === "achieved").length;
+  const needsCount = goalsList.filter((g) => g.status === "at_risk" || g.status === "behind").length;
+  const STATUS_PALETTE = { on_track: "#7CFFC4", achieved: "#8FB3FF", at_risk: "#FFD36B", behind: "#FF8A8A" };
+  const statusCounts = {};
+  goalsList.forEach((g) => { const st = g.status || "on_track"; statusCounts[st] = (statusCounts[st] || 0) + 1; });
+  const statusDonut = Object.entries(statusCounts).map(([k, v]) => ({ name: (STATUS_META[k] || STATUS_META.on_track).label, value: v, color: STATUS_PALETTE[k] || "#8FB3FF" }));
+
   const applyFix = (g, current, req) => save.mutate({
     id: g.id, title: g.title, category: g.category, target_amount: Number(g.target_amount || 0),
     current_amount: Number(current || 0), target_year: Number(g.target_year), owner_id: g.owner_id || null,
@@ -92,6 +103,32 @@ export default function Goals() {
       <PageHeader title="Financial Goals" subtitle="Track progress toward retirement, income, legacy and major-purchase goals.">
         <Button onClick={() => setModal({})} data-testid="add-goal-button"><Plus size={16} /> {tr("New goal")}</Button>
       </PageHeader>
+
+      {goalsList.length > 0 && (
+        <StatBand testid="goals-statband" items={[
+          { label: "Total target", value: money(totalTarget), color: "#8FB3FF" },
+          { label: "Total saved", value: money(totalSaved), color: "#7CFFC4" },
+          { label: "On track", value: onTrackCount, color: "#7CFFC4" },
+          { label: "Needs attention", value: needsCount, color: needsCount > 0 ? "#FFD36B" : "#8FB3FF" },
+        ]}>
+          {statusDonut.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <div className="shrink-0">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55 mb-2 text-center sm:text-left">{tr("Goal health")}</div>
+                <Donut data={statusDonut} size={140} thickness={18} />
+              </div>
+              <div className="flex-1 w-full space-y-2">
+                {statusDonut.map((d) => (
+                  <div key={d.name} className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 text-white/80"><span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: d.color }} />{d.name}</span>
+                    <span className="font-semibold text-white">{d.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </StatBand>
+      )}
 
       {goals.isLoading ? (
         <div className="text-compass-muted">Loading…</div>

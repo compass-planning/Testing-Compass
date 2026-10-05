@@ -1,12 +1,12 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
-import { Users, Building2, ShieldAlert, ArrowRight, TrendingUp, AlertTriangle } from "lucide-react";
+import { Users, Building2, ShieldAlert, ArrowRight, TrendingUp, AlertTriangle, LayoutDashboard } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useHousehold } from "@/context/HouseholdContext";
-import { Card, Stat, Badge, Button } from "@/components/ui-kit";
+import { Card, StatBand, Badge, Button } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import TodayPanel from "@/components/TodayPanel";
 import ActionItems from "@/components/ActionItems";
@@ -52,18 +52,17 @@ export default function Dashboard() {
       <PageHeader
         title={`${greeting()}, ${data.name.split(" ")[0]}`}
         subtitle={subtitleFor(user.tier)}
+        icon={LayoutDashboard}
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Stat label="Assets under plan" value={money(data.total_assets)} accent sub="Across all accounts" />
-        {user.tier === "advisor" ? (
-          <Stat label="Client households" value={data.clients_count} sub="In your book" />
-        ) : (
-          <Stat label={user.tier === "enterprise" ? "Corp members" : "Household members"} value={data.owners_count} />
-        )}
-        <Stat label="Accounts" value={data.accounts_count} sub="RRSP · TFSA · Pension" />
-        <Stat label="Active goals" value={data.goals_count} />
-      </div>
+      <StatBand testid="dashboard-statband" items={[
+        { label: "Assets under plan", value: money(data.total_assets), color: "#7CFFC4", sub: "Across all accounts" },
+        user.tier === "advisor"
+          ? { label: "Client households", value: data.clients_count, sub: "In your book" }
+          : { label: user.tier === "enterprise" ? "Corp members" : "Household members", value: data.owners_count },
+        { label: "Accounts", value: data.accounts_count, sub: "RRSP · TFSA · Pension" },
+        { label: "Active goals", value: data.goals_count, color: "#FFD36B" },
+      ]} />
 
       <div className="grid lg:grid-cols-3 gap-6">
         <Card className="p-6 lg:col-span-2">

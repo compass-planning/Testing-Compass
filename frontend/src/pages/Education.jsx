@@ -5,7 +5,7 @@ import { GraduationCap, Play, Gift, PiggyBank, Target, Plus, Trash2, Users, Save
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import api, { formatApiError } from "@/lib/api";
 import { educationApi } from "@/lib/planning";
-import { Card, Button, Input, Field, Badge, Stat, Progress } from "@/components/ui-kit";
+import { Card, Button, Input, Field, Badge, StatBand, Progress } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money } from "@/lib/format";
 
@@ -79,7 +79,7 @@ export default function Education() {
 
   return (
     <div data-testid="education-page">
-      <PageHeader title="Education (RESP)" subtitle="Plan an RESP for each child with CESG and CLB grants, then save them as goals.">
+      <PageHeader title="Education (RESP)" icon={GraduationCap} subtitle="Plan an RESP for each child with CESG and CLB grants, then save them as goals.">
         <Button variant="outline" onClick={addChild} data-testid="resp-add-child"><Plus size={16} /> Add child</Button>
       </PageHeader>
 
@@ -96,12 +96,12 @@ export default function Education() {
       </Card>
 
       {combined && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" data-testid="resp-combined">
-          <Stat label="Combined projected value" value={money(combined.projectedValue)} accent sub={`${children.length} children`} />
-          <Stat label="Total free grants" value={money(combined.totalGrants)} sub="CESG + CLB" />
-          <Stat label="Your contributions" value={money(combined.totalContributions)} />
-          <Stat label="Combined coverage" value={`${combinedCoverage}%`} />
-        </div>
+        <StatBand testid="resp-combined" items={[
+          { label: "Combined projected value", value: money(combined.projectedValue), color: "#7CFFC4" },
+          { label: "Total free grants", value: money(combined.totalGrants), color: "#FFD36B", sub: "CESG + CLB" },
+          { label: "Your contributions", value: money(combined.totalContributions), color: "#8FB3FF" },
+          { label: "Combined coverage", value: `${combinedCoverage}%`, color: "#C9A7FF" },
+        ]} />
       )}
 
       <div className="grid lg:grid-cols-2 gap-6">

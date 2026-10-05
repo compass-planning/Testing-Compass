@@ -32,7 +32,7 @@ export default function Tax() {
 
   return (
     <div>
-      <PageHeader title="Tax & Estate" subtitle="Canadian tax projection, registered-account room and estate planning (illustrative).">
+      <PageHeader title="Tax & Estate" icon={Building2} subtitle="Canadian tax projection, registered-account room and estate planning (illustrative).">
         <Badge color="#A3AED0" bg="rgba(163,174,208,0.15)">2025 rules</Badge>
       </PageHeader>
 
