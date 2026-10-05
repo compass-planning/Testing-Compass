@@ -104,7 +104,12 @@ export default function Retirement() {
 
   return (
     <div data-testid="retirement-page">
-      <PageHeader title="Retirement" subtitle="Canadian projection, Monte Carlo stress-testing and drawdown strategy.">
+      <PageHeader title="Retirement" icon={PiggyBank}
+        meta={[
+          { label: "Projection through age", value: inp.life_expectancy, color: "#0052FF" },
+          { label: "Retire at", value: inp.retirement_age },
+          { label: "Province", value: inp.province },
+        ]}>
         <Button variant="outline" size="sm" onClick={prefill} data-testid="retirement-prefill">{tr("Prefill from profile")}</Button>
       </PageHeader>
 

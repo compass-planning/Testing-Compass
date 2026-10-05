@@ -5,7 +5,7 @@ import { CreditCard, Plus, Pencil, Trash2, TrendingDown, Snowflake, Mountain } f
 import api, { formatApiError } from "@/lib/api";
 import { planApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
-import { Card, Button, Input, Field, Select, Badge, Modal, Stat, Empty } from "@/components/ui-kit";
+import { Card, Button, Input, Field, Select, Badge, Modal, Stat, Empty, StatBand, Donut } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { useTr } from "@/lib/i18n";
 import { money } from "@/lib/format";
@@ -35,6 +35,8 @@ export default function Debt() {
   const totalBalance = rows.reduce((s, d) => s + Number(d.balance || 0), 0);
   const totalPayment = rows.reduce((s, d) => s + Number(d.payment || 0), 0);
   const avgRate = weightedAvgRate(rows);
+  const DEBT_PALETTE = ["#0052FF", "#00DF89", "#FFB800", "#7B61FF", "#06B6D4", "#EE5D50"];
+  const debtComposition = rows.map((d, i) => ({ name: d.name || "Debt", value: Number(d.balance || 0), color: DEBT_PALETTE[i % DEBT_PALETTE.length] })).filter((d) => d.value > 0);
 
   const analysis = useMemo(() => {
     if (rows.length === 0) return null;
@@ -44,7 +46,7 @@ export default function Debt() {
 
   return (
     <div>
-      <PageHeader title="Debt" subtitle="Balances, rates and payoff strategy for the household.">
+      <PageHeader title="Debt" icon={CreditCard} subtitle="Balances, rates and payoff strategy for the household.">
         <div className="flex items-center gap-3">
           <PersonToggle owners={owners.data || []} value={view} onChange={setView} testid="debt-person" />
           {readOnly ? <Badge color="#A3AED0" bg="rgba(163,174,208,0.15)">CRM-managed</Badge>
@@ -52,12 +54,29 @@ export default function Debt() {
         </div>
       </PageHeader>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Stat label={tr("Total debt")} value={money(totalBalance)} accent />
-        <Stat label={tr("Monthly payments")} value={money(totalPayment)} />
-        <Stat label={tr("Weighted avg rate")} value={`${avgRate.toFixed(2)}%`} />
-        <Stat label={tr("Lifetime interest")} value={analysis ? (analysis.base.neverPaysOff ? "—" : money(analysis.base.interest)) : "$0"} />
-      </div>
+      <StatBand testid="debt-statband" items={[
+        { label: "Total liability", value: money(totalBalance), color: "#FF8A8A" },
+        { label: "Monthly servicing", value: money(totalPayment), color: "#FFD36B", sub: "minimum payments" },
+        { label: "Avg interest rate", value: `${avgRate.toFixed(2)}%`, color: "#7CFFC4", sub: "debt-weighted" },
+        { label: "Lifetime interest", value: analysis ? (analysis.base.neverPaysOff ? "—" : money(analysis.base.interest)) : "$0", color: "#FF8A8A", sub: "at current payments" },
+      ]}>
+        {debtComposition.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <div className="shrink-0">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55 mb-2 text-center sm:text-left">{tr("Debt composition")}</div>
+              <Donut data={debtComposition} size={140} thickness={18} />
+            </div>
+            <div className="flex-1 w-full space-y-2">
+              {debtComposition.map((d) => (
+                <div key={d.name} className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2 text-white/80"><span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: d.color }} />{d.name}</span>
+                  <span className="font-semibold text-white">{money(d.value)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </StatBand>
 
       {isLoading ? <div className="text-compass-muted">Loading…</div> : rows.length === 0 ? (
         <Empty icon={CreditCard} title="No debts yet">Add a mortgage, loan or line of credit to see payoff analytics.</Empty>

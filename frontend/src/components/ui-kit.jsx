@@ -1,5 +1,8 @@
 import React from "react";
+import { motion } from "framer-motion";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { useTr } from "@/lib/i18n";
+import { money } from "@/lib/format";
 
 export function Button({ variant = "primary", size = "md", className = "", children, ...props }) {
   const sizes = { sm: "px-3 py-1.5 text-sm", md: "px-5 py-2.5 text-sm", lg: "px-7 py-3 text-base" };
@@ -137,5 +140,87 @@ export function Empty({ icon: Icon, title, children }) {
       <div className="font-heading font-bold text-compass-navy">{tr(title)}</div>
       {children && <div className="text-sm text-compass-muted mt-1">{typeof children === "string" ? tr(children) : children}</div>}
     </Card>
+  );
+}
+
+// Entrance animation wrapper — staggered fade/slide-in.
+export function Reveal({ children, delay = 0, className = "" }) {
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: "easeOut", delay }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+// Signature dark KPI band. items=[{label,value,color,sub}]; optional lower panel via children.
+export function StatBand({ items = [], children, testid }) {
+  const tr = useTr();
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: "easeOut" }}
+      className="rounded-2xl overflow-hidden mb-6 bg-gradient-to-br from-[#1B2559] to-[#2C3A78] text-white shadow-[0_12px_32px_rgba(27,37,89,0.28)]"
+      data-testid={testid}
+    >
+      <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 lg:divide-x divide-white/10">
+        {items.map((it, i) => (
+          <div key={i} className="px-6 py-5">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55">{tr(it.label)}</div>
+            <div className="font-heading text-2xl font-extrabold mt-1" style={{ color: it.color || "#fff" }}>{it.value}</div>
+            {it.sub && <div className="text-xs text-white/45 mt-0.5">{tr(it.sub)}</div>}
+          </div>
+        ))}
+      </div>
+      {children && <div className="border-t border-white/10 px-6 py-5">{children}</div>}
+    </motion.div>
+  );
+}
+
+// Titled right-rail card.
+export function RailCard({ title, children, className = "" }) {
+  const tr = useTr();
+  return (
+    <Card className={`p-5 ${className}`}>
+      {title && <div className="muted-label mb-3">{tr(title)}</div>}
+      {children}
+    </Card>
+  );
+}
+
+// Donut chart with optional centre label. data=[{name,value,color}].
+export function Donut({ data = [], size = 180, thickness = 22, centerValue, centerLabel }) {
+  const rows = data.length ? data : [{ name: "none", value: 1, color: "#E2E8F0" }];
+  return (
+    <div className="relative mx-auto" style={{ width: size, height: size }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={rows}
+            dataKey="value"
+            innerRadius={size / 2 - thickness}
+            outerRadius={size / 2}
+            paddingAngle={data.length > 1 ? 2 : 0}
+            stroke="none"
+          >
+            {rows.map((d, i) => <Cell key={i} fill={d.color} />)}
+          </Pie>
+          {data.length > 0 && (
+            <Tooltip formatter={(v) => money(v)} contentStyle={{ borderRadius: 12, border: "1px solid #E2E8F0", fontSize: 12 }} />
+          )}
+        </PieChart>
+      </ResponsiveContainer>
+      {(centerValue || centerLabel) && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          {centerValue && <div className="font-heading text-lg font-extrabold text-compass-navy">{centerValue}</div>}
+          {centerLabel && <div className="text-[10px] uppercase tracking-wide text-compass-muted">{centerLabel}</div>}
+        </div>
+      )}
+    </div>
   );
 }

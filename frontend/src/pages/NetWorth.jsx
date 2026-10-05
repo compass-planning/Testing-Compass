@@ -5,7 +5,7 @@ import { Scale, Plus, Pencil, Trash2, Home, Landmark, GraduationCap, Car } from 
 import api, { formatApiError } from "@/lib/api";
 import { planApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
-import { Card, Button, Input, Field, Select, Badge, Modal, Stat, Empty } from "@/components/ui-kit";
+import { Card, Button, Input, Field, Select, Badge, Modal, Stat, Empty, RailCard, Donut } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { useTr } from "@/lib/i18n";
 import { money } from "@/lib/format";
@@ -53,6 +53,10 @@ export default function NetWorth() {
   const totalAssets = assets.reduce((s, r) => s + Number(r.value || 0), 0) + rows.filter((r) => sectionOf(r) === "education").reduce((s, r) => s + Number(r.value || 0), 0);
   const totalLiab = liabilities.reduce((s, r) => s + Number(r.value || 0), 0);
   const visible = rows.filter((r) => sectionOf(r) === tab);
+  const PALETTE = ["#0052FF", "#00DF89", "#FFB800", "#7B61FF", "#06B6D4", "#EE5D50", "#1B2559", "#A3AED0"];
+  const allocMap = {};
+  [...assets, ...rows.filter((r) => sectionOf(r) === "education")].forEach((r) => { allocMap[r.category] = (allocMap[r.category] || 0) + Number(r.value || 0); });
+  const alloc = Object.entries(allocMap).filter(([, v]) => v > 0).map(([name, value], i) => ({ name, value, color: PALETTE[i % PALETTE.length] }));
 
   const invalidate = () => { qc.invalidateQueries({ queryKey: ["plan", "networth"] }); qc.invalidateQueries({ queryKey: ["plan", "overview"] }); };
   const save = useMutation({
@@ -68,75 +72,104 @@ export default function NetWorth() {
 
   return (
     <div>
-      <PageHeader title="Net Worth" subtitle="Household balance sheet — assets, liabilities and education savings.">
+      <PageHeader title="Net Worth" icon={Scale} subtitle="Household balance sheet — assets, liabilities and education savings.">
         {readOnly ? <Badge color="#A3AED0" bg="rgba(163,174,208,0.15)">CRM-managed</Badge>
           : <Button onClick={() => quickAdd(quickBtns[0], tab === "liabilities" ? "liability" : "asset")} data-testid="add-networth-button"><Plus size={16} /> {tr("Add entry")}</Button>}
       </PageHeader>
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <Stat label={tr("Net worth")} value={money(totalAssets - totalLiab)} accent />
         <Stat label={tr("Total assets")} value={money(totalAssets)} />
         <Stat label={tr("Total liabilities")} value={money(totalLiab)} />
       </div>
 
-      <div className="flex gap-1 mb-4 border-b border-compass-border">
-        {TABS.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)} data-testid={`nw-tab-${t.key}`}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === t.key ? "border-compass-blue text-compass-blue" : "border-transparent text-compass-muted hover:text-compass-navy"}`}>
-            <t.icon size={16} /> {tr(t.label)}
-          </button>
-        ))}
-      </div>
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <div className="flex gap-1 mb-4 border-b border-compass-border">
+            {TABS.map((t) => (
+              <button key={t.key} onClick={() => setTab(t.key)} data-testid={`nw-tab-${t.key}`}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === t.key ? "border-compass-blue text-compass-blue" : "border-transparent text-compass-muted hover:text-compass-navy"}`}>
+                <t.icon size={16} /> {tr(t.label)}
+              </button>
+            ))}
+          </div>
 
-      {!readOnly && (
-        <div className="flex flex-wrap gap-2 mb-5">
-          <span className="muted-label self-center mr-1">{tr("Quick add:")}</span>
-          {quickBtns.map((c) => (
-            <button key={c} onClick={() => quickAdd(c, tab === "liabilities" ? "liability" : "asset")}
-              className="rounded-full border border-compass-border px-3 py-1.5 text-xs font-semibold text-compass-navy hover:border-compass-blue hover:text-compass-blue transition-colors" data-testid={`quick-${c}`}>
-              + {c}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {visible.length === 0 ? (
-        <Empty icon={TABS.find((t) => t.key === tab).icon} title={`No ${tab} yet`}>Use Quick Add to record an entry.</Empty>
-      ) : (
-        <Card className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead><tr className="text-left border-b border-compass-border">
-              <th className="muted-label px-5 py-3.5">{tr("Name")}</th>
-              <th className="muted-label px-5 py-3.5">{tr("Owner")}</th>
-              <th className="muted-label px-5 py-3.5">{tr("Category")}</th>
-              {tab === "assets" && <th className="muted-label px-5 py-3.5 text-right">{tr("Mortgage / Loan")}</th>}
-              <th className="muted-label px-5 py-3.5 text-right">{tab === "liabilities" ? tr("Balance") : tr("Market value")}</th>
-              {!readOnly && <th className="px-5 py-3.5" />}
-            </tr></thead>
-            <tbody>
-              {visible.map((r) => (
-                <tr key={r.id} className="border-b border-compass-border last:border-0 hover:bg-compass-bg/40" data-testid={`networth-row-${r.id}`}>
-                  <td className="px-5 py-3.5 font-semibold text-compass-navy flex items-center gap-2">
-                    {REAL_ESTATE.includes(r.category) && <Home size={14} className="text-compass-blue" />}
-                    {r.category === "Vehicle" && <Car size={14} className="text-compass-blue" />}
-                    {r.name || "—"}
-                  </td>
-                  <td className="px-5 py-3.5 text-compass-muted">{r.owner || "—"}</td>
-                  <td className="px-5 py-3.5"><Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{r.category}</Badge></td>
-                  {tab === "assets" && <td className="px-5 py-3.5 text-right text-compass-muted">{encumbrance(r) ? money(encumbrance(r)) : "—"}</td>}
-                  <td className="px-5 py-3.5 text-right font-heading font-bold text-compass-navy">{money(r.value)}</td>
-                  {!readOnly && (
-                    <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                      <button onClick={() => setModal(r)} className="text-compass-blue hover:bg-compass-blue/10 rounded-lg p-1.5"><Pencil size={15} /></button>
-                      <button onClick={() => del.mutate(r.id)} className="text-compass-red hover:bg-compass-red/10 rounded-lg p-1.5 ml-1" data-testid={`delete-${r.id}`}><Trash2 size={15} /></button>
-                    </td>
-                  )}
-                </tr>
+          {!readOnly && (
+            <div className="flex flex-wrap gap-2 mb-5">
+              <span className="muted-label self-center mr-1">{tr("Quick add:")}</span>
+              {quickBtns.map((c) => (
+                <button key={c} onClick={() => quickAdd(c, tab === "liabilities" ? "liability" : "asset")}
+                  className="rounded-full border border-compass-border px-3 py-1.5 text-xs font-semibold text-compass-navy hover:border-compass-blue hover:text-compass-blue transition-colors" data-testid={`quick-${c}`}>
+                  + {c}
+                </button>
               ))}
-            </tbody>
-          </table>
-        </Card>
-      )}
+            </div>
+          )}
+
+          {visible.length === 0 ? (
+            <Empty icon={TABS.find((t) => t.key === tab).icon} title={`No ${tab} yet`}>Use Quick Add to record an entry.</Empty>
+          ) : (
+            <Card className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="text-left border-b border-compass-border">
+                  <th className="muted-label px-5 py-3.5">{tr("Name")}</th>
+                  <th className="muted-label px-5 py-3.5">{tr("Owner")}</th>
+                  <th className="muted-label px-5 py-3.5">{tr("Category")}</th>
+                  {tab === "assets" && <th className="muted-label px-5 py-3.5 text-right">{tr("Mortgage / Loan")}</th>}
+                  <th className="muted-label px-5 py-3.5 text-right">{tab === "liabilities" ? tr("Balance") : tr("Market value")}</th>
+                  {!readOnly && <th className="px-5 py-3.5" />}
+                </tr></thead>
+                <tbody>
+                  {visible.map((r) => (
+                    <tr key={r.id} className="border-b border-compass-border last:border-0 hover:bg-compass-bg/40" data-testid={`networth-row-${r.id}`}>
+                      <td className="px-5 py-3.5 font-semibold text-compass-navy flex items-center gap-2">
+                        {REAL_ESTATE.includes(r.category) && <Home size={14} className="text-compass-blue" />}
+                        {r.category === "Vehicle" && <Car size={14} className="text-compass-blue" />}
+                        {r.name || "—"}
+                      </td>
+                      <td className="px-5 py-3.5 text-compass-muted">{r.owner || "—"}</td>
+                      <td className="px-5 py-3.5"><Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{r.category}</Badge></td>
+                      {tab === "assets" && <td className="px-5 py-3.5 text-right text-compass-muted">{encumbrance(r) ? money(encumbrance(r)) : "—"}</td>}
+                      <td className="px-5 py-3.5 text-right font-heading font-bold text-compass-navy">{money(r.value)}</td>
+                      {!readOnly && (
+                        <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                          <button onClick={() => setModal(r)} className="text-compass-blue hover:bg-compass-blue/10 rounded-lg p-1.5"><Pencil size={15} /></button>
+                          <button onClick={() => del.mutate(r.id)} className="text-compass-red hover:bg-compass-red/10 rounded-lg p-1.5 ml-1" data-testid={`delete-${r.id}`}><Trash2 size={15} /></button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          )}
+        </div>
+
+        <div className="space-y-5">
+          <RailCard title="Asset allocation">
+            {alloc.length ? (
+              <>
+                <Donut data={alloc} centerValue={money(totalAssets)} centerLabel="Assets" />
+                <div className="mt-4 space-y-2">
+                  {alloc.map((a) => (
+                    <div key={a.name} className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2 text-compass-navy"><span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: a.color }} />{a.name}</span>
+                      <span className="font-semibold text-compass-navy">{money(a.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : <p className="text-sm text-compass-muted">{tr("Add assets to see allocation.")}</p>}
+          </RailCard>
+          <RailCard title="Summary">
+            <div className="space-y-2.5">
+              <div className="flex justify-between text-sm"><span className="text-compass-muted">{tr("Total assets")}</span><span className="font-semibold text-compass-green">{money(totalAssets)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-compass-muted">{tr("Total liabilities")}</span><span className="font-semibold text-compass-red">{money(totalLiab)}</span></div>
+              <div className="flex justify-between text-sm pt-2.5 border-t border-compass-border"><span className="font-bold text-compass-navy">{tr("Net worth")}</span><span className="font-heading font-extrabold text-compass-navy">{money(totalAssets - totalLiab)}</span></div>
+            </div>
+          </RailCard>
+        </div>
+      </div>
 
       <EntryModal open={modal !== null} initial={modal} owners={owners.data || []} tab={tab}
         onClose={() => setModal(null)} onSubmit={(b) => save.mutate(b)} loading={save.isPending} />
