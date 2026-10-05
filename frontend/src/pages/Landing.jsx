@@ -5,7 +5,7 @@ import {
   ArrowRight, Check, ShieldCheck, Lock, MapPin, Languages, Menu, X,
   TrendingUp, Calculator, Wallet, Sparkles, Building2, UserCog, User as UserIcon,
   ChevronDown, Star, FileText, Mic, ScanLine, PlayCircle, Send, Loader2, CheckCircle2,
-  ClipboardList, Rocket,
+  ClipboardList, Rocket, Share2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { CompassMark } from "@/components/Logo";
@@ -52,7 +52,9 @@ const COPY = {
       successLabel: "Projected success rate", paths: "500 simulated market paths",
       nestEgg: "Projected savings at retirement", median: "Median balance at age 95",
       cta: "Create your free plan",
-      disclaimer: "Illustrative only. Assumes a 5.5% average return, 10% volatility, 2.1% inflation and about $22,000/yr of indexed government benefits (CPP/OAS), projected to age 95. Not financial advice.",
+      pension: "Government benefits / yr (CPP/OAS)",
+      share: "Copy result link", shareCopied: "Link copied — share it or revisit anytime",
+      disclaimer: "Illustrative only. Assumes a 5.5% average return, 10% volatility and 2.1% inflation, with your CPP/OAS benefits indexed to inflation and projected to age 95. Not financial advice.",
       strong: "On track", caution: "Needs attention", risk: "At risk",
     },
     trustTitle: "Built for Canadians, trusted by advisors",
@@ -166,7 +168,9 @@ const COPY = {
       successLabel: "Taux de réussite projeté", paths: "500 trajectoires de marché simulées",
       nestEgg: "Épargne projetée à la retraite", median: "Solde médian à 95 ans",
       cta: "Créez votre plan gratuit",
-      disclaimer: "À titre indicatif seulement. Hypothèses : rendement moyen de 5,5 %, volatilité de 10 %, inflation de 2,1 % et environ 22 000 $/an de prestations gouvernementales indexées (RPC/SV), projeté jusqu'à 95 ans. Ne constitue pas un conseil financier.",
+      pension: "Prestations gouvernementales / an (RPC/SV)",
+      share: "Copier le lien du résultat", shareCopied: "Lien copié — partagez-le ou revenez-y à tout moment",
+      disclaimer: "À titre indicatif seulement. Hypothèses : rendement moyen de 5,5 %, volatilité de 10 % et inflation de 2,1 %, vos prestations RPC/SV étant indexées à l'inflation et projetées jusqu'à 95 ans. Ne constitue pas un conseil financier.",
       strong: "Sur la bonne voie", caution: "À surveiller", risk: "À risque",
     },
     trustTitle: "Conçu pour les Canadiens, approuvé par les conseillers",
@@ -303,18 +307,25 @@ function DialInput({ label, value, min, max, step = 1, prefix = "", suffix = "",
 
 function RetirementTeaser({ t, lang, onCta }) {
   const c = t.calc;
-  const [currentAge, setCurrentAge] = React.useState(35);
-  const [retireAge, setRetireAge] = React.useState(65);
-  const [savings, setSavings] = React.useState(150000);
-  const [monthly, setMonthly] = React.useState(1800);
-  const [income, setIncome] = React.useState(4000);
+  const sp = React.useMemo(() => new URLSearchParams(window.location.search), []);
+  const initNum = (key, def, min, max) => {
+    if (!sp.has(key)) return def;
+    const v = Number(sp.get(key));
+    return Number.isFinite(v) && v >= min && v <= max ? v : def;
+  };
+  const [currentAge, setCurrentAge] = React.useState(() => initNum("ca", 35, 18, 70));
+  const [retireAge, setRetireAge] = React.useState(() => initNum("ra", 65, 50, 75));
+  const [savings, setSavings] = React.useState(() => initNum("sv", 150000, 0, 2000000));
+  const [monthly, setMonthly] = React.useState(() => initNum("mo", 1800, 0, 10000));
+  const [income, setIncome] = React.useState(() => initNum("in", 4000, 1000, 20000));
+  const [pension, setPension] = React.useState(() => initNum("pen", 22000, 0, 40000));
 
   const res = React.useMemo(() => monteCarlo({
     current: savings, annualContribution: monthly * 12,
     yearsToRetire: Math.max(1, retireAge - currentAge), retireAge,
     meanReturn: 5.5, volatility: 10, inflation: 2.1,
-    monthlyGoal: income, pensionIncome: 22000, pensionIndexing: 2.1, trials: 600,
-  }), [currentAge, retireAge, savings, monthly, income]);
+    monthlyGoal: income, pensionIncome: pension, pensionIndexing: 2.1, trials: 600,
+  }), [currentAge, retireAge, savings, monthly, income, pension]);
 
   const prob = res.successProb;
   const band = prob >= 80 ? { label: c.strong, color: "#00DF89" }
@@ -323,6 +334,13 @@ function RetirementTeaser({ t, lang, onCta }) {
   const money = (n) => new Intl.NumberFormat(lang === "fr" ? "fr-CA" : "en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(Math.round(n || 0));
 
   const onAge = (v) => { setCurrentAge(v); if (v >= retireAge) setRetireAge(Math.min(75, v + 1)); };
+  const copyShare = async () => {
+    const u = new URL(window.location.origin + "/");
+    u.search = new URLSearchParams({ ca: currentAge, ra: retireAge, sv: savings, mo: monthly, in: income, pen: pension }).toString();
+    u.hash = "calculator";
+    try { await navigator.clipboard.writeText(u.toString()); toast.success(c.shareCopied); }
+    catch { toast.error("Could not copy link"); }
+  };
 
   return (
     <section id="calculator" className="py-20 lg:py-28">
@@ -341,6 +359,7 @@ function RetirementTeaser({ t, lang, onCta }) {
               <DialInput label={c.savings} value={savings} min={0} max={2000000} step={5000} prefix="$" onChange={setSavings} lang={lang} testid="teaser-savings" />
               <DialInput label={c.monthly} value={monthly} min={0} max={10000} step={50} prefix="$" onChange={setMonthly} lang={lang} testid="teaser-monthly" />
               <DialInput label={c.income} value={income} min={1000} max={20000} step={100} prefix="$" onChange={setIncome} lang={lang} testid="teaser-income" />
+              <DialInput label={c.pension} value={pension} min={0} max={40000} step={500} prefix="$" onChange={setPension} lang={lang} testid="teaser-pension" />
             </div>
           </div>
 
@@ -370,6 +389,9 @@ function RetirementTeaser({ t, lang, onCta }) {
 
             <button onClick={onCta} className="relative mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#00DF89] px-6 py-3.5 text-base font-bold text-[#0B061E] shadow-[0_10px_30px_rgba(0,223,137,0.35)] transition-transform hover:-translate-y-0.5" data-testid="teaser-cta">
               {c.cta}<ArrowRight size={18} />
+            </button>
+            <button onClick={copyShare} className="relative mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10" data-testid="teaser-copy-link">
+              <Share2 size={16} className="text-[#00DF89]" />{c.share}
             </button>
             <p className="relative mt-4 text-[11px] leading-relaxed text-[#8C82B5]">{c.disclaimer}</p>
           </div>
