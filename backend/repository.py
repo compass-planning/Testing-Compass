@@ -45,6 +45,10 @@ class Repository(ABC):
     @abstractmethod
     def update_user(self, uid: str, patch: dict) -> Optional[dict]: ...
     @abstractmethod
+    def delete_user(self, uid: str) -> bool: ...
+    @abstractmethod
+    def purge_client_data(self, client_id: str) -> int: ...
+    @abstractmethod
     def all_users(self) -> list: ...
 
 
@@ -111,6 +115,22 @@ class InMemoryRepository(Repository):
                 return copy.deepcopy(u)
         return None
 
+    def delete_user(self, uid):
+        users = self._users()
+        for i, u in enumerate(users):
+            if u["id"] == uid:
+                users.pop(i)
+                return True
+        return False
+
+    def purge_client_data(self, client_id):
+        n = 0
+        for coll in self.data.get("shared", {}).values():
+            before = len(coll)
+            coll[:] = [r for r in coll if (r.get("scope") or {}).get("client_id") != client_id]
+            n += before - len(coll)
+        return n
+
     def all_users(self):
         return copy.deepcopy(self._users())
 
@@ -173,6 +193,16 @@ class MongoRepository(Repository):
         from pymongo import ReturnDocument
         return self._users().find_one_and_update(
             {"id": uid}, {"$set": patch}, return_document=ReturnDocument.AFTER, projection={"_id": 0})
+
+    def delete_user(self, uid):
+        return self._users().delete_one({"id": uid}).deleted_count > 0
+
+    def purge_client_data(self, client_id):
+        n = 0
+        for name in self.db.list_collection_names():
+            if name.startswith("shared__") and name != "shared__users":
+                n += self.db[name].delete_many({"scope.client_id": client_id}).deleted_count
+        return n
 
     def all_users(self):
         return list(self._users().find({}, {"_id": 0}))

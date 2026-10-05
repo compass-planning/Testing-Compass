@@ -11,6 +11,7 @@ const TIER_COLOR = { enterprise: "#0052FF", advisor: "#00DF89", solo: "#FFB800",
 export default function AdminAccounts() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [confirm, setConfirm] = useState(null);
   const { data } = useQuery({
     queryKey: ["admin-accounts", search],
     queryFn: () => api.get("/admin/accounts", { params: { search: search || undefined } }).then((r) => r.data),
@@ -20,6 +21,16 @@ export default function AdminAccounts() {
   const act = useMutation({
     mutationFn: ({ uid, action }) => api.post(`/admin/accounts/${uid}/${action}`).then((r) => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-accounts"] }); toast.success("Account updated"); },
+    onError: (e) => toast.error(formatApiError(e.response?.data?.detail)),
+  });
+
+  const del = useMutation({
+    mutationFn: (uid) => api.delete(`/admin/accounts/${uid}`).then((r) => r.data),
+    onSuccess: (d) => {
+      qc.invalidateQueries({ queryKey: ["admin-accounts"] });
+      setConfirm(null);
+      toast.success(`Deleted ${d.deleted} — ${d.records_purged} personal records erased`);
+    },
     onError: (e) => toast.error(formatApiError(e.response?.data?.detail)),
   });
 
@@ -53,11 +64,16 @@ export default function AdminAccounts() {
                     : <Badge color="#00DF89" bg="rgba(0,223,137,0.12)">active</Badge>}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {a.tier !== "admin" && (a.status === "suspended" ? (
-                    <Button size="sm" variant="outline" onClick={() => act.mutate({ uid: a.id, action: "reactivate" })} data-testid={`reactivate-${a.id}`}>Reactivate</Button>
-                  ) : (
-                    <Button size="sm" variant="danger" onClick={() => act.mutate({ uid: a.id, action: "suspend" })} data-testid={`suspend-${a.id}`}>Suspend</Button>
-                  ))}
+                  {a.tier !== "admin" && (
+                    <div className="flex justify-end gap-2">
+                      {a.status === "suspended" ? (
+                        <Button size="sm" variant="outline" onClick={() => act.mutate({ uid: a.id, action: "reactivate" })} data-testid={`reactivate-${a.id}`}>Reactivate</Button>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => act.mutate({ uid: a.id, action: "suspend" })} data-testid={`suspend-${a.id}`}>Suspend</Button>
+                      )}
+                      <Button size="sm" variant="danger" onClick={() => setConfirm(a)} data-testid={`delete-${a.id}`}>Delete</Button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
@@ -65,6 +81,23 @@ export default function AdminAccounts() {
           </tbody>
         </table>
       </Card>
+
+      {confirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" data-testid="delete-confirm" onClick={() => setConfirm(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-heading text-lg font-bold text-compass-navy">Delete account?</h3>
+            <p className="mt-2 text-sm text-compass-muted">
+              This permanently erases <b className="text-compass-navy">{confirm.email}</b> and all personal planning data linked to it (PIPEDA right-to-erasure). This cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setConfirm(null)} data-testid="delete-cancel">Cancel</Button>
+              <Button variant="danger" onClick={() => del.mutate(confirm.id)} disabled={del.isPending} data-testid="delete-confirm-btn">
+                {del.isPending ? "Deleting…" : "Delete permanently"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

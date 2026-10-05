@@ -150,6 +150,22 @@ async def reactivate_account(uid: str, admin: dict = Depends(get_admin_user)):
     return {"ok": True, "status": "active"}
 
 
+@router.delete("/admin/accounts/{uid}")
+async def delete_account(uid: str, admin: dict = Depends(get_admin_user)):
+    u = repo.find_user_by_id(uid)
+    if not u:
+        raise HTTPException(status_code=404, detail="Account not found")
+    if u.get("tier") == "admin":
+        raise HTTPException(status_code=400, detail="Platform admin accounts cannot be deleted")
+    purged = 0
+    cid = (u.get("scope") or {}).get("client_id")
+    if cid:
+        purged = repo.purge_client_data(cid)
+    repo.delete_user(uid)
+    audit(admin, "admin.account.delete", "account", f"Erased {u.get('email')} ({u.get('tier')}) + {purged} personal records")
+    return {"ok": True, "deleted": u.get("email"), "records_purged": purged}
+
+
 # ---------------- Announcements ----------------
 class AnnouncementIn(BaseModel):
     title: str
@@ -345,7 +361,7 @@ async def refund_invoice(rid: str, admin: dict = Depends(get_admin_user)):
 ADMIN_ACTIONS = [
     "admin.suspend", "admin.reactivate", "admin.invoice.pay", "admin.invoice.refund",
     "admin.announcement.create", "admin.ticket.create", "admin.ticket.reply",
-    "admin.status.create", "admin.sub.create", "admin.lead.update",
+    "admin.status.create", "admin.sub.create", "admin.lead.update", "admin.account.delete",
 ]
 
 

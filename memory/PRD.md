@@ -12,6 +12,12 @@ User language: **English** (respond in English).
 - i18n: `/app/frontend/src/lib/i18n.jsx` — `useLang()` → {lang, setLang, t, tr}; persisted in localStorage `compass_lang`.
 
 ## Implemented (latest first)
+### 2026-06 — Admin Delete Account (PIPEDA erasure) (DONE, tested)
+- `DELETE /api/admin/accounts/{uid}` (admin-only): erases the user + all planning data scoped to their `client_id`. Blocks deleting `tier=="admin"`. Audited as `admin.account.delete`.
+- `repo.delete_user(uid)` + `repo.purge_client_data(client_id)` added to both InMemory and Mongo repositories.
+- Admin → Accounts: red **Delete** button per non-admin row + confirm dialog (`data-testid="delete-confirm"`, `delete-confirm-btn`, `delete-cancel`). Verified: solo account deleted with 2 records purged, admin delete blocked.
+- NOTE: `jamieburans0908@gmail.com` is NOT in preview DB — it lives in production. Use this feature on the live site after redeploy to erase it.
+
 ### 2026-06 — Landing follow-ups: Legal pages, Demo modal, Lead capture (DONE, tested)
 - **Leads analytics**: `/admin/leads` now returns `by_source`; Admin → Leads shows a "By source" breakdown panel (`data-testid="leads-source-breakdown"`, chips `source-{name}`).
 - **More lead entry points**: "Talk to sales" link in the hero (source `hero`) and footer (source `footer`), both opening the contact modal via `openContact(source)`. Verified by_source = {hero, footer, pricing, landing}.
