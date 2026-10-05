@@ -6,7 +6,7 @@ import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 import api, { formatApiError } from "@/lib/api";
 import { useHousehold } from "@/context/HouseholdContext";
-import { Card, Button, Badge, Progress, Empty, Modal, Input, Field, Select, Toggle } from "@/components/ui-kit";
+import { Card, Button, Badge, Empty, Modal, Input, Field, Select, Toggle } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money, STATUS_META } from "@/lib/format";
 
@@ -117,7 +117,7 @@ export default function AdvisorClients() {
   return (
     <div>
       <PageHeader title="Household Queue" subtitle="Every household in your book, scored and triaged by what needs attention.">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-xl border border-compass-border overflow-hidden" data-testid="view-switch">
             <button onClick={() => setView("queue")} className={`px-3 py-2 text-sm font-semibold transition-colors ${view === "queue" ? "bg-compass-blue text-white" : "text-compass-navy hover:bg-compass-bg"}`} data-testid="view-queue"><Users size={15} className="inline mr-1.5" />Queue</button>
             <button onClick={() => setView("opps")} className={`px-3 py-2 text-sm font-semibold transition-colors ${view === "opps" ? "bg-compass-blue text-white" : "text-compass-navy hover:bg-compass-bg"}`} data-testid="view-opps"><Zap size={15} className="inline mr-1.5" />Opportunities</button>
@@ -151,62 +151,53 @@ export default function AdvisorClients() {
           </div>
 
           {view === "queue" && (
-          <>
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-2.5" data-testid="household-list">
             {(() => { const term = search.trim().toLowerCase(); let filtered = term ? list.filter((c) => (c.primary || "").toLowerCase().includes(term) || (c.members || []).some((m) => m.toLowerCase().includes(term))) : list; if (renewalsOnly) filtered = filtered.filter((c) => c.renewals_soon > 0); return filtered.length === 0 ? (
-              <div className="md:col-span-2 text-sm text-compass-muted py-8 text-center" data-testid="household-search-empty">No households match your filters.</div>
+              <div className="text-sm text-compass-muted py-8 text-center" data-testid="household-search-empty">No households match your filters.</div>
             ) : [...filtered].sort((a, b) => (a.score || 0) - (b.score || 0)).map((c) => {
               const meta = SCORE_META[c.status] || SCORE_META["Needs Review"];
               return (
-                <Card key={c.client_id} className="p-5" data-testid={`queue-household-card-${c.client_id}`}>
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl gradient-bg flex items-center justify-center text-white font-bold">{(c.primary || "H").slice(0, 1)}</div>
-                      <div>
-                        <div className="font-heading font-bold text-compass-navy">{c.primary || c.client_id}</div>
-                        <div className="text-xs text-compass-muted">{c.members.join(", ")}</div>
+                <Card key={c.client_id} className="p-4" data-testid={`queue-household-card-${c.client_id}`}>
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-xl gradient-bg flex items-center justify-center text-white font-bold shrink-0">{(c.primary || "H").slice(0, 1)}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-heading font-bold text-compass-navy truncate">{c.primary || c.client_id}</span>
+                        <Badge color={meta.color} bg={meta.bg} data-testid={`client-status-${c.client_id}`}>{c.status || "—"}</Badge>
+                        {c.renewals_soon > 0 && <button onClick={(e) => { e.stopPropagation(); setActive(c.client_id, c.primary || c.client_id); navigate("/insurance"); }} className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full hover:ring-1 hover:ring-amber-400 transition-shadow" style={{ color: "#B8860B", background: "rgba(255,184,0,0.14)" }} data-testid={`renewals-soon-${c.client_id}`}>{c.renewals_soon} renewal{c.renewals_soon === 1 ? "" : "s"} ≤ 60d →</button>}
+                        {c.invite_pending && <span className="text-[10px] font-semibold text-compass-amber" data-testid={`invite-pending-${c.client_id}`}>Invited · not activated</span>}
+                        {c.invite_pending && <button onClick={() => resendInvite(c.client_id)} className="text-[10px] font-semibold text-compass-blue hover:underline" data-testid={`resend-invite-${c.client_id}`}>Resend</button>}
+                        {c.invite_pending && c.invite_expires_at && (() => { const d = Math.ceil((new Date(c.invite_expires_at) - Date.now()) / 86400000); return <span className={`text-[10px] font-semibold ${d <= 0 ? "text-compass-red" : "text-compass-muted"}`} data-testid={`invite-expiry-${c.client_id}`}>{d > 0 ? `${d}d left` : "Expired"}</span>; })()}
                       </div>
+                      <div className="text-xs text-compass-muted truncate">{c.members.join(", ")}</div>
+                      <div className="text-xs mt-0.5 truncate"><span className="muted-label">Next: </span><span className="font-semibold text-compass-blue" data-testid={`client-action-${c.client_id}`}>{c.next_action}</span></div>
                     </div>
-                    <div className="text-right">
+                    <div className="hidden xl:grid grid-cols-4 gap-5 shrink-0 text-sm text-right">
+                      <div><div className="muted-label">Assets</div><div className="font-semibold text-compass-navy">{money(c.assets)}</div></div>
+                      <div><div className="muted-label">Net worth</div><div className="font-semibold text-compass-navy">{money(c.net_worth || 0)}</div></div>
+                      <div><div className="muted-label">Goals</div><div className="font-semibold text-compass-navy">{c.goals}</div></div>
+                      <div data-testid={`client-protection-${c.client_id}`}><div className="muted-label">Protection</div>{c.protection_score != null ? <div className="font-semibold" style={{ color: scoreColor(c.protection_score) }}>{c.protection_score}</div> : <div className="font-semibold text-compass-muted">—</div>}</div>
+                    </div>
+                    <div className="text-center shrink-0 w-14">
+                      <div className="muted-label">Score</div>
                       <div className="font-heading text-2xl font-extrabold" style={{ color: scoreColor(c.score || 0) }} data-testid={`client-score-${c.client_id}`}>{c.score ?? "—"}</div>
-                      <Badge color={meta.color} bg={meta.bg} data-testid={`client-status-${c.client_id}`}>{c.status || "—"}</Badge>
-                      {c.renewals_soon > 0 && <button onClick={(e) => { e.stopPropagation(); setActive(c.client_id, c.primary || c.client_id); navigate("/insurance"); }} className="mt-1 inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full hover:ring-1 hover:ring-amber-400 transition-shadow" style={{ color: "#B8860B", background: "rgba(255,184,0,0.14)" }} data-testid={`renewals-soon-${c.client_id}`}>{c.renewals_soon} policy renewal{c.renewals_soon === 1 ? "" : "s"} ≤ 60d →</button>}
-                      {c.invite_pending && <div className="mt-1 text-[10px] font-semibold text-compass-amber" data-testid={`invite-pending-${c.client_id}`}>Invited · not activated</div>}
-                      {c.invite_pending && <button onClick={() => resendInvite(c.client_id)} className="mt-0.5 text-[10px] font-semibold text-compass-blue hover:underline" data-testid={`resend-invite-${c.client_id}`}>Resend invite</button>}
-                      {c.invite_pending && c.invite_expires_at && (() => { const d = Math.ceil((new Date(c.invite_expires_at) - Date.now()) / 86400000); return <div className={`text-[10px] font-semibold ${d <= 0 ? "text-compass-red" : "text-compass-muted"}`} data-testid={`invite-expiry-${c.client_id}`}>{d > 0 ? `Link expires in ${d}d` : "Link expired"}</div>; })()}
                     </div>
-                  </div>
-                  <Progress value={c.score || 0} color={scoreColor(c.score || 0)} />
-                  <div className="grid grid-cols-4 gap-2 mt-3 text-sm">
-                    <div><div className="muted-label">Assets</div><div className="font-semibold text-compass-navy">{money(c.assets)}</div></div>
-                    <div><div className="muted-label">Net worth</div><div className="font-semibold text-compass-navy">{money(c.net_worth || 0)}</div></div>
-                    <div><div className="muted-label">Goals</div><div className="font-semibold text-compass-navy">{c.goals}</div></div>
-                    <div data-testid={`client-protection-${c.client_id}`}>
-                      <div className="muted-label">Protection</div>
-                      {c.protection_score != null
-                        ? <div className="font-semibold" style={{ color: scoreColor(c.protection_score) }}>{c.protection_score}/100</div>
-                        : <div className="font-semibold text-compass-muted">—</div>}
-                    </div>
-                  </div>
-                  {(c.alerts || []).length > 0 && (
-                    <div className="mt-3 space-y-1" data-testid={`client-alerts-${c.client_id}`}>
-                      {c.alerts.map((a, i) => (
-                        <div key={i} className="flex items-center gap-2 text-xs text-compass-navy"><AlertTriangle size={12} className="text-compass-amber shrink-0" /> {a}</div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-compass-border">
-                    <div className="text-xs"><span className="muted-label">Next: </span><span className="font-semibold text-compass-blue" data-testid={`client-action-${c.client_id}`}>{c.next_action}</span></div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => setSelected(c.client_id)}>Details</Button>
+                    <div className="flex gap-2 shrink-0">
+                      <Button size="sm" variant="ghost" onClick={() => setSelected(c.client_id)} className="hidden sm:inline-flex">Details</Button>
                       <Button size="sm" variant="outline" onClick={() => openClient(c)} data-testid={`open-client-${c.client_id}`}>Open <ArrowRight size={14} /></Button>
                     </div>
                   </div>
+                  {(c.alerts || []).length > 0 && (
+                    <div className="mt-2.5 pt-2.5 border-t border-compass-border flex flex-wrap gap-x-4 gap-y-1" data-testid={`client-alerts-${c.client_id}`}>
+                      {c.alerts.map((a, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-xs text-compass-navy"><AlertTriangle size={12} className="text-compass-amber shrink-0" /> {a}</div>
+                      ))}
+                    </div>
+                  )}
                 </Card>
               );
             })})()}
           </div>
-          </>
           )}
 
           {view === "opps" && <OpportunitiesList list={list} search={search} sort={sort} setSort={setSort} typeFilter={typeFilter} setTypeFilter={setTypeFilter} statusFilter={statusFilter} setStatusFilter={setStatusFilter} onOpen={openClient} />}

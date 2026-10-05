@@ -75,6 +75,53 @@ export function monthsLabel(m) {
   return `${y ? `${y}y ` : ""}${mo}mo`;
 }
 
+// --- Linked liabilities/debts derived from Net Worth records ---
+
+export const REAL_ESTATE_CATS = ["Principal Residence", "Real Estate (other)"];
+
+// Synthetic debt rows derived from net-worth data: real-estate mortgages,
+// vehicle loans, and any liability that carries a monthly payment.
+export function derivedDebtsFromNetworth(nwRows = []) {
+  const out = [];
+  for (const r of nwRows) {
+    if (r.kind === "asset") {
+      const mort = Number(r.mortgage || 0);
+      if (REAL_ESTATE_CATS.includes(r.category) && mort > 0)
+        out.push({ id: `linked-${r.id}`, linked: true, source: "Property", parentId: r.id,
+          name: r.name ? `${r.name} — mortgage` : "Mortgage", lender: r.lender || "",
+          owner: r.owner || "Joint", balance: mort, rate: Number(r.interest_rate || 0), payment: Number(r.mortgage_payment || 0) });
+      const loan = Number(r.loan_amount || 0);
+      if (r.category === "Vehicle" && loan > 0)
+        out.push({ id: `linked-${r.id}`, linked: true, source: "Vehicle", parentId: r.id,
+          name: r.name ? `${r.name} — loan` : "Vehicle loan", lender: r.lender || "",
+          owner: r.owner || "Joint", balance: loan, rate: Number(r.interest_rate || 0), payment: Number(r.payment || 0) });
+    } else if (r.kind === "liability" && Number(r.payment || 0) > 0) {
+      out.push({ id: `linked-${r.id}`, linked: true, source: "Liability", parentId: r.id,
+        name: r.name || r.category || "Liability", lender: r.lender || "",
+        owner: r.owner || "Joint", balance: Number(r.value || 0), rate: Number(r.rate || 0), payment: Number(r.payment || 0) });
+    }
+  }
+  return out;
+}
+
+// Synthetic liability rows for the Net Worth Liabilities tab (mortgages + vehicle loans).
+export function derivedLiabilitiesFromAssets(nwRows = []) {
+  const out = [];
+  for (const r of nwRows) {
+    if (r.kind !== "asset") continue;
+    const mort = Number(r.mortgage || 0);
+    if (REAL_ESTATE_CATS.includes(r.category) && mort > 0)
+      out.push({ id: `linked-${r.id}`, linked: true, source: "Property", parentId: r.id, owner: r.owner || "Joint",
+        name: r.name ? `${r.name} — mortgage` : "Mortgage", category: "Mortgage", value: mort });
+    const loan = Number(r.loan_amount || 0);
+    if (r.category === "Vehicle" && loan > 0)
+      out.push({ id: `linked-${r.id}`, linked: true, source: "Vehicle", parentId: r.id, owner: r.owner || "Joint",
+        name: r.name ? `${r.name} — loan` : "Vehicle loan", category: "Loan", value: loan });
+  }
+  return out;
+}
+
+
 // --- Monte Carlo retirement simulation ---
 
 function randNormal(mean, sd) {

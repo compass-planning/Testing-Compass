@@ -43,8 +43,10 @@ def _goal_behind(g):
 
 def _household_score(c, nw, debts, insurance, retirement, goals, estate=None):
     assets = c["assets"] + sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "asset")
+    embedded = sum(float(r.get("mortgage", 0) or 0) + float(r.get("loan_amount", 0) or 0)
+                   for r in nw if r.get("kind") == "asset")
     liabilities = sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "liability") \
-        + sum(float(d.get("balance", 0)) for d in debts)
+        + sum(float(d.get("balance", 0)) for d in debts) + embedded
     net_worth = assets - liabilities
     if not nw and not debts and not insurance and not retirement and not goals and not (estate or []) and c["assets"] == 0:
         return {"score": None, "status": "Needs Setup", "needs_setup": True,

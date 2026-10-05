@@ -9,7 +9,7 @@ import { Card, Button, Input, Field, Select, Badge, Modal, Stat, Empty, StatBand
 import { PageHeader } from "@/components/PageHeader";
 import { useTr } from "@/lib/i18n";
 import { money } from "@/lib/format";
-import { weightedAvgRate, singlePayoff, baseline, strategy, monthsLabel } from "@/lib/finance";
+import { weightedAvgRate, singlePayoff, baseline, strategy, monthsLabel, derivedDebtsFromNetworth } from "@/lib/finance";
 import { PersonToggle, matchPerson, OWNER_TAGS } from "@/components/PersonToggle";
 
 export default function Debt() {
@@ -22,6 +22,7 @@ export default function Debt() {
 
   const { data = [], isLoading } = useQuery({ queryKey: ["plan", "debts"], queryFn: () => planApi.list("debts") });
   const owners = useQuery({ queryKey: ["owners"], queryFn: async () => (await api.get("/owners")).data });
+  const nw = useQuery({ queryKey: ["plan", "networth"], queryFn: () => planApi.list("networth") });
   const invalidate = () => { qc.invalidateQueries({ queryKey: ["plan", "debts"] }); qc.invalidateQueries({ queryKey: ["plan", "overview"] }); };
 
   const save = useMutation({
@@ -31,7 +32,13 @@ export default function Debt() {
   });
   const del = useMutation({ mutationFn: (id) => planApi.remove("debts", id), onSuccess: () => { toast.success("Deleted"); invalidate(); } });
 
-  const rows = data.filter((d) => matchPerson(d.owner, view));
+  const ownerTag = (name) => {
+    const o = (owners.data || []).find((x) => x.full_name === name);
+    return o ? (o.relationship === "spouse" ? "Spouse" : o.relationship === "self" ? "Primary" : "Joint") : (OWNER_TAGS.includes(name) ? name : "Joint");
+  };
+  const derived = derivedDebtsFromNetworth(nw.data || []).map((d) => ({ ...d, _tag: ownerTag(d.owner) }));
+  const allDebts = [...data, ...derived];
+  const rows = allDebts.filter((d) => matchPerson(d._tag || d.owner, view));
   const totalBalance = rows.reduce((s, d) => s + Number(d.balance || 0), 0);
   const totalPayment = rows.reduce((s, d) => s + Number(d.payment || 0), 0);
   const avgRate = weightedAvgRate(rows);
@@ -100,7 +107,7 @@ export default function Debt() {
                   const p = singlePayoff(d.balance, d.rate, d.payment);
                   return (
                     <tr key={d.id} className="border-b border-compass-border last:border-0 hover:bg-compass-bg/40" data-testid={`debts-row-${d.id}`}>
-                      <td className="px-5 py-3.5 font-semibold text-compass-navy">{d.name || "—"}</td>
+                      <td className="px-5 py-3.5 font-semibold text-compass-navy">{d.name || "—"}{d.linked && <Badge color="#7B61FF" bg="rgba(123,97,255,0.12)" className="ml-1.5">{tr("Linked")}</Badge>}</td>
                       <td className="px-5 py-3.5 text-compass-muted">{d.owner || "Joint"}</td>
                       <td className="px-5 py-3.5 text-compass-muted">{d.lender || "—"}</td>
                       <td className="px-5 py-3.5 text-right">{Number(d.rate || 0).toFixed(2)}%</td>
@@ -110,8 +117,14 @@ export default function Debt() {
                       <td className="px-5 py-3.5 text-right text-compass-muted">{p.neverPaysOff ? "—" : money(p.interest)}</td>
                       {!readOnly && (
                         <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                          <button onClick={() => setModal(d)} className="text-compass-blue hover:bg-compass-blue/10 rounded-lg p-1.5"><Pencil size={15} /></button>
-                          <button onClick={() => del.mutate(d.id)} className="text-compass-red hover:bg-compass-red/10 rounded-lg p-1.5 ml-1" data-testid={`delete-${d.id}`}><Trash2 size={15} /></button>
+                          {d.linked ? (
+                            <span className="text-xs text-compass-muted">{tr("from")} {tr("Net Worth")}</span>
+                          ) : (
+                            <>
+                              <button onClick={() => setModal(d)} className="text-compass-blue hover:bg-compass-blue/10 rounded-lg p-1.5"><Pencil size={15} /></button>
+                              <button onClick={() => del.mutate(d.id)} className="text-compass-red hover:bg-compass-red/10 rounded-lg p-1.5 ml-1" data-testid={`delete-${d.id}`}><Trash2 size={15} /></button>
+                            </>
+                          )}
                         </td>
                       )}
                     </tr>
@@ -121,13 +134,13 @@ export default function Debt() {
             </table>
           </Card>
 
-          <h3 className="font-heading font-bold text-compass-navy mb-3 flex items-center gap-2"><TrendingDown size={18} className="text-compass-blue" /> Payoff strategy</h3>
+          <h3 className="font-heading font-bold text-compass-navy mb-3 flex items-center gap-2"><TrendingDown size={18} className="text-compass-blue" /> {tr("Payoff strategy")}</h3>
           <Card className="p-6 mb-6">
             <div className="flex flex-wrap items-end gap-4">
               <Field label="Extra monthly payment (CAD)">
                 <Input type="number" value={extra} onChange={(e) => setExtra(Number(e.target.value || 0))} data-testid="debt-extra" className="w-48" />
               </Field>
-              <p className="text-sm text-compass-muted pb-2.5">Applied on top of minimum payments and rolled forward as each debt clears.</p>
+              <p className="text-sm text-compass-muted pb-2.5">{tr("Applied on top of minimum payments and rolled forward as each debt clears.")}</p>
             </div>
           </Card>
 
@@ -146,23 +159,24 @@ export default function Debt() {
 }
 
 function StrategyCard({ title, tag, icon: Icon, result, base, testid }) {
+  const tr = useTr();
   const saved = (!result.neverPaysOff && !base.neverPaysOff) ? base.interest - result.interest : null;
   return (
     <Card className="p-6" data-testid={testid}>
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2"><Icon size={18} className="text-compass-blue" /><h4 className="font-heading font-bold text-compass-navy">{title}</h4></div>
-        <Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{tag}</Badge>
+        <div className="flex items-center gap-2"><Icon size={18} className="text-compass-blue" /><h4 className="font-heading font-bold text-compass-navy">{tr(title)}</h4></div>
+        <Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{tr(tag)}</Badge>
       </div>
       <div className="grid grid-cols-2 gap-4 mb-4">
-        <div><div className="muted-label">Debt-free in</div><div className="font-heading text-2xl font-extrabold gradient-text mt-1" data-testid={`${testid}-months`}>{result.neverPaysOff ? "Never" : monthsLabel(result.months)}</div></div>
-        <div><div className="muted-label">Total interest</div><div className="font-heading text-2xl font-extrabold text-compass-navy mt-1">{result.neverPaysOff ? "—" : money(result.interest)}</div></div>
+        <div><div className="muted-label">{tr("Debt-free in")}</div><div className="font-heading text-2xl font-extrabold gradient-text mt-1" data-testid={`${testid}-months`}>{result.neverPaysOff ? tr("Never") : monthsLabel(result.months)}</div></div>
+        <div><div className="muted-label">{tr("Total interest")}</div><div className="font-heading text-2xl font-extrabold text-compass-navy mt-1">{result.neverPaysOff ? "—" : money(result.interest)}</div></div>
       </div>
       {saved != null && saved > 0 && (
         <div className="rounded-xl bg-compass-green/10 text-compass-green px-4 py-2.5 text-sm font-semibold mb-4" data-testid={`${testid}-saved`}>
-          Saves {money(saved)} vs. minimum payments
+          {tr("Saves")} {money(saved)} {tr("vs. minimum payments")}
         </div>
       )}
-      <div className="muted-label mb-2">Payoff order</div>
+      <div className="muted-label mb-2">{tr("Payoff order")}</div>
       <ol className="space-y-1.5">
         {result.order.map((o, i) => (
           <li key={o.key + i} className="flex items-center gap-2 text-sm text-compass-navy">

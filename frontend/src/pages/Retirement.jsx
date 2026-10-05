@@ -48,9 +48,10 @@ const DEFAULTS = {
 };
 
 function Row({ label, value, strong }) {
+  const tr = useTr();
   return (
     <div className="flex justify-between text-sm">
-      <span className="text-compass-muted">{label}</span>
+      <span className="text-compass-muted">{typeof label === "string" ? tr(label) : label}</span>
       <span className={strong ? "font-bold text-compass-navy" : "font-semibold text-compass-navy"}>{value}</span>
     </div>
   );
@@ -92,14 +93,14 @@ export default function Retirement() {
   const prefill = () => {
     const list = owners.data || [];
     const p = list.find((o) => o.relationship === "self") || list[0];
-    if (!p) { toast.info("No household profile to prefill from"); return; }
+    if (!p) { toast.info(tr("No household profile to prefill from")); return; }
     setInp((s) => ({
       ...s,
       retirement_age: Number(p.retirement_age || s.retirement_age),
       desired_retirement_income: Number(p.desired_income ? p.desired_income * 12 : s.desired_retirement_income),
       province: TAX_PROVINCES.includes(p.province) ? p.province : s.province,
     }));
-    toast.success("Prefilled from household profile");
+    toast.success(tr("Prefilled from household profile"));
   };
 
   return (
@@ -136,6 +137,7 @@ export default function Retirement() {
 
 function AssumptionsCard({ inp, setInp, readOnly }) {
   const qc = useQueryClient();
+  const tr = useTr();
   const save = useMutation({
     mutationFn: () => assumptionsApi.save({
       expected_return_pct: inp.expected_return_pct, inflation_pct: inp.inflation_pct,
@@ -148,10 +150,10 @@ function AssumptionsCard({ inp, setInp, readOnly }) {
   return (
     <Card className="p-5 mb-6" data-testid="assumptions-editor">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="font-heading font-bold text-compass-navy flex items-center gap-2"><SlidersHorizontal size={18} className="text-compass-blue" /> Planning assumptions</h3>
-        {!readOnly && <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending} data-testid="assumptions-save"><Save size={14} /> Save &amp; reuse</Button>}
+        <h3 className="font-heading font-bold text-compass-navy flex items-center gap-2"><SlidersHorizontal size={18} className="text-compass-blue" /> {tr("Planning assumptions")}</h3>
+        {!readOnly && <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending} data-testid="assumptions-save"><Save size={14} /> {tr("Save & reuse")}</Button>}
       </div>
-      <p className="text-xs text-compass-muted mb-4">Set these once — they seed every projection, Monte Carlo and guardrail run for this household.</p>
+      <p className="text-xs text-compass-muted mb-4">{tr("Set these once — they seed every projection, Monte Carlo and guardrail run for this household.")}</p>
       <div className="grid sm:grid-cols-4 gap-4">
         <Field label="Expected return (%)"><Input type="number" step="0.1" value={inp.expected_return_pct} onChange={n("expected_return_pct")} data-testid="assume-return" /></Field>
         <Field label="Inflation (%)"><Input type="number" step="0.1" value={inp.inflation_pct} onChange={n("inflation_pct")} data-testid="assume-inflation" /></Field>
@@ -163,6 +165,7 @@ function AssumptionsCard({ inp, setInp, readOnly }) {
 }
 
 function InputGrid({ inp, num, str, setInp }) {
+  const tr = useTr();
   return (
     <div className="grid sm:grid-cols-3 gap-4">
       <Field label="Current age"><Input type="number" value={inp.current_age} onChange={num("current_age")} data-testid="ret-current-age" /></Field>
@@ -175,7 +178,7 @@ function InputGrid({ inp, num, str, setInp }) {
       <Field label="RRSP balance"><Input type="number" value={inp.rrsp_balance} onChange={num("rrsp_balance")} data-testid="ret-rrsp" /></Field>
       <Field label="TFSA balance"><Input type="number" value={inp.tfsa_balance} onChange={num("tfsa_balance")} data-testid="ret-tfsa" /></Field>
       <Field label="Non-registered balance"><Input type="number" value={inp.non_reg_balance} onChange={num("non_reg_balance")} data-testid="ret-nonreg" /></Field>
-      <Field label="Non-reg tax treatment"><Select value={inp.non_reg_tax_type} onChange={str("non_reg_tax_type")} data-testid="ret-nonreg-type">{NONREG_TYPES.map((t) => <option key={t.v} value={t.v}>{t.l}</option>)}</Select></Field>
+      <Field label="Non-reg tax treatment"><Select value={inp.non_reg_tax_type} onChange={str("non_reg_tax_type")} data-testid="ret-nonreg-type">{NONREG_TYPES.map((t) => <option key={t.v} value={t.v}>{tr(t.l)}</option>)}</Select></Field>
       <Field label="Non-reg ACB"><Input type="number" value={inp.non_reg_acb} onChange={num("non_reg_acb")} data-testid="ret-acb" /></Field>
       <Field label="Annual RRSP contribution"><Input type="number" value={inp.annual_rrsp_contrib} onChange={num("annual_rrsp_contrib")} data-testid="ret-rrsp-contrib" /></Field>
       <Field label="Annual TFSA contribution"><Input type="number" value={inp.annual_tfsa_contrib} onChange={num("annual_tfsa_contrib")} data-testid="ret-tfsa-contrib" /></Field>
@@ -189,6 +192,7 @@ function InputGrid({ inp, num, str, setInp }) {
 }
 
 function ProjectionTab({ inp, num, str, setInp }) {
+  const tr = useTr();
   const [res, setRes] = useState(null);
   const run = useMutation({
     mutationFn: () => retirementApi.projection(inp),
@@ -203,15 +207,15 @@ function ProjectionTab({ inp, num, str, setInp }) {
   return (
     <div className="grid lg:grid-cols-3 gap-6">
       <Card className="p-6 lg:col-span-2">
-        <h3 className="font-heading font-bold text-compass-navy mb-4">Projection inputs</h3>
+        <h3 className="font-heading font-bold text-compass-navy mb-4">{tr("Projection inputs")}</h3>
         <InputGrid inp={inp} num={num} str={str} setInp={setInp} />
         <Button className="mt-5" onClick={() => run.mutate()} disabled={run.isPending} data-testid="ret-run-projection">
-          <Play size={16} /> {run.isPending ? "Projecting…" : "Run projection"}
+          <Play size={16} /> {run.isPending ? tr("Projecting…") : tr("Run projection")}
         </Button>
       </Card>
 
       <Card className="p-6" data-testid="projection-summary">
-        <div className="muted-label">Portfolio at retirement</div>
+        <div className="muted-label">{tr("Portfolio at retirement")}</div>
         <div className="font-heading text-4xl font-extrabold gradient-text mt-1" data-testid="projection-portfolio">{s ? money(s.portfolioAtRetirement) : "—"}</div>
         {s && (
           <div className="mt-5 space-y-2">
@@ -223,13 +227,13 @@ function ProjectionTab({ inp, num, str, setInp }) {
             <Row label="Estate value at plan end" value={money(s.estateValueAtDeath)} strong />
           </div>
         )}
-        {!s && <p className="text-sm text-compass-muted mt-4">Run the projection to see your year-by-year Canadian retirement outlook.</p>}
+        {!s && <p className="text-sm text-compass-muted mt-4">{tr("Run the projection to see your year-by-year Canadian retirement outlook.")}</p>}
       </Card>
 
       {res && (
         <>
           <Card className="p-6 lg:col-span-3" data-testid="projection-chart">
-            <h3 className="font-heading font-bold text-compass-navy mb-4">Portfolio & income by age</h3>
+            <h3 className="font-heading font-bold text-compass-navy mb-4">{tr("Portfolio & income by age")}</h3>
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={chartData} margin={{ left: 8, right: 8, top: 8 }}>
                 <defs>
@@ -240,7 +244,7 @@ function ProjectionTab({ inp, num, str, setInp }) {
                 <YAxis tickFormatter={(v) => `$${Math.round(v / 1000)}k`} tick={{ fill: "#A3AED0", fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
                 <Tooltip formatter={(v) => money(v)} contentStyle={{ borderRadius: 12, border: "1px solid #E2E8F0" }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <ReferenceLine x={inp.retirement_age} stroke="#FFB800" strokeDasharray="4 4" label={{ value: "Retire", fill: "#FFB800", fontSize: 11 }} />
+                <ReferenceLine x={inp.retirement_age} stroke="#FFB800" strokeDasharray="4 4" label={{ value: tr("Retire at"), fill: "#FFB800", fontSize: 11 }} />
                 <Area type="monotone" dataKey="Portfolio" stroke="#0052FF" fill="url(#pfill)" strokeWidth={2} />
                 <Line type="monotone" dataKey="Income" stroke="#00DF89" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="Spending" stroke="#EE5D50" strokeWidth={2} dot={false} strokeDasharray="5 4" />
@@ -249,12 +253,12 @@ function ProjectionTab({ inp, num, str, setInp }) {
           </Card>
 
           <Card className="p-0 lg:col-span-3 overflow-hidden" data-testid="projection-table">
-            <div className="px-6 py-4 border-b border-compass-border font-heading font-bold text-compass-navy">Year-by-year detail</div>
+            <div className="px-6 py-4 border-b border-compass-border font-heading font-bold text-compass-navy">{tr("Year-by-year detail")}</div>
             <div className="overflow-x-auto max-h-[420px]">
               <table className="w-full text-sm">
                 <thead className="bg-compass-bg/60 sticky top-0">
                   <tr className="text-left text-[11px] uppercase tracking-wide text-compass-muted">
-                    {["Age", "Phase", "Portfolio", "CPP", "OAS", "Pension", "RRIF", "Taxable", "Tax", "Net", "Funding"].map((h) => <th key={h} className="px-3 py-2 font-semibold">{h}</th>)}
+                    {["Age", "Phase", "Portfolio", "CPP", "OAS", "Pension", "RRIF", "Taxable", "Tax", "Net", "Funding"].map((h) => <th key={h} className="px-3 py-2 font-semibold">{tr(h)}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -284,14 +288,16 @@ function ProjectionTab({ inp, num, str, setInp }) {
 }
 
 function MonteCarloTab({ inp, num }) {
+  const tr = useTr();
   const [res, setRes] = useState(null);
   const [alloc, setAlloc] = useState("BALANCED");
   const [paths, setPaths] = useState(1000);
+  const years = Math.max(1, inp.life_expectancy - inp.current_age);
   const run = useMutation({
     mutationFn: () => retirementApi.montecarlo({
       initialBalance: inp.rrsp_balance + inp.tfsa_balance + inp.non_reg_balance,
       allocation: alloc, annualContribution: inp.annual_rrsp_contrib + inp.annual_tfsa_contrib,
-      yearsToSimulate: Math.max(1, inp.life_expectancy - inp.current_age), numberOfPaths: paths,
+      yearsToSimulate: years, numberOfPaths: paths,
     }),
     onSuccess: (d) => setRes(d),
     onError: () => toast.error("Simulation failed"),
@@ -307,19 +313,19 @@ function MonteCarloTab({ inp, num }) {
   return (
     <div className="grid lg:grid-cols-3 gap-6">
       <Card className="p-6">
-        <h3 className="font-heading font-bold text-compass-navy mb-4 flex items-center gap-2"><Dice5 size={18} className="text-compass-blue" /> Simulation settings</h3>
+        <h3 className="font-heading font-bold text-compass-navy mb-4 flex items-center gap-2"><Dice5 size={18} className="text-compass-blue" /> {tr("Simulation settings")}</h3>
         <div className="space-y-4">
           <Field label="Portfolio allocation"><Select value={alloc} onChange={(e) => setAlloc(e.target.value)} data-testid="mc-allocation">{["AGGRESSIVE", "BALANCED", "MODERATE", "CONSERVATIVE"].map((a) => <option key={a} value={a}>{a[0] + a.slice(1).toLowerCase()}</option>)}</Select></Field>
           <Field label="Number of paths"><Select value={String(paths)} onChange={(e) => setPaths(Number(e.target.value))} data-testid="mc-paths">{[500, 1000, 2000, 5000].map((p) => <option key={p} value={p}>{p.toLocaleString()}</option>)}</Select></Field>
-          <p className="text-xs text-compass-muted">Correlated 5-asset returns via Cholesky decomposition over {Math.max(1, inp.life_expectancy - inp.current_age)} years. Starting balance {money(inp.rrsp_balance + inp.tfsa_balance + inp.non_reg_balance)}, contributing {money(inp.annual_rrsp_contrib + inp.annual_tfsa_contrib)}/yr.</p>
-          <Button onClick={() => run.mutate()} disabled={run.isPending} data-testid="mc-run"><Play size={16} /> {run.isPending ? "Simulating…" : "Run simulation"}</Button>
+          <p className="text-xs text-compass-muted">{tr("Correlated 5-asset returns via Cholesky decomposition.")} {tr("Horizon")}: {years} {tr("years")}. {tr("Starting balance")} {money(inp.rrsp_balance + inp.tfsa_balance + inp.non_reg_balance)}, {tr("contributing")} {money(inp.annual_rrsp_contrib + inp.annual_tfsa_contrib)}/{tr("yr")}.</p>
+          <Button onClick={() => run.mutate()} disabled={run.isPending} data-testid="mc-run"><Play size={16} /> {run.isPending ? tr("Simulating…") : tr("Run simulation")}</Button>
         </div>
       </Card>
 
       <Card className="p-6" data-testid="mc-result">
-        <div className="muted-label">Probability of success</div>
+        <div className="muted-label">{tr("Probability of success")}</div>
         <div className="font-heading text-5xl font-extrabold gradient-text mt-1" data-testid="mc-success">{res ? `${Math.round(res.probabilityOfSuccess * 100)}%` : "—"}</div>
-        {b && <div className="mt-2"><Badge color={b.color} bg={b.bg} data-testid="mc-band">{b.label}</Badge></div>}
+        {b && <div className="mt-2"><Badge color={b.color} bg={b.bg} data-testid="mc-band">{tr(b.label)}</Badge></div>}
         {res && (
           <div className="mt-5 space-y-2">
             <Row label="Median ending balance" value={money(res.percentiles.p50[res.percentiles.p50.length - 1])} />
@@ -331,7 +337,7 @@ function MonteCarloTab({ inp, num }) {
 
       {res && (
         <Card className="p-6 lg:col-span-3" data-testid="mc-chart">
-          <h3 className="font-heading font-bold text-compass-navy mb-4">Percentile outcomes (10th – 90th)</h3>
+          <h3 className="font-heading font-bold text-compass-navy mb-4">{tr("Percentile outcomes (10th – 90th)")}</h3>
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={chartData} margin={{ left: 8, right: 8, top: 8 }}>
               <defs><linearGradient id="fan" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#0052FF" stopOpacity={0.25} /><stop offset="100%" stopColor="#0052FF" stopOpacity={0.02} /></linearGradient></defs>
@@ -352,6 +358,7 @@ function MonteCarloTab({ inp, num }) {
 }
 
 function GuardrailsTab({ inp, num }) {
+  const tr = useTr();
   const [res, setRes] = useState(null);
   const run = useMutation({
     mutationFn: () => retirementApi.guardrails({
@@ -374,13 +381,13 @@ function GuardrailsTab({ inp, num }) {
   return (
     <div className="grid lg:grid-cols-3 gap-6">
       <Card className="p-6">
-        <h3 className="font-heading font-bold text-compass-navy mb-3 flex items-center gap-2"><ShieldCheck size={18} className="text-compass-blue" /> Guyton-Klinger guardrails</h3>
-        <p className="text-sm text-compass-muted mb-4">Stress-tests your plan and models dynamic spending (cut when the portfolio drops below the floor, raise when above the ceiling).</p>
-        <Button onClick={() => run.mutate()} disabled={run.isPending} data-testid="guardrails-run"><Play size={16} /> {run.isPending ? "Checking…" : "Run guardrail check"}</Button>
+        <h3 className="font-heading font-bold text-compass-navy mb-3 flex items-center gap-2"><ShieldCheck size={18} className="text-compass-blue" /> {tr("Guyton-Klinger guardrails")}</h3>
+        <p className="text-sm text-compass-muted mb-4">{tr("Stress-tests your plan and models dynamic spending (cut when the portfolio drops below the floor, raise when above the ceiling).")}</p>
+        <Button onClick={() => run.mutate()} disabled={run.isPending} data-testid="guardrails-run"><Play size={16} /> {run.isPending ? tr("Checking…") : tr("Run guardrail check")}</Button>
       </Card>
 
       <Card className="p-6" data-testid="guardrails-result">
-        <div className="muted-label">Plan health</div>
+        <div className="muted-label">{tr("Plan health")}</div>
         {res ? (
           <>
             <div className="mt-2"><Badge color={h.c} bg={h.bg} data-testid="guardrails-health">{res.health.toUpperCase()}</Badge></div>
@@ -391,13 +398,13 @@ function GuardrailsTab({ inp, num }) {
               <Row label="Required withdrawal" value={`${money(res.requiredWithdrawal)}/yr`} />
             </div>
           </>
-        ) : <p className="text-sm text-compass-muted mt-3">Run the check to see your plan health and spending-flexibility uplift.</p>}
+        ) : <p className="text-sm text-compass-muted mt-3">{tr("Run the check to see your plan health and spending-flexibility uplift.")}</p>}
       </Card>
 
       {res && (
         <>
           <Card className="p-6 lg:col-span-3" data-testid="guardrails-recommendation">
-            <div className="muted-label mb-1">Recommendation</div>
+            <div className="muted-label mb-1">{tr("Recommendation")}</div>
             <p className="text-sm text-compass-navy leading-relaxed">{res.flexibility.recommendation}</p>
             {res.recommendations?.length > 0 && (
               <ul className="mt-3 space-y-1.5">
@@ -407,12 +414,12 @@ function GuardrailsTab({ inp, num }) {
           </Card>
 
           <Card className="p-0 lg:col-span-3 overflow-hidden" data-testid="guardrails-triggers">
-            <div className="px-6 py-4 border-b border-compass-border font-heading font-bold text-compass-navy">Spending guardrail triggers</div>
+            <div className="px-6 py-4 border-b border-compass-border font-heading font-bold text-compass-navy">{tr("Spending guardrail triggers")}</div>
             <div className="overflow-x-auto max-h-[360px]">
               <table className="w-full text-sm">
                 <thead className="bg-compass-bg/60 sticky top-0">
                   <tr className="text-left text-[11px] uppercase tracking-wide text-compass-muted">
-                    {["Age", "Target balance", "Floor", "Ceiling", "Base spend", "Reduced", "Increased"].map((x) => <th key={x} className="px-3 py-2 font-semibold">{x}</th>)}
+                    {["Age", "Target balance", "Floor", "Ceiling", "Base spend", "Reduced", "Increased"].map((x) => <th key={x} className="px-3 py-2 font-semibold">{tr(x)}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -438,6 +445,7 @@ function GuardrailsTab({ inp, num }) {
 }
 
 function TimingTab({ inp }) {
+  const tr = useTr();
   const q = useQuery({
     queryKey: ["cpp-timing", inp.desired_retirement_income],
     queryFn: () => retirementApi.cppTiming({ totalIncome: inp.desired_retirement_income, yearsInCanada: 40 }),
@@ -449,7 +457,7 @@ function TimingTab({ inp }) {
   return (
     <div className="grid lg:grid-cols-2 gap-6">
       <Card className="p-6" data-testid="timing-cpp">
-        <h3 className="font-heading font-bold text-compass-navy mb-4 flex items-center gap-2"><Clock size={18} className="text-compass-blue" /> CPP start-age comparison</h3>
+        <h3 className="font-heading font-bold text-compass-navy mb-4 flex items-center gap-2"><Clock size={18} className="text-compass-blue" /> {tr("CPP start-age comparison")}</h3>
         {d ? (
           <>
             <ResponsiveContainer width="100%" height={200}>
@@ -465,27 +473,28 @@ function TimingTab({ inp }) {
               <Row label="At 60" value={`${money(d.cpp.at60.annualBenefit)}/yr · ${d.cpp.at60.adjustmentLabel}`} />
               <Row label="At 65" value={`${money(d.cpp.at65.annualBenefit)}/yr`} />
               <Row label="At 70" value={`${money(d.cpp.at70.annualBenefit)}/yr · ${d.cpp.at70.adjustmentLabel}`} />
-              <Row label="Break-even 65 vs 70" value={`age ${d.cpp.breakEven65vs70}`} strong />
+              <Row label="Break-even 65 vs 70" value={`${tr("At")} ${d.cpp.breakEven65vs70}`} strong />
             </div>
           </>
-        ) : <p className="text-sm text-compass-muted">Loading…</p>}
+        ) : <p className="text-sm text-compass-muted">{tr("Loading…")}</p>}
       </Card>
       <Card className="p-6" data-testid="timing-oas">
-        <h3 className="font-heading font-bold text-compass-navy mb-4">OAS deferral (65 → 70)</h3>
+        <h3 className="font-heading font-bold text-compass-navy mb-4">{tr("OAS deferral (65 → 70)")}</h3>
         {d ? (
           <div className="space-y-2">
             {Object.keys(d.oas).map((age) => (
-              <Row key={age} label={`Start at ${age}`} value={`${money(d.oas[age].netAnnualBenefit)}/yr net${d.oas[age].clawbackAmount ? ` (clawback ${money(d.oas[age].clawbackAmount)})` : ""}`} />
+              <Row key={age} label={`${tr("Start at")} ${age}`} value={`${money(d.oas[age].netAnnualBenefit)}/yr net${d.oas[age].clawbackAmount ? ` (clawback ${money(d.oas[age].clawbackAmount)})` : ""}`} />
             ))}
-            <p className="text-xs text-compass-muted mt-3">Deferring OAS adds 0.6%/month (up to +36% at 70). Clawback applies above {money(90997)} net income.</p>
+            <p className="text-xs text-compass-muted mt-3">{tr("Deferring OAS adds 0.6%/month (up to +36% at 70). Clawback applies above")} {money(90997)} {tr("net income.")}</p>
           </div>
-        ) : <p className="text-sm text-compass-muted">Loading…</p>}
+        ) : <p className="text-sm text-compass-muted">{tr("Loading…")}</p>}
       </Card>
     </div>
   );
 }
 
 function DecisionsTab({ inp, owners }) {
+  const tr = useTr();
   const spouse = owners.find((o) => o.relationship === "spouse");
   const [rt, setRt] = useState({ current: 90000, retire: inp.desired_retirement_income });
   const [ps, setPs] = useState({ self: 90000, pension: 30000, spouse: Number(spouse?.annual_income || 40000) });
@@ -498,32 +507,32 @@ function DecisionsTab({ inp, owners }) {
   return (
     <div className="grid lg:grid-cols-2 gap-6">
       <Card className="p-6" data-testid="decision-rrsp-tfsa">
-        <h3 className="font-heading font-bold text-compass-navy mb-4">RRSP vs TFSA</h3>
+        <h3 className="font-heading font-bold text-compass-navy mb-4">{tr("RRSP vs TFSA")}</h3>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Current income"><Input type="number" value={rt.current} onChange={(e) => setRt({ ...rt, current: Number(e.target.value || 0) })} data-testid="rrsp-current" /></Field>
           <Field label="Expected retirement income"><Input type="number" value={rt.retire} onChange={(e) => setRt({ ...rt, retire: Number(e.target.value || 0) })} data-testid="rrsp-retire" /></Field>
         </div>
-        <Button className="mt-4" size="sm" onClick={() => rrspQ.mutate()} disabled={rrspQ.isPending} data-testid="rrsp-run">Compare</Button>
+        <Button className="mt-4" size="sm" onClick={() => rrspQ.mutate()} disabled={rrspQ.isPending} data-testid="rrsp-run">{tr("Compare")}</Button>
         {r && (
           <div className="mt-4" data-testid="rrsp-result">
-            <Badge color={REC[r.recommendation].c} bg={REC[r.recommendation].bg}>Favour {r.recommendation.toUpperCase()}</Badge>
+            <Badge color={REC[r.recommendation].c} bg={REC[r.recommendation].bg}>{tr("Favour")} {r.recommendation.toUpperCase()}</Badge>
             <p className="text-sm text-compass-muted mt-3">{r.rationale}</p>
           </div>
         )}
       </Card>
 
       <Card className="p-6" data-testid="decision-pension-split">
-        <h3 className="font-heading font-bold text-compass-navy mb-4">Pension income splitting</h3>
+        <h3 className="font-heading font-bold text-compass-navy mb-4">{tr("Pension income splitting")}</h3>
         <div className="grid grid-cols-3 gap-3">
           <Field label="Your income"><Input type="number" value={ps.self} onChange={(e) => setPs({ ...ps, self: Number(e.target.value || 0) })} data-testid="split-self" /></Field>
           <Field label="Eligible pension"><Input type="number" value={ps.pension} onChange={(e) => setPs({ ...ps, pension: Number(e.target.value || 0) })} data-testid="split-pension" /></Field>
           <Field label="Spouse income"><Input type="number" value={ps.spouse} onChange={(e) => setPs({ ...ps, spouse: Number(e.target.value || 0) })} data-testid="split-spouse" /></Field>
         </div>
-        <Button className="mt-4" size="sm" onClick={() => splitQ.mutate()} disabled={splitQ.isPending} data-testid="split-run">Optimize</Button>
+        <Button className="mt-4" size="sm" onClick={() => splitQ.mutate()} disabled={splitQ.isPending} data-testid="split-run">{tr("Optimize")}</Button>
         {sp && (
           <div className="mt-4 space-y-2" data-testid="split-result">
             <div className="font-heading text-3xl font-extrabold gradient-text">{money(sp.taxSavings)}</div>
-            <div className="text-sm text-compass-muted">potential annual tax savings</div>
+            <div className="text-sm text-compass-muted">{tr("potential annual tax savings")}</div>
             <Row label="Optimal split to spouse" value={`${Math.round(sp.bestSplitPct * 100)}%`} />
             <Row label="Combined tax after split" value={money(sp.combinedTax)} />
           </div>
@@ -534,6 +543,7 @@ function DecisionsTab({ inp, owners }) {
 }
 
 function ScenariosTab({ inp, readOnly }) {
+  const tr = useTr();
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const list = useQuery({ queryKey: ["ret-scenarios"], queryFn: retirementApi.scenarios });
@@ -581,18 +591,18 @@ function ScenariosTab({ inp, readOnly }) {
           <Field label="Scenario name" className="flex-1 min-w-[220px]">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Retire at 62, aggressive" data-testid="scenario-name" />
           </Field>
-          <Button onClick={() => name.trim() && save.mutate()} disabled={!name.trim() || save.isPending} data-testid="scenario-save-btn"><Save size={16} /> Save current inputs</Button>
+          <Button onClick={() => name.trim() && save.mutate()} disabled={!name.trim() || save.isPending} data-testid="scenario-save-btn"><Save size={16} /> {tr("Save current inputs")}</Button>
         </Card>
       )}
 
       {pinnedRows.length === 2 && (
         <Card className="p-0 mb-6 overflow-hidden" data-testid="scenario-compare">
-          <div className="px-6 py-4 border-b border-compass-border font-heading font-bold text-compass-navy">Comparing: {pinnedRows[0].name} vs {pinnedRows[1].name}</div>
+          <div className="px-6 py-4 border-b border-compass-border font-heading font-bold text-compass-navy">{tr("Comparing")}: {pinnedRows[0].name} / {pinnedRows[1].name}</div>
           <table className="w-full text-sm">
             <tbody>
               {CMP.map(([label, fn]) => (
                 <tr key={label} className="border-t border-compass-border/60">
-                  <td className="px-4 py-2 text-compass-muted">{label}</td>
+                  <td className="px-4 py-2 text-compass-muted">{tr(label)}</td>
                   <td className="px-4 py-2 font-semibold text-compass-navy">{fn(pinnedRows[0])}</td>
                   <td className="px-4 py-2 font-semibold text-compass-navy">{fn(pinnedRows[1])}</td>
                 </tr>
@@ -611,11 +621,11 @@ function ScenariosTab({ inp, readOnly }) {
               <div className="flex items-start justify-between">
                 <div className="font-heading font-bold text-compass-navy">{s.name}</div>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => togglePin(s.id)} className={`text-xs font-semibold rounded-lg px-2 py-1 ${pinned.includes(s.id) ? "bg-compass-blue text-white" : "text-compass-blue hover:bg-compass-blue/10"}`} data-testid={`scenario-pin-${s.id}`}>{pinned.includes(s.id) ? "Pinned" : "Compare"}</button>
+                  <button onClick={() => togglePin(s.id)} className={`text-xs font-semibold rounded-lg px-2 py-1 ${pinned.includes(s.id) ? "bg-compass-blue text-white" : "text-compass-blue hover:bg-compass-blue/10"}`} data-testid={`scenario-pin-${s.id}`}>{pinned.includes(s.id) ? tr("Pinned") : tr("Compare")}</button>
                   {!readOnly && <button onClick={() => del.mutate(s.id)} className="text-compass-red hover:bg-compass-red/10 rounded-lg p-1.5" data-testid={`scenario-del-${s.id}`}><Trash2 size={15} /></button>}
                 </div>
               </div>
-              <div className="text-xs text-compass-muted mb-3">Retire @ {s.inputs?.retirement_age} · {s.inputs?.province} · {s.inputs?.expected_return_pct}% return</div>
+              <div className="text-xs text-compass-muted mb-3">{tr("Retire at")} {s.inputs?.retirement_age} · {s.inputs?.province} · {s.inputs?.expected_return_pct}% {tr("return")}</div>
               <div className="space-y-1.5">
                 <Row label="Portfolio @ retirement" value={money(s.summary?.portfolioAtRetirement || 0)} />
                 <Row label="Estate at plan end" value={money(s.summary?.estateValueAtDeath || 0)} />

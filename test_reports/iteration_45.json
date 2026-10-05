@@ -1,0 +1,40 @@
+{
+  "summary": "Frontend visual/functional verification of Net Worth, Debt, Retirement pages in EN+FR at desktop (1920) and mobile (390) widths after BrokersEdge re-skin. Logged in via scott@sweston.ca + TOTP, activated Eleanor Whitfield household via Dashboard 'Open & edit', then exercised all testids and tabs on each of the 3 pages.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Retirement (FR)",
+        "issues": [
+          "Several section headers/body strings on /retirement are hardcoded English and are NOT wrapped in tr(): 'Planning assumptions', 'Set these once — they seed every projection, Monte Carlo and guardrail run for this household.', 'Projection inputs', 'Portfolio at retirement', 'Save & reuse', 'Run the projection to see your year-by-year Canadian retirement outlook.' remain in English when compass_lang=fr. The 6 tab labels in TABS[] (Projection, Monte Carlo, Guardrails, CPP / OAS Timing, Decisions, Scenarios) are also hardcoded; only 'Monte-Carlo', 'Garde-fous', 'Calendrier RPC / SV', 'Décisions', 'Scénarios' appear localized because the header meta line uses tr() elsewhere. See Retirement.jsx lines 22-29, 151, 154, 206, 214.",
+          "NONREG_TYPES option labels (lines 31-37) are hardcoded English too."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Wrap the remaining hardcoded strings in /app/frontend/src/pages/Retirement.jsx with tr() + add FR translations in /app/frontend/src/lib/i18n.jsx (Planning assumptions card title/body, Projection inputs heading, Portfolio at retirement labels, Save & reuse button, Run-the-projection empty-state copy, the 6 TABS[] labels, and NONREG_TYPES option labels)."
+  ],
+  "critical_code_review_comments": [
+    "Retirement.jsx TABS[] array hardcodes English labels — should map through tr() at render time so FR users see localized tab labels (Projection currently shows localized because 'Projection' is same in both languages).",
+    "Hardcoded user-facing copy in Retirement.jsx breaks the bilingual contract advertised by the i18n toggle; same anti-pattern should be audited across other planning pages.",
+    "File /app/frontend/src/pages/Retirement.jsx is 632 lines — recommend splitting Projection / MonteCarlo / Guardrails / Timing / Decisions / Scenarios tab panels into separate modules.",
+    "Dashboard household-select UX is non-obvious — clicking the Eleanor Whitfield card at the top of /owners does nothing (no onClick wired on the owner Card); the only way to set an active household from Enterprise scope is scrolling to the 'Corp book' section on /dashboard and clicking 'Open & edit'. Consider making the card header on /owners also activate + navigate."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "95%"},
+  "test_credentials": "scott@sweston.ca / Compass2026! + TOTP(JBSWY3DPEHPK3PXP). Must activate household via Dashboard 'Open & edit' button before /networth, /debt, /retirement will load (RequireHousehold redirects to /owners otherwise).",
+  "seed_data_creation": "None; used pre-seeded Eleanor Whitfield household. Debt page shows empty state (no debts) which is per spec acceptable; strategy-avalanche/strategy-snowball/debt-extra testids only render once at least one debt exists.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Login (scott@sweston.ca) → Dashboard → scroll to 'Corp book' section → click 'Open & edit' on Eleanor Whitfield row. localStorage['compass_active_household'] now set, so /networth, /debt, /retirement render. Language toggle via localStorage['compass_lang']='fr' + reload. Verified: NetWorth EN+FR fully pass all testids + tab switching + donut renders; Debt EN+FR renders dark debt-statband with 4 KPIs and composition donut but strategy cards hidden under empty state (add a debt via 'Add debt' modal to confirm strategy-avalanche/strategy-snowball/debt-extra); Retirement EN+FR all 8 testids present, Run projection returns results with projection-chart (Portfolio at retirement $1,953,571), all 6 tabs clickable. No console errors (only 2 benign 401s on polling). No horizontal overflow at 1920 or 390. Partial FR translation leak on Retirement planning-assumptions card documented in design_issues.",
+  "pages_tested_matrix": {
+    "NetWorth": {"EN_desktop": "PASS", "FR_desktop": "PASS", "mobile": "PASS (no overflow)"},
+    "Debt": {"EN_desktop": "PASS (empty-state)", "FR_desktop": "PASS (empty-state)", "mobile": "PASS (no overflow)"},
+    "Retirement": {"EN_desktop": "PASS incl Run projection + chart", "FR_desktop": "PARTIAL (headers in EN)", "mobile": "PASS (no overflow)"}
+  },
+  "rca of the issue": "Hardcoded English strings in Retirement.jsx (lines 22-29, 31-37, 151, 154, 206, 214, and the 'Run the projection…' placeholder) are not routed through useTr(). Fix: add i18n keys (e.g. ret.assumptions_title, ret.assumptions_body, ret.projection_inputs, ret.portfolio_at_retirement, ret.save_reuse, ret.run_placeholder, ret.tabs.*) in /app/frontend/src/lib/i18n.jsx and replace literals with tr(key)."
+}

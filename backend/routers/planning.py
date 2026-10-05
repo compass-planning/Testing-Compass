@@ -245,6 +245,19 @@ async def delete_goal(gid: str, user: dict = Depends(get_current_user)):
 
 # ---------------- Planning workspace ----------------
 
+_REAL_ESTATE_CATS = {"Principal Residence", "Real Estate (other)"}
+
+
+def embedded_liabilities_total(nw_rows):
+    """Mortgages on real-estate assets + loans on vehicle assets, so net worth subtracts them."""
+    total = 0.0
+    for r in nw_rows:
+        if r.get("kind") == "asset":
+            total += float(r.get("mortgage", 0) or 0)
+            total += float(r.get("loan_amount", 0) or 0)
+    return total
+
+
 @router.get("/plan/overview")
 async def plan_overview(user: dict = Depends(get_current_user), household_id: str = None):
     store, read, _, hid = planner_scope(user, household_id)
@@ -255,7 +268,7 @@ async def plan_overview(user: dict = Depends(get_current_user), household_id: st
     accounts = repo.list(store, "accounts", read)
     goals = repo.list(store, "goals", read)
     assets = sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "asset") + sum(float(a.get("balance", 0)) for a in accounts)
-    liabilities = sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "liability") + sum(float(d.get("balance", 0)) for d in debts)
+    liabilities = sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "liability") + sum(float(d.get("balance", 0)) for d in debts) + embedded_liabilities_total(nw)
     return {
         "netWorth": assets - liabilities, "totalAssets": assets, "totalLiabilities": liabilities,
         "accounts": len(accounts), "goals": len(goals),
@@ -348,7 +361,7 @@ def _action_items(store, read, hid):
     goals = [g for g in repo.list(store, "goals", read) if (not hid or g.get("scope", {}).get("client_id") == hid)]
     accounts = repo.list(store, "accounts", read)
     assets = sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "asset") + sum(float(a.get("balance", 0)) for a in accounts)
-    liabilities = sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "liability") + sum(float(d.get("balance", 0)) for d in debts)
+    liabilities = sum(float(r.get("value", 0)) for r in nw if r.get("kind") == "liability") + sum(float(d.get("balance", 0)) for d in debts) + embedded_liabilities_total(nw)
     items = []
 
     def add(key, severity, title, detail, action):
@@ -530,7 +543,7 @@ async def report_pdf(user: dict = Depends(get_current_user), household_id: str =
     accounts = repo.list(store, "accounts", read)
     goals = repo.list(store, "goals", read)
     assets = sum(float(r.get("value", 0)) for r in nw_rows if r.get("kind") == "asset") + sum(float(a.get("balance", 0)) for a in accounts)
-    liabilities = sum(float(r.get("value", 0)) for r in nw_rows if r.get("kind") == "liability") + sum(float(d.get("balance", 0)) for d in debts)
+    liabilities = sum(float(r.get("value", 0)) for r in nw_rows if r.get("kind") == "liability") + sum(float(d.get("balance", 0)) for d in debts) + embedded_liabilities_total(nw_rows)
     protection = hh(repo.list(store, "plan_protection", read))
     ps = protection_score(protection)["protection_score"]
     retirement_rows = hh(repo.list(store, "plan_retirement", read))

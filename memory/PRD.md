@@ -12,6 +12,20 @@ User language: **English** (respond in English).
 - i18n: `/app/frontend/src/lib/i18n.jsx` — `useLang()` → {lang, setLang, t, tr}; persisted in localStorage `compass_lang`.
 
 ## Implemented (latest first)
+### 2026-06 — Linked liabilities/debts + client list view (DONE, tested)
+- **Advisor Household Queue** (`AdvisorClients.jsx`) converted from 2-column cards to a single compact **list** (one row per household: avatar, name, status, next action, Assets/Net worth/Goals/Protection, score, Open). Mobile-safe (no overflow). Shared `PageHeader.jsx` actions now wrap on mobile.
+- **Mortgages & vehicle loans auto-flow** into both Net Worth → Liabilities tab and the Debt page as read-only **Linked** lines (derived from the asset, no duplicate data). `lib/finance.js`: `derivedDebtsFromNetworth()` + `derivedLiabilitiesFromAssets()`.
+- **Net worth now correctly subtracts** embedded mortgages/loans. Backend `embedded_liabilities_total()` added to `/plan/overview`, `_action_items`, `report_pdf`, and advisor `_household_score` (consistent everywhere). Verified via API: $900k home w/ $540k mortgage + $45k HELOC → net worth $315k.
+- **Liability form** gained optional **Monthly payment ($)** + **Interest rate (%)** fields (`field-liab-payment`, `field-liab-rate`); any liability with a payment appears on the Debt page with full payoff analytics (Avalanche/Snowball). New EN/FR strings added.
+
+### 2026-06 — BrokersEdge re-skin: Net Worth / Debt / Retirement (DONE, tested EN+FR)
+- Shared layout kit in `ui-kit.jsx` (StatBand dark KPI band, Donut, RailCard, Reveal) + upgraded `PageHeader.jsx` (icon tile, live meta sub-line, actions). Compass blue/green palette retained (NOT the reference cyan).
+- `NetWorth.jsx`: 3-up Stat row + two-column layout (table/tabs left, Asset-allocation Donut + Summary rail right).
+- `Debt.jsx`: dark `debt-statband` (4 KPIs + composition donut) + payoff-strategy Avalanche/Snowball cards.
+- `Retirement.jsx`: PageHeader meta line + Planning-assumptions card + 6 tabs (Projection/MonteCarlo/Guardrails/Timing/Decisions/Scenarios), Recharts area/line charts.
+- i18n: full FR pass — wrapped all remaining hardcoded strings in `tr()` and added ~110 EN→FR entries in `lib/i18n.jsx` (Retirement all tabs, Debt strategy band/cards, NetWorth rail/empties). Verified in FR: Retirement (incl. Monte-Carlo run) and Debt (incl. strategy "Économise … par rapport aux paiements minimums") render with no English leaks and no overflow at 1920/390. (testing_agent iteration_45 + screenshots)
+- PENDING USER SIGN-OFF before rolling the same patterns to the remaining suite pages.
+
 ### 2026-06 — Admin Delete Account (PIPEDA erasure) (DONE, tested)
 - `DELETE /api/admin/accounts/{uid}` (admin-only): erases the user + all planning data scoped to their `client_id`. Blocks deleting `tier=="admin"`. Audited as `admin.account.delete`.
 - `repo.delete_user(uid)` + `repo.purge_client_data(client_id)` added to both InMemory and Mongo repositories.

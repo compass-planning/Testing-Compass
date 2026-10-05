@@ -9,6 +9,7 @@ import { Card, Button, Input, Field, Select, Badge, Modal, Stat, Empty, RailCard
 import { PageHeader } from "@/components/PageHeader";
 import { useTr } from "@/lib/i18n";
 import { money } from "@/lib/format";
+import { derivedLiabilitiesFromAssets } from "@/lib/finance";
 
 const ASSET_CATEGORIES = [
   "Principal Residence", "Real Estate (other)", "RRSP", "TFSA", "Non-Registered",
@@ -50,9 +51,10 @@ export default function NetWorth() {
   const rows = nw.data || [];
   const assets = rows.filter((r) => sectionOf(r) === "assets");
   const liabilities = rows.filter((r) => sectionOf(r) === "liabilities");
+  const linkedLiabs = derivedLiabilitiesFromAssets(rows);
   const totalAssets = assets.reduce((s, r) => s + Number(r.value || 0), 0) + rows.filter((r) => sectionOf(r) === "education").reduce((s, r) => s + Number(r.value || 0), 0);
-  const totalLiab = liabilities.reduce((s, r) => s + Number(r.value || 0), 0);
-  const visible = rows.filter((r) => sectionOf(r) === tab);
+  const totalLiab = liabilities.reduce((s, r) => s + Number(r.value || 0), 0) + linkedLiabs.reduce((s, r) => s + Number(r.value || 0), 0);
+  const visible = tab === "liabilities" ? [...liabilities, ...linkedLiabs] : rows.filter((r) => sectionOf(r) === tab);
   const PALETTE = ["#0052FF", "#00DF89", "#FFB800", "#7B61FF", "#06B6D4", "#EE5D50", "#1B2559", "#A3AED0"];
   const allocMap = {};
   [...assets, ...rows.filter((r) => sectionOf(r) === "education")].forEach((r) => { allocMap[r.category] = (allocMap[r.category] || 0) + Number(r.value || 0); });
@@ -126,6 +128,7 @@ export default function NetWorth() {
                         {REAL_ESTATE.includes(r.category) && <Home size={14} className="text-compass-blue" />}
                         {r.category === "Vehicle" && <Car size={14} className="text-compass-blue" />}
                         {r.name || "—"}
+                        {r.linked && <Badge color="#7B61FF" bg="rgba(123,97,255,0.12)" className="ml-1">{tr("Linked")}</Badge>}
                       </td>
                       <td className="px-5 py-3.5 text-compass-muted">{r.owner || "—"}</td>
                       <td className="px-5 py-3.5"><Badge color="#0052FF" bg="rgba(0,82,255,0.08)">{r.category}</Badge></td>
@@ -133,8 +136,14 @@ export default function NetWorth() {
                       <td className="px-5 py-3.5 text-right font-heading font-bold text-compass-navy">{money(r.value)}</td>
                       {!readOnly && (
                         <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                          <button onClick={() => setModal(r)} className="text-compass-blue hover:bg-compass-blue/10 rounded-lg p-1.5"><Pencil size={15} /></button>
-                          <button onClick={() => del.mutate(r.id)} className="text-compass-red hover:bg-compass-red/10 rounded-lg p-1.5 ml-1" data-testid={`delete-${r.id}`}><Trash2 size={15} /></button>
+                          {r.linked ? (
+                            <span className="text-xs text-compass-muted">{tr("from")} {tr(r.source)}</span>
+                          ) : (
+                            <>
+                              <button onClick={() => setModal(r)} className="text-compass-blue hover:bg-compass-blue/10 rounded-lg p-1.5"><Pencil size={15} /></button>
+                              <button onClick={() => del.mutate(r.id)} className="text-compass-red hover:bg-compass-red/10 rounded-lg p-1.5 ml-1" data-testid={`delete-${r.id}`}><Trash2 size={15} /></button>
+                            </>
+                          )}
                         </td>
                       )}
                     </tr>
@@ -149,7 +158,7 @@ export default function NetWorth() {
           <RailCard title="Asset allocation">
             {alloc.length ? (
               <>
-                <Donut data={alloc} centerValue={money(totalAssets)} centerLabel="Assets" />
+                <Donut data={alloc} centerValue={money(totalAssets)} centerLabel={tr("Assets")} />
                 <div className="mt-4 space-y-2">
                   {alloc.map((a) => (
                     <div key={a.name} className="flex items-center justify-between text-sm">
@@ -193,6 +202,7 @@ function EntryModal({ open, initial, owners, tab, onClose, onSubmit, loading }) 
       owner: initial?.owner || (owners[0]?.full_name ?? "Joint"),
       category: initial?.category || cats[0], name: initial?.name || "",
       value: initial?.value ?? "",
+      payment: initial?.payment ?? "", rate: initial?.rate ?? "",
       // real estate
       mortgage: initial?.mortgage ?? "", mortgage_payment: initial?.mortgage_payment ?? "",
       payment_frequency: initial?.payment_frequency ?? "Monthly", property_taxes: initial?.property_taxes ?? "",
@@ -217,6 +227,7 @@ function EntryModal({ open, initial, owners, tab, onClose, onSubmit, loading }) 
       id: f.id, kind: f.kind, owner: f.owner, category: f.category, name: f.name,
       value: num(f.value),
     };
+    if (isLiab) Object.assign(base, { payment: num(f.payment), rate: num(f.rate) });
     if (group === "real_estate") Object.assign(base, {
       mortgage: num(f.mortgage), mortgage_payment: num(f.mortgage_payment),
       payment_frequency: f.payment_frequency, property_taxes: num(f.property_taxes),
@@ -248,6 +259,16 @@ function EntryModal({ open, initial, owners, tab, onClose, onSubmit, loading }) 
         <Field label={isLiab ? "Balance (CAD)" : group === "real_estate" ? "Total value (CAD)" : group === "vehicle" ? "Current value (CAD)" : group === "investment" ? "Balance (CAD)" : "Market value (CAD)"}>
           <Input type="number" value={f.value ?? ""} onChange={set("value")} data-testid="field-value" />
         </Field>
+
+        {isLiab && (
+          <div className="space-y-2 rounded-xl bg-compass-bg/50 p-4" data-testid="liab-fields">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Monthly payment ($)"><Input type="number" value={f.payment ?? ""} onChange={set("payment")} data-testid="field-liab-payment" /></Field>
+              <Field label="Interest rate (%)"><Input type="number" step="0.01" value={f.rate ?? ""} onChange={set("rate")} data-testid="field-liab-rate" /></Field>
+            </div>
+            <p className="text-xs text-compass-muted">{tr("Liabilities with a monthly payment also appear on the Debt page.")}</p>
+          </div>
+        )}
 
         {group === "real_estate" && (
           <div className="space-y-4 rounded-xl bg-compass-bg/50 p-4" data-testid="re-fields">

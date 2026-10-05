@@ -35,7 +35,7 @@ export function PageHeader({ title, subtitle, icon: Icon, meta, children }) {
           ) : null}
         </div>
       </div>
-      {children && <div className="flex items-center gap-2 shrink-0">{children}</div>}
+      {children && <div className="flex flex-wrap items-center gap-2 sm:justify-end sm:shrink-0">{children}</div>}
     </motion.div>
   );
 }
