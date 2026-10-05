@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Target, Trash2, Pencil, Link2, CalendarCheck, AlertTriangle } from "lucide-react";
+import { Plus, Target, Trash2, Pencil, Link2, CalendarCheck, AlertTriangle, Trophy } from "lucide-react";
+import confetti from "canvas-confetti";
 import api, { formatApiError } from "@/lib/api";
 import { planApi } from "@/lib/planning";
 import { Card, Button, Input, Field, Select, Badge, Progress, Modal, Empty, StatBand, Donut } from "@/components/ui-kit";
@@ -83,6 +84,17 @@ export default function Goals() {
   goalsList.forEach((g) => { const st = g.status || "on_track"; statusCounts[st] = (statusCounts[st] || 0) + 1; });
   const statusDonut = Object.entries(statusCounts).map(([k, v]) => ({ name: (STATUS_META[k] || STATUS_META.on_track).label, value: v, color: STATUS_PALETTE[k] || "#8FB3FF" }));
 
+  React.useEffect(() => {
+    if (!goalsList.length) return;
+    let celebrated = [];
+    try { celebrated = JSON.parse(localStorage.getItem("compass_celebrated_goals") || "[]"); } catch { celebrated = []; }
+    const newly = goalsList.filter((g) => Number(g.target_amount || 0) > 0 && currentOf(g) >= Number(g.target_amount || 0) && !celebrated.includes(g.id));
+    if (newly.length) {
+      confetti({ particleCount: 140, spread: 75, origin: { y: 0.3 } });
+      localStorage.setItem("compass_celebrated_goals", JSON.stringify([...celebrated, ...newly.map((g) => g.id)]));
+    }
+  }, [goalsList]); // eslint-disable-line
+
   const applyFix = (g, current, req) => save.mutate({
     id: g.id, title: g.title, category: g.category, target_amount: Number(g.target_amount || 0),
     current_amount: Number(current || 0), target_year: Number(g.target_year), owner_id: g.owner_id || null,
@@ -140,6 +152,7 @@ export default function Goals() {
             const linked = g.linked_asset_ids && g.linked_asset_ids.length > 0;
             const current = linked ? linkedTotal(g.linked_asset_ids) : Number(g.current_amount || 0);
             const pct = g.target_amount ? Math.round((current / g.target_amount) * 100) : 0;
+            const funded = Number(g.target_amount || 0) > 0 && current >= Number(g.target_amount || 0);
             const meta = STATUS_META[g.status] || STATUS_META.on_track;
             const proj = projectFunding(current, Number(g.target_amount || 0), Number(g.monthly_contribution || 0), Number(g.growth_rate || 0));
             const onTime = proj && proj.year <= Number(g.target_year || 9999);
@@ -150,7 +163,10 @@ export default function Goals() {
                     <h3 className="font-heading font-bold text-compass-navy">{g.title}</h3>
                     <div className="text-xs text-compass-muted mt-0.5 capitalize">{g.category} · target {g.target_year}</div>
                   </div>
-                  <Badge color={meta.color} bg={meta.bg}>{meta.label}</Badge>
+                  <div className="flex items-center gap-1.5">
+                    {funded && <Badge color="#00DF89" bg="rgba(0,223,137,0.14)" data-testid={`goal-funded-${g.id}`}><Trophy size={11} /> {tr("Funded")}</Badge>}
+                    <Badge color={meta.color} bg={meta.bg}>{meta.label}</Badge>
+                  </div>
                 </div>
                 <div className="mt-5">
                   <div className="flex items-end justify-between mb-2">

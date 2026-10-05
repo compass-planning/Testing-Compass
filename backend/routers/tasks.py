@@ -313,3 +313,40 @@ async def digest_preview(user: dict = Depends(get_current_user)):
         logger.warning(f"Task digest preview failed for {user['email']}: {e}")
         log_digest(user, "daily", "preview", False)
         return {"sent": False, "to": user["email"], "detail": "Email delivery is unavailable in this environment"}
+
+
+@router.get("/advisor/digest-preview/daily")
+async def digest_preview_daily_html(user: dict = Depends(get_current_user)):
+    """Render the daily task digest email HTML for in-app preview (no email sent)."""
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    today = datetime.now(ZoneInfo("America/Toronto")).date().isoformat()
+    store, flt = scope_context(user)
+    due = [t for t in repo.list(store, "tasks", flt)
+           if not t.get("done") and t.get("due_date") and t["due_date"] <= today]
+    overdue = sorted([t for t in due if t["due_date"] < today], key=lambda t: t["due_date"])
+    today_tasks = [t for t in due if t["due_date"] == today]
+    if not due:
+        today_tasks = [{"title": "Sample: review a household's retirement plan", "due_date": today}]
+    firm = (user.get("branding") or {}).get("firm_name")
+    html = render_task_digest_html(user.get("name"), firm, today_tasks, overdue)
+    return {"subject": "Your morning task digest", "html": html}
+
+
+@router.get("/advisor/digest-preview/summary")
+async def digest_preview_summary_html(user: dict = Depends(get_current_user)):
+    """Render the end-of-day recap email HTML for in-app preview (no email sent)."""
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    today = datetime.now(ZoneInfo("America/Toronto")).date().isoformat()
+    store, flt = scope_context(user)
+    tasks = repo.list(store, "tasks", flt)
+    cutoff = user.get("last_summary_at") or (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    completed = [t for t in tasks if t.get("done") and (t.get("completed_at") or "") > cutoff]
+    rolled = sorted([t for t in tasks if not t.get("done") and t.get("due_date") and t["due_date"] <= today],
+                    key=lambda t: t["due_date"])
+    if not completed and not rolled:
+        completed = [{"title": "Sample: reviewed the Nguyen household"}]
+    firm = (user.get("branding") or {}).get("firm_name")
+    html = render_today_summary_html(user.get("name"), firm, completed, rolled)
+    return {"subject": "Your end-of-day recap", "html": html}

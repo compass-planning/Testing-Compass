@@ -813,6 +813,17 @@ async def book_digest_preview(user: dict = Depends(get_current_user)):
         return {"sent": False, "to": user["email"], "detail": "Email delivery is unavailable in this environment"}
 
 
+@router.get("/advisor/digest-preview/weekly")
+async def book_digest_preview_html(user: dict = Depends(get_current_user)):
+    """Render the weekly book-health digest email HTML for in-app preview (no email sent)."""
+    if user["tier"] != "advisor":
+        raise HTTPException(status_code=403, detail="Advisor tier only")
+    stats = _book_stats(user)
+    firm = (user.get("branding") or {}).get("firm_name")
+    html = render_book_digest_html(user.get("name"), firm, stats, base_url=_app_base_url())
+    return {"subject": "Your weekly book-health summary", "html": html}
+
+
 @router.get("/advisor/today")
 async def advisor_today(user: dict = Depends(get_current_user)):
     if user["tier"] != "advisor":

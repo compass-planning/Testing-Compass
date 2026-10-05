@@ -282,6 +282,54 @@ async def plan_overview(user: dict = Depends(get_current_user), household_id: st
     }
 
 
+def _ym_minus(ym: str, i: int) -> str:
+    y, m = map(int, ym.split("-"))
+    total = y * 12 + (m - 1) - i
+    return f"{total // 12:04d}-{total % 12 + 1:02d}"
+
+
+class NetWorthSnapshotInput(BaseModel):
+    value: float
+
+
+@router.post("/plan/networth/snapshot")
+async def networth_snapshot(body: NetWorthSnapshotInput, user: dict = Depends(get_current_user), household_id: str = None):
+    store, read, ws, hid = planner_scope(user, household_id)
+    if not hid:
+        return {"ok": False}
+    now = datetime.now(timezone.utc)
+    ym = now.strftime("%Y-%m")
+    snaps = [s for s in repo.list(store, "networth_snapshots", read) if s.get("household_id") == hid]
+    existing = next((s for s in snaps if s.get("ym") == ym), None)
+    if existing:
+        repo.update(store, "networth_snapshots", existing["id"], {"value": float(body.value)}, read)
+    else:
+        repo.create(store, "networth_snapshots", {
+            "id": _id(), "store": store, "scope": ws, "household_id": hid,
+            "ym": ym, "value": float(body.value), "created_at": now.isoformat(),
+        })
+    return {"ok": True}
+
+
+@router.get("/plan/networth/history")
+async def networth_history(user: dict = Depends(get_current_user), household_id: str = None):
+    store, read, ws, hid = planner_scope(user, household_id)
+    if not hid:
+        return {"points": [], "has_real": False}
+    snaps = sorted(
+        [s for s in repo.list(store, "networth_snapshots", read) if s.get("household_id") == hid],
+        key=lambda s: s.get("ym", ""),
+    )
+    real = [{"ym": s["ym"], "value": float(s.get("value", 0)), "illustrative": False} for s in snaps]
+    if len(real) >= 2:
+        return {"points": real, "has_real": True}
+    latest = real[-1]["value"] if real else 0.0
+    latest_ym = real[-1]["ym"] if real else datetime.now(timezone.utc).strftime("%Y-%m")
+    pts = [{"ym": _ym_minus(latest_ym, i), "value": round(latest * (1 - 0.02 * i), 2), "illustrative": True} for i in range(8, 0, -1)]
+    pts += real if real else [{"ym": latest_ym, "value": latest, "illustrative": True}]
+    return {"points": pts, "has_real": False}
+
+
 @router.get("/plan/profile")
 async def plan_profile(user: dict = Depends(get_current_user), household_id: str = None):
     store, read, _, hid = planner_scope(user, household_id)

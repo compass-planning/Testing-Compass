@@ -7,7 +7,7 @@ import { planApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
 import { Card, Button, Input, Field, Select, Badge, Modal, Stat, Empty, StatBand, Donut } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
-import { useTr } from "@/lib/i18n";
+import { useLang, useTr } from "@/lib/i18n";
 import { money } from "@/lib/format";
 import { weightedAvgRate, singlePayoff, baseline, strategy, monthsLabel, derivedDebtsFromNetworth } from "@/lib/finance";
 import { PersonToggle, matchPerson, OWNER_TAGS } from "@/components/PersonToggle";
@@ -50,6 +50,8 @@ export default function Debt() {
     return { base: baseline(rows), ava: strategy(rows, extra, "avalanche"), snow: strategy(rows, extra, "snowball") };
   }, [rows, extra]);
   const tr = useTr();
+  const { lang } = useLang();
+  const freedomDate = (m) => { if (!isFinite(m)) return tr("Never"); const d = new Date(); d.setMonth(d.getMonth() + Math.round(m)); return d.toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { month: "short", year: "numeric" }); };
 
   const createGoal = useMutation({
     mutationFn: (body) => api.post("/goals", body).then((r) => r.data),
@@ -121,6 +123,9 @@ export default function Debt() {
               <tbody>
                 {rows.map((d) => {
                   const p = singlePayoff(d.balance, d.rate, d.payment);
+                  const withMonths = analysis && !analysis.ava.neverPaysOff && analysis.ava.payoffMonth[d.id] != null ? analysis.ava.payoffMonth[d.id] : p.months;
+                  const saved = isFinite(p.months) && isFinite(withMonths) ? Math.max(0, Math.round(p.months - withMonths)) : 0;
+                  const fillPct = isFinite(p.months) && p.months > 0 && isFinite(withMonths) ? Math.max(4, Math.min(100, (saved / p.months) * 100)) : 0;
                   return (
                     <tr key={d.id} className="border-b border-compass-border last:border-0 hover:bg-compass-bg/40" data-testid={`debts-row-${d.id}`}>
                       <td className="px-5 py-3.5 font-semibold text-compass-navy">{d.name || "—"}{d.linked && <Badge color="#7B61FF" bg="rgba(123,97,255,0.12)" className="ml-1.5">{tr("Linked")}</Badge>}</td>
@@ -129,7 +134,17 @@ export default function Debt() {
                       <td className="px-5 py-3.5 text-right">{Number(d.rate || 0).toFixed(2)}%</td>
                       <td className="px-5 py-3.5 text-right">{money(d.payment)}</td>
                       <td className="px-5 py-3.5 text-right font-heading font-bold text-compass-navy">{money(d.balance)}</td>
-                      <td className="px-5 py-3.5 text-right text-compass-muted">{p.neverPaysOff ? <span className="text-compass-red font-semibold">Never</span> : monthsLabel(p.months)}</td>
+                      <td className="px-5 py-3.5 text-right">
+                        {(p.neverPaysOff && (!analysis || analysis.ava.neverPaysOff)) ? (
+                          <span className="text-compass-red font-semibold">{tr("Never")}</span>
+                        ) : (
+                          <div className="flex flex-col items-end gap-1" data-testid={`debt-timeline-${d.id}`}>
+                            <span className="font-semibold text-compass-navy">{freedomDate(withMonths)}</span>
+                            <div className="h-1.5 w-28 rounded-full bg-compass-bg overflow-hidden"><div className="h-full rounded-full bg-compass-green transition-all duration-500" style={{ width: `${fillPct}%` }} /></div>
+                            {saved > 0 ? <span className="text-[10px] font-semibold text-compass-green">{monthsLabel(saved)} {tr("sooner")}</span> : <span className="text-[10px] text-compass-muted">{monthsLabel(withMonths)}</span>}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-5 py-3.5 text-right text-compass-muted">{p.neverPaysOff ? "—" : money(p.interest)}</td>
                       {!readOnly && (
                         <td className="px-5 py-3.5 text-right whitespace-nowrap">
@@ -159,6 +174,8 @@ export default function Debt() {
               </Field>
               <p className="text-sm text-compass-muted pb-2.5">{tr("Applied on top of minimum payments and rolled forward as each debt clears.")}</p>
             </div>
+            <input type="range" min="0" max="3000" step="50" value={Math.min(3000, extra)} onChange={(e) => setExtra(Number(e.target.value))} data-testid="debt-extra-slider" className="mt-4 w-full accent-compass-blue" />
+            <div className="flex justify-between text-[11px] text-compass-muted mt-1"><span>$0</span><span className="font-semibold text-compass-navy">{money(extra)}/mo</span><span>$3,000</span></div>
           </Card>
 
           {analysis && (

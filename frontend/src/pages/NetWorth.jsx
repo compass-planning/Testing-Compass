@@ -3,11 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Scale, Plus, Pencil, Trash2, Home, Landmark, GraduationCap, Car } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { planApi } from "@/lib/planning";
 import { useAuth } from "@/context/AuthContext";
 import { Card, Button, Input, Field, Select, Badge, Modal, Stat, Empty, RailCard, Donut } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
-import { useTr } from "@/lib/i18n";
+import { useLang, useTr } from "@/lib/i18n";
 import { money } from "@/lib/format";
 import { derivedLiabilitiesFromAssets } from "@/lib/finance";
 
@@ -43,6 +44,7 @@ export default function NetWorth() {
   const readOnly = user.tier === "enterprise" && !user.enterprise_write;
   const [tab, setTab] = useState("assets");
   const tr = useTr();
+  const { lang } = useLang();
   const [modal, setModal] = useState(null); // {} or row
 
   const nw = useQuery({ queryKey: ["plan", "networth"], queryFn: () => planApi.list("networth") });
@@ -60,7 +62,21 @@ export default function NetWorth() {
   [...assets, ...rows.filter((r) => sectionOf(r) === "education")].forEach((r) => { allocMap[r.category] = (allocMap[r.category] || 0) + Number(r.value || 0); });
   const alloc = Object.entries(allocMap).filter(([, v]) => v > 0).map(([name, value], i) => ({ name, value, color: PALETTE[i % PALETTE.length] }));
 
-  const invalidate = () => { qc.invalidateQueries({ queryKey: ["plan", "networth"] }); qc.invalidateQueries({ queryKey: ["plan", "overview"] }); };
+  const netWorthValue = totalAssets - totalLiab;
+  const history = useQuery({
+    queryKey: ["nw-history", Math.round(netWorthValue)],
+    enabled: !nw.isLoading,
+    queryFn: async () => {
+      try { await api.post("/plan/networth/snapshot", { value: netWorthValue }); } catch (e) { /* noop */ }
+      return (await api.get("/plan/networth/history")).data;
+    },
+  });
+  const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const MONTHS_FR = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+  const fmtYm = (ym) => { const [, m] = ym.split("-"); return (lang === "fr" ? MONTHS_FR : MONTHS_EN)[Number(m) - 1]; };
+  const trendData = (history.data?.points || []).map((p) => ({ ...p, label: fmtYm(p.ym) }));
+
+  const invalidate = () => { qc.invalidateQueries({ queryKey: ["plan", "networth"] }); qc.invalidateQueries({ queryKey: ["plan", "overview"] }); qc.invalidateQueries({ queryKey: ["nw-history"] }); };
   const save = useMutation({
     mutationFn: (b) => (b.id ? planApi.update("networth", b.id, clean(b)) : planApi.create("networth", clean(b))),
     onSuccess: () => { toast.success("Saved"); setModal(null); invalidate(); },
@@ -178,6 +194,22 @@ export default function NetWorth() {
               <div className="flex justify-between text-sm"><span className="text-compass-muted">{tr("Total liabilities")}</span><span className="font-semibold text-compass-red">{money(totalLiab)}</span></div>
               <div className="flex justify-between text-sm pt-2.5 border-t border-compass-border"><span className="font-bold text-compass-navy">{tr("Net worth")}</span><span className="font-heading font-extrabold text-compass-navy">{money(totalAssets - totalLiab)}</span></div>
             </div>
+          </RailCard>
+          <RailCard title="Net worth trend">
+            {trendData.length >= 2 ? (
+              <>
+                <ResponsiveContainer width="100%" height={160}>
+                  <AreaChart data={trendData} margin={{ left: 0, right: 4, top: 6, bottom: 0 }}>
+                    <defs><linearGradient id="nwfill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#0052FF" stopOpacity={0.3} /><stop offset="100%" stopColor="#0052FF" stopOpacity={0.02} /></linearGradient></defs>
+                    <XAxis dataKey="label" tick={{ fill: "#A3AED0", fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                    <YAxis tickFormatter={(v) => `$${Math.round(v / 1000)}k`} tick={{ fill: "#A3AED0", fontSize: 10 }} axisLine={false} tickLine={false} width={40} />
+                    <Tooltip formatter={(v) => money(v)} contentStyle={{ borderRadius: 12, border: "1px solid #E2E8F0", fontSize: 12 }} />
+                    <Area type="monotone" dataKey="value" stroke="#0052FF" fill="url(#nwfill)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+                {!history.data?.has_real && <p className="text-[11px] text-compass-muted mt-2">{tr("Illustrative until monthly history builds.")}</p>}
+              </>
+            ) : <p className="text-sm text-compass-muted">{tr("Trend will appear as net worth is tracked over time.")}</p>}
           </RailCard>
         </div>
       </div>

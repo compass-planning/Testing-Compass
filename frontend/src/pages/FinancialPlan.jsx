@@ -1,9 +1,10 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Sparkles, Scale, Target, Shield, PiggyBank, Receipt, FileText, CreditCard } from "lucide-react";
+import { Sparkles, Scale, Target, Shield, PiggyBank, Receipt, FileText, CreditCard, Copy } from "lucide-react";
 import { planApi } from "@/lib/planning";
 import api from "@/lib/api";
-import { Card, StatBand, Badge, Progress } from "@/components/ui-kit";
+import { toast } from "sonner";
+import { Card, StatBand, Badge, Progress, Button } from "@/components/ui-kit";
 import { PageHeader } from "@/components/PageHeader";
 import { money, STATUS_META } from "@/lib/format";
 
@@ -22,6 +23,14 @@ export default function FinancialPlan() {
     { icon: FileText, label: "Documents", value: `${o.documents} on file`, done: o.documents > 0 },
   ] : [];
   const completeness = sections.length ? Math.round((sections.filter((s) => s.done).length / sections.length) * 100) : 0;
+  const firstIncomplete = sections.find((s) => !s.done);
+  const nudge = firstIncomplete ? `Next up: add your ${firstIncomplete.label}.` : "Your plan is complete — nicely done.";
+  const copyHealth = async () => {
+    try {
+      await navigator.clipboard.writeText(`Compass Plan Health Score: ${completeness}/100 · Net worth ${money(o.netWorth)} · ${firstIncomplete ? `Next: add your ${firstIncomplete.label}` : "Plan complete"}`);
+      toast.success("Plan health summary copied");
+    } catch { toast.error("Could not copy"); }
+  };
 
   return (
     <div>
@@ -35,9 +44,21 @@ export default function FinancialPlan() {
             { label: "Plan completeness", value: `${completeness}%`, color: "#FFD36B" },
           ]} />
 
-          <div className="grid lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="p-6 lg:col-span-2">
-            <div className="flex items-center gap-2 mb-4"><Sparkles size={18} className="text-compass-blue" /><h3 className="font-heading font-bold text-compass-navy">Plan completeness</h3></div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-5 mb-5">
+              <div className="relative h-28 w-28 shrink-0 rounded-full" style={{ background: `conic-gradient(#00DF89 ${completeness * 3.6}deg, #E2E8F0 0deg)` }} data-testid="plan-health-score">
+                <div className="absolute inset-[9px] rounded-full bg-white flex flex-col items-center justify-center">
+                  <div className="font-heading text-3xl font-extrabold text-compass-navy">{completeness}</div>
+                  <div className="text-[10px] uppercase tracking-wide text-compass-muted">Score</div>
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2"><Sparkles size={18} className="text-compass-blue" /><h3 className="font-heading font-bold text-compass-navy">Plan Health Score</h3></div>
+                <p className="text-sm text-compass-muted mt-1" data-testid="plan-health-nudge">{nudge}</p>
+                <Button size="sm" variant="outline" className="mt-3" onClick={copyHealth} data-testid="copy-plan-health"><Copy size={14} /> Copy summary</Button>
+              </div>
+            </div>
             <Progress value={completeness} color="#0052FF" />
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-5">
               {sections.map((s) => (

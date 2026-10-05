@@ -241,6 +241,10 @@ const EN2FR = {
   "Needs attention": "À surveiller", "Retirement plans": "Plans de retraite",
   "Insurance analyses": "Analyses d'assurance", "Open action items": "Actions en cours",
   "Opportunities": "Opportunités", "Insights": "Analyses", "Goal health": "Santé des objectifs",
+  "Net worth trend": "Évolution de la valeur nette",
+  "Illustrative until monthly history builds.": "Illustratif jusqu'à l'accumulation de l'historique mensuel.",
+  "Trend will appear as net worth is tracked over time.": "La tendance apparaîtra au fil du suivi de la valeur nette.",
+  "Funded": "Atteint", "sooner": "plus tôt",
   // Retirement — Projection tab
   "Planning assumptions": "Hypothèses de planification",
   "Set these once — they seed every projection, Monte Carlo and guardrail run for this household.": "Définissez-les une seule fois — elles alimentent chaque projection, simulation Monte-Carlo et garde-fou de ce ménage.",

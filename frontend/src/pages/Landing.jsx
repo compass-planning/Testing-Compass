@@ -12,11 +12,12 @@ import { CompassMark } from "@/components/Logo";
 import { useLang } from "@/lib/i18n";
 import { useAuth } from "@/context/AuthContext";
 import apiClient, { formatApiError } from "@/lib/api";
+import { monteCarlo } from "@/lib/finance";
 
 /* ----------------------------------------------------------- copy (EN/FR) */
 const COPY = {
   en: {
-    nav: { features: "Features", how: "How it works", who: "Who it's for", pricing: "Pricing", trust: "Security", faq: "FAQ" },
+    nav: { features: "Features", how: "How it works", who: "Who it's for", pricing: "Pricing", trust: "Security", faq: "FAQ", calc: "Calculator" },
     signin: "Sign In", getStarted: "Get Started",
     goApp: "Open app",
     heroEyebrow: "Canadian Retirement Intelligence",
@@ -42,6 +43,18 @@ const COPY = {
     heroSuccess: "Success rate",
     heroPaths: "1,000 simulated market paths",
     heroStat1: "Median portfolio", heroStat2: "Safe spend / yr", heroDelta: "+2.4% vs last run",
+    calc: {
+      eyebrow: "Try it free",
+      title: "See your retirement number in seconds",
+      sub: "Drag the dials and watch your plan's success rate update live — no sign-up, no sales call.",
+      currentAge: "Current age", retireAge: "Retirement age", savings: "Current savings",
+      monthly: "Monthly contribution", income: "Desired monthly income (today's $)",
+      successLabel: "Projected success rate", paths: "500 simulated market paths",
+      nestEgg: "Projected savings at retirement", median: "Median balance at age 95",
+      cta: "Create your free plan",
+      disclaimer: "Illustrative only. Assumes 5.5% average return, 10% volatility and 2.1% inflation to age 95. Not financial advice.",
+      strong: "On track", caution: "Needs attention", risk: "At risk",
+    },
     trustTitle: "Built for Canadians, trusted by advisors",
     trust: [
       { t: "PIPEDA compliant", d: "Privacy by design", icon: ShieldCheck },
@@ -118,7 +131,7 @@ const COPY = {
     rights: "© 2026 Compass Planning. All rights reserved.",
   },
   fr: {
-    nav: { features: "Fonctions", how: "Comment ça marche", who: "Pour qui", pricing: "Tarifs", trust: "Sécurité", faq: "FAQ" },
+    nav: { features: "Fonctions", how: "Comment ça marche", who: "Pour qui", pricing: "Tarifs", trust: "Sécurité", faq: "FAQ", calc: "Calculateur" },
     signin: "Se connecter", getStarted: "Commencer",
     goApp: "Ouvrir l'app",
     heroEyebrow: "Intelligence de retraite canadienne",
@@ -144,6 +157,18 @@ const COPY = {
     heroSuccess: "Taux de réussite",
     heroPaths: "1 000 trajectoires de marché simulées",
     heroStat1: "Portefeuille médian", heroStat2: "Dépense sûre / an", heroDelta: "+2,4 % vs dernier calcul",
+    calc: {
+      eyebrow: "Essai gratuit",
+      title: "Obtenez votre chiffre de retraite en quelques secondes",
+      sub: "Faites glisser les curseurs et voyez le taux de réussite de votre plan se mettre à jour en direct — sans inscription, sans appel commercial.",
+      currentAge: "Âge actuel", retireAge: "Âge de la retraite", savings: "Épargne actuelle",
+      monthly: "Cotisation mensuelle", income: "Revenu mensuel souhaité ($ d'aujourd'hui)",
+      successLabel: "Taux de réussite projeté", paths: "500 trajectoires de marché simulées",
+      nestEgg: "Épargne projetée à la retraite", median: "Solde médian à 95 ans",
+      cta: "Créez votre plan gratuit",
+      disclaimer: "À titre indicatif seulement. Hypothèses : rendement moyen de 5,5 %, volatilité de 10 % et inflation de 2,1 % jusqu'à 95 ans. Ne constitue pas un conseil financier.",
+      strong: "Sur la bonne voie", caution: "À surveiller", risk: "À risque",
+    },
     trustTitle: "Conçu pour les Canadiens, approuvé par les conseillers",
     trust: [
       { t: "Conforme à la LPRPDE", d: "Confidentialité intégrée", icon: ShieldCheck },
@@ -245,18 +270,112 @@ function Eyebrow({ children }) {
   return <div className="inline-flex items-center gap-2 rounded-full border border-[#00DF89]/30 bg-[#00DF89]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-[#00DF89]">{children}</div>;
 }
 
-function Gauge({ value = 94 }) {
+function Gauge({ value = 94, color = "#00DF89" }) {
   const r = 52, c = 2 * Math.PI * r, off = c - (value / 100) * c;
   return (
     <div className="relative h-36 w-36">
       <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
         <circle cx="60" cy="60" r={r} stroke="rgba(255,255,255,0.12)" strokeWidth="10" fill="none" />
-        <circle cx="60" cy="60" r={r} stroke="#00DF89" strokeWidth="10" fill="none" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} />
+        <circle cx="60" cy="60" r={r} stroke={color} strokeWidth="10" fill="none" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} style={{ transition: "stroke-dashoffset 0.5s ease, stroke 0.3s ease" }} />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="font-heading text-3xl font-extrabold text-white">{value}%</span>
       </div>
     </div>
+  );
+}
+
+function DialInput({ label, value, min, max, step = 1, prefix = "", suffix = "", onChange, lang, testid }) {
+  const display = prefix ? new Intl.NumberFormat(lang === "fr" ? "fr-CA" : "en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(value) : `${value}${suffix}`;
+  return (
+    <div data-testid={testid}>
+      <div className="flex items-center justify-between">
+        <label className="text-sm font-medium text-[#C0B8E3]">{label}</label>
+        <span className="font-heading text-sm font-bold text-white" data-testid={`${testid}-value`}>{display}</span>
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="mt-2 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/15 accent-[#00DF89]"
+        data-testid={`${testid}-range`} />
+    </div>
+  );
+}
+
+function RetirementTeaser({ t, lang, onCta }) {
+  const c = t.calc;
+  const [currentAge, setCurrentAge] = React.useState(35);
+  const [retireAge, setRetireAge] = React.useState(65);
+  const [savings, setSavings] = React.useState(75000);
+  const [monthly, setMonthly] = React.useState(800);
+  const [income, setIncome] = React.useState(4500);
+
+  const res = React.useMemo(() => monteCarlo({
+    current: savings, annualContribution: monthly * 12,
+    yearsToRetire: Math.max(1, retireAge - currentAge), retireAge,
+    meanReturn: 5.5, volatility: 10, inflation: 2.1,
+    monthlyGoal: income, pensionIncome: 0, trials: 500,
+  }), [currentAge, retireAge, savings, monthly, income]);
+
+  const prob = res.successProb;
+  const band = prob >= 80 ? { label: c.strong, color: "#00DF89" }
+    : prob >= 55 ? { label: c.caution, color: "#FFC24B" }
+    : { label: c.risk, color: "#FF6B6B" };
+  const money = (n) => new Intl.NumberFormat(lang === "fr" ? "fr-CA" : "en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(Math.round(n || 0));
+
+  const onAge = (v) => { setCurrentAge(v); if (v >= retireAge) setRetireAge(Math.min(75, v + 1)); };
+
+  return (
+    <section id="calculator" className="py-20 lg:py-28">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <motion.div {...fade} className="mx-auto max-w-2xl text-center">
+          <Eyebrow>{c.eyebrow}</Eyebrow>
+          <h2 className="mt-5 font-heading text-3xl font-bold tracking-tight sm:text-4xl">{c.title}</h2>
+          <p className="mt-4 text-base text-[#C0B8E3]">{c.sub}</p>
+        </motion.div>
+
+        <motion.div {...fade} className="mt-12 grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-7" data-testid="teaser-inputs">
+            <div className="space-y-6">
+              <DialInput label={c.currentAge} value={currentAge} min={18} max={70} suffix="" onChange={onAge} lang={lang} testid="teaser-current-age" />
+              <DialInput label={c.retireAge} value={retireAge} min={Math.max(50, currentAge + 1)} max={75} onChange={setRetireAge} lang={lang} testid="teaser-retire-age" />
+              <DialInput label={c.savings} value={savings} min={0} max={2000000} step={5000} prefix="$" onChange={setSavings} lang={lang} testid="teaser-savings" />
+              <DialInput label={c.monthly} value={monthly} min={0} max={10000} step={50} prefix="$" onChange={setMonthly} lang={lang} testid="teaser-monthly" />
+              <DialInput label={c.income} value={income} min={1000} max={20000} step={100} prefix="$" onChange={setIncome} lang={lang} testid="teaser-income" />
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-3xl border border-white/15 p-7" style={{ background: PURPLE }} data-testid="teaser-results">
+            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(0,223,137,0.18), transparent 70%)" }} />
+            <div className="relative flex items-center gap-5">
+              <Gauge value={prob} color={band.color} />
+              <div>
+                <div className="text-sm text-[#C0B8E3]">{c.successLabel}</div>
+                <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold" style={{ background: `${band.color}22`, color: band.color }} data-testid="teaser-band">
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: band.color }} />{band.label}
+                </div>
+                <div className="mt-2 text-xs text-[#8C82B5]">{c.paths}</div>
+              </div>
+            </div>
+
+            <div className="relative mt-6 grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-xs text-[#8C82B5]">{c.nestEgg}</div>
+                <div className="font-heading text-xl font-extrabold text-white" data-testid="teaser-nest-egg">{money(res.nestEgg)}</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-xs text-[#8C82B5]">{c.median}</div>
+                <div className="font-heading text-xl font-extrabold text-[#00DF89]" data-testid="teaser-median">{money(res.p50)}</div>
+              </div>
+            </div>
+
+            <button onClick={onCta} className="relative mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#00DF89] px-6 py-3.5 text-base font-bold text-[#0B061E] shadow-[0_10px_30px_rgba(0,223,137,0.35)] transition-transform hover:-translate-y-0.5" data-testid="teaser-cta">
+              {c.cta}<ArrowRight size={18} />
+            </button>
+            <p className="relative mt-4 text-[11px] leading-relaxed text-[#8C82B5]">{c.disclaimer}</p>
+          </div>
+        </motion.div>
+      </div>
+    </section>
   );
 }
 
@@ -299,7 +418,7 @@ export default function Landing() {
   }, []);
 
   useEffect(() => {
-    const ids = ["features", "how-it-works", "who", "pricing", "trust", "faq"];
+    const ids = ["features", "calculator", "how-it-works", "who", "pricing", "trust", "faq"];
     const els = ids.map((id) => document.getElementById(id)).filter(Boolean);
     const obs = new IntersectionObserver(
       (entries) => entries.forEach((e) => { if (e.isIntersecting) setActiveSection(e.target.id); }),
@@ -312,6 +431,7 @@ export default function Landing() {
   const go = (path) => () => nav(path);
   const navItems = [
     { id: "features", label: t.nav.features },
+    { id: "calculator", label: t.nav.calc },
     { id: "how-it-works", label: t.nav.how },
     { id: "who", label: t.nav.who },
     { id: "pricing", label: t.nav.pricing },
@@ -485,6 +605,9 @@ export default function Landing() {
           </motion.div>
         </div>
       </section>
+
+      {/* ---------------- retirement calculator teaser ---------------- */}
+      <RetirementTeaser t={t} lang={lang} onCta={go("/login?mode=register")} />
 
       {/* ---------------- how it works ---------------- */}
       <section id="how-it-works" className="relative overflow-hidden py-20 lg:py-28" style={{ background: PURPLE }}>

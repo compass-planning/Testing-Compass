@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Trash2, ClipboardList, Bell, CalendarIcon, Send, X, BarChart3 } from "lucide-react";
+import { CheckCircle2, Trash2, ClipboardList, Bell, CalendarIcon, Send, X, BarChart3, Eye } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -60,6 +60,38 @@ function NotificationSummary({ s, history }) {
   );
 }
 
+function DigestPreviewModal({ kind, onClose }) {
+  const q = useQuery({
+    queryKey: ["digest-preview-html", kind],
+    enabled: !!kind,
+    queryFn: async () => (await api.get(`/advisor/digest-preview/${kind}`)).data,
+  });
+  if (!kind) return null;
+  const label = { daily: "Daily task digest", weekly: "Weekly book-health summary", summary: "End-of-day recap" }[kind];
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose} data-testid="digest-preview-modal">
+      <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-compass-border px-5 py-3.5">
+          <div className="min-w-0">
+            <div className="font-heading font-bold text-compass-navy">Email preview</div>
+            <div className="truncate text-xs text-compass-muted">{label} · exactly what lands in your inbox</div>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-compass-muted transition-colors hover:bg-compass-bg hover:text-compass-navy" data-testid="digest-preview-close" aria-label="Close"><X size={18} /></button>
+        </div>
+        <div className="bg-compass-bg/40 p-4">
+          {q.isLoading ? (
+            <div className="h-[60vh] animate-pulse rounded-lg bg-white" />
+          ) : q.isError ? (
+            <div className="flex h-40 items-center justify-center text-sm text-compass-red" data-testid="digest-preview-error">Could not load preview</div>
+          ) : (
+            <iframe title="digest-preview" srcDoc={q.data?.html} sandbox="" className="h-[60vh] w-full rounded-lg border border-compass-border bg-white" data-testid="digest-preview-iframe" />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DigestSettings() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["digest-settings"], queryFn: async () => (await api.get("/advisor/digest-settings")).data });
@@ -87,6 +119,7 @@ function DigestSettings() {
     onError: () => toast.error("Could not send recap"),
   });
   const retryFor = (kind) => (kind === "weekly" ? weeklyPreview : kind === "summary" ? summaryPreview : preview);
+  const [previewKind, setPreviewKind] = React.useState(null);
   const HourSelect = ({ value, onChange, disabled, testid }) => (
     <div className="w-28"><Select value={String(value)} disabled={disabled} onChange={(e) => onChange(Number(e.target.value))} data-testid={testid}>
       {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{fmtHour(h)}</option>)}
@@ -95,6 +128,7 @@ function DigestSettings() {
   const history = historyQ.data || [];
   if (q.isLoading) return <Card className="p-5 mb-6 h-24 animate-pulse" data-testid="digest-settings-card" />;
   return (
+    <>
     <Card className="p-5 mb-6" data-testid="digest-settings-card">
       <div className="flex items-start gap-3">
         <div className="h-10 w-10 rounded-xl bg-compass-blue/10 flex items-center justify-center shrink-0"><Bell size={18} className="text-compass-blue" /></div>
@@ -112,6 +146,7 @@ function DigestSettings() {
                 <span className="text-xs text-compass-muted">at</span>
                 <HourSelect value={s.daily_hour} disabled={!s.enabled} onChange={(v) => patch({ daily_hour: v })} testid="digest-daily-hour-select" />
                 <Toggle checked={s.enabled} onChange={(v) => patch({ enabled: v })} testid="digest-enabled-toggle" />
+                <Button size="sm" variant="ghost" onClick={() => setPreviewKind("daily")} data-testid="digest-preview-daily-btn"><Eye size={13} /> Preview</Button>
                 <Button size="sm" variant="outline" onClick={() => preview.mutate()} disabled={preview.isPending} data-testid="digest-preview-button"><Send size={13} /> {preview.isPending ? "Sending…" : "Send test"}</Button>
               </div>
             </div>
@@ -124,6 +159,7 @@ function DigestSettings() {
                 <span className="text-xs text-compass-muted">at</span>
                 <HourSelect value={s.weekly_hour} disabled={!s.weekly_enabled} onChange={(v) => patch({ weekly_hour: v })} testid="digest-weekly-hour-select" />
                 <Toggle checked={s.weekly_enabled} onChange={(v) => patch({ weekly_enabled: v })} testid="digest-weekly-toggle" />
+                <Button size="sm" variant="ghost" onClick={() => setPreviewKind("weekly")} data-testid="digest-preview-weekly-btn"><Eye size={13} /> Preview</Button>
                 <Button size="sm" variant="outline" onClick={() => weeklyPreview.mutate()} disabled={weeklyPreview.isPending} data-testid="weekly-preview-button"><Send size={13} /> {weeklyPreview.isPending ? "Sending…" : "Send weekly summary test"}</Button>
               </div>
             </div>
@@ -136,6 +172,7 @@ function DigestSettings() {
                 <span className="text-xs text-compass-muted">at</span>
                 <HourSelect value={s.summary_hour} disabled={!s.summary_enabled} onChange={(v) => patch({ summary_hour: v })} testid="digest-summary-hour-select" />
                 <Toggle checked={s.summary_enabled} onChange={(v) => patch({ summary_enabled: v })} testid="digest-summary-toggle" />
+                <Button size="sm" variant="ghost" onClick={() => setPreviewKind("summary")} data-testid="digest-preview-summary-btn"><Eye size={13} /> Preview</Button>
                 <Button size="sm" variant="outline" onClick={() => summaryPreview.mutate()} disabled={summaryPreview.isPending} data-testid="summary-preview-button"><Send size={13} /> {summaryPreview.isPending ? "Sending…" : "Send recap test"}</Button>
               </div>
             </div>
@@ -161,6 +198,8 @@ function DigestSettings() {
         </div>
       </div>
     </Card>
+    <DigestPreviewModal kind={previewKind} onClose={() => setPreviewKind(null)} />
+    </>
   );
 }
 

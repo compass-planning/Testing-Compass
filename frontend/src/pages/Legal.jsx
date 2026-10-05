@@ -1,12 +1,18 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Info } from "lucide-react";
 import { CompassMark } from "@/components/Logo";
 import { useLang } from "@/lib/i18n";
 
 const COMPANY = "Westoak Innovations";
 const CONTACT = "privacy@westoak.dev";
 const UPDATED = { en: "Last updated: June 2026", fr: "Dernière mise à jour : juin 2026" };
+const EFFECTIVE = { en: "Effective date: June 1, 2026", fr: "Date d'entrée en vigueur : 1 juin 2026" };
+const BADGE = { en: "Plain-language summary", fr: "Résumé en langage clair" };
+const DISCLAIMER = {
+  en: "This page is written in plain language and provided in good faith for transparency. It is a working version — our final, counsel-reviewed terms will be published here. It is a summary, not legal advice; where this summary and our definitive agreements differ, the definitive agreements govern.",
+  fr: "Cette page est rédigée en langage clair et fournie de bonne foi à des fins de transparence. Il s'agit d'une version de travail — nos conditions définitives, révisées par un conseiller juridique, seront publiées ici. Il s'agit d'un résumé et non d'un avis juridique; en cas de divergence entre ce résumé et nos ententes définitives, ces dernières prévalent.",
+};
 
 const DOCS = {
   privacy: {
@@ -19,6 +25,8 @@ const DOCS = {
         { h: "Data residency", p: "Compass Planning is built for Canadian residents. Personal information is stored and processed in Canada. Where a feature relies on a sub-processor, we require contractual safeguards consistent with Canadian privacy law." },
         { h: "Security", p: "We protect your data with encryption in transit and at rest, TOTP-based two-factor authentication, strict tenant isolation between workspaces, and audit logging. No system is perfectly secure, but we work continuously to safeguard your information." },
         { h: "Your rights", p: "You can access, correct, export or erase your personal information at any time from within the application, or by contacting us. We retain data only as long as needed to provide the service or meet legal obligations." },
+        { h: "Cookies & analytics", p: "We use only the cookies needed to keep you signed in and to understand basic, aggregated usage so we can improve the product. We do not use advertising or cross-site tracking cookies." },
+        { h: "Changes to this policy", p: "We may update this policy as the product evolves or the law changes. We will revise the effective date above and, for material changes, notify you in the app or by email." },
         { h: "Contact us", p: `Questions about this policy or your data can be sent to ${CONTACT}.` },
       ],
     },
@@ -31,6 +39,8 @@ const DOCS = {
         { h: "Hébergement des données", p: "Compass Planning est conçu pour les résidents canadiens. Les renseignements personnels sont stockés et traités au Canada. Lorsqu'une fonction dépend d'un sous-traitant, nous exigeons des garanties contractuelles conformes au droit canadien de la vie privée." },
         { h: "Sécurité", p: "Nous protégeons vos données par le chiffrement en transit et au repos, l'authentification à deux facteurs TOTP, une isolation stricte entre les espaces et la journalisation d'audit. Aucun système n'est parfaitement sûr, mais nous travaillons sans cesse à protéger vos renseignements." },
         { h: "Vos droits", p: "Vous pouvez consulter, corriger, exporter ou effacer vos renseignements personnels à tout moment dans l'application ou en nous contactant. Nous conservons les données uniquement le temps nécessaire à la prestation du service ou au respect de nos obligations légales." },
+        { h: "Témoins et analytique", p: "Nous n'utilisons que les témoins nécessaires pour vous garder connecté et pour comprendre l'usage de base, agrégé, afin d'améliorer le produit. Nous n'utilisons pas de témoins publicitaires ni de suivi intersites." },
+        { h: "Modifications de la politique", p: "Nous pouvons mettre à jour cette politique à mesure que le produit évolue ou que la loi change. Nous réviserons la date d'entrée en vigueur ci-dessus et, pour les changements importants, vous aviserons dans l'application ou par courriel." },
         { h: "Nous joindre", p: `Pour toute question sur cette politique ou vos données, écrivez à ${CONTACT}.` },
       ],
     },
@@ -45,6 +55,7 @@ const DOCS = {
         { h: "Limiting collection, use & retention", p: "We collect only what is necessary for the planning features you use, use it only for those purposes, and retain it only as long as needed. You can erase your data from within the app." },
         { h: "Accuracy & safeguards", p: "We keep information as accurate as the data you provide, and protect it with encryption, two-factor authentication and tenant isolation appropriate to its sensitivity." },
         { h: "Openness & individual access", p: "This policy is openly available. You have the right to access your personal information and to challenge its accuracy; access and export tools are built into the application." },
+        { h: "Retention & disposal", p: "We keep personal information only as long as needed to provide the service or meet legal requirements, then securely delete or anonymize it. You can trigger erasure of your own data at any time from within the app." },
         { h: "Challenging compliance", p: `You may address any concern about our handling of your information to ${CONTACT}. If unresolved, you may contact the Office of the Privacy Commissioner of Canada.` },
       ],
     },
@@ -57,6 +68,7 @@ const DOCS = {
         { h: "Limitation de la collecte, de l'usage et de la conservation", p: "Nous ne recueillons que ce qui est nécessaire aux fonctions utilisées, ne l'utilisons qu'à ces fins et ne le conservons que le temps requis. Vous pouvez effacer vos données dans l'application." },
         { h: "Exactitude et mesures de sécurité", p: "Nous maintenons les renseignements aussi exacts que les données que vous fournissez et les protégeons par le chiffrement, l'authentification à deux facteurs et l'isolation des espaces, selon leur sensibilité." },
         { h: "Transparence et accès individuel", p: "Cette politique est accessible publiquement. Vous avez le droit d'accéder à vos renseignements personnels et d'en contester l'exactitude; des outils d'accès et d'exportation sont intégrés à l'application." },
+        { h: "Conservation et destruction", p: "Nous ne conservons les renseignements personnels que le temps nécessaire à la prestation du service ou au respect de nos obligations légales, puis les supprimons ou les anonymisons de façon sécurisée. Vous pouvez déclencher l'effacement de vos données à tout moment dans l'application." },
         { h: "Possibilité de porter plainte", p: `Vous pouvez adresser toute préoccupation concernant le traitement de vos renseignements à ${CONTACT}. En cas de non-résolution, vous pouvez communiquer avec le Commissariat à la protection de la vie privée du Canada.` },
       ],
     },
@@ -71,6 +83,7 @@ const DOCS = {
         { h: "Your account", p: "You are responsible for maintaining the confidentiality of your credentials and for activity under your account. You must enable two-factor authentication where required and provide accurate information." },
         { h: "Acceptable use", p: "You agree not to misuse the service, attempt to access other tenants' data, reverse-engineer the platform, or use it unlawfully. We may suspend accounts that violate these terms." },
         { h: "Fees & cancellation", p: "Paid plans are billed in Canadian dollars at the rates shown. You may cancel at any time; access continues through the end of the current billing period. Prices may change with notice." },
+        { h: "Governing law", p: "These terms are governed by the laws of the Province of Ontario and the federal laws of Canada applicable therein, without regard to conflict-of-law rules." },
         { h: "Liability & changes", p: `To the extent permitted by law, the service is provided "as is" and ${COMPANY} is not liable for decisions made using it. We may update these terms and will note the effective date above. Questions: ${CONTACT}.` },
       ],
     },
@@ -83,6 +96,7 @@ const DOCS = {
         { h: "Votre compte", p: "Vous êtes responsable de la confidentialité de vos identifiants et des activités sous votre compte. Vous devez activer l'authentification à deux facteurs lorsque requis et fournir des renseignements exacts." },
         { h: "Utilisation acceptable", p: "Vous vous engagez à ne pas détourner le service, à ne pas tenter d'accéder aux données d'autres espaces, à ne pas désosser la plateforme ni à l'utiliser de façon illégale. Nous pouvons suspendre les comptes qui enfreignent ces conditions." },
         { h: "Frais et résiliation", p: "Les forfaits payants sont facturés en dollars canadiens aux tarifs affichés. Vous pouvez résilier à tout moment; l'accès se poursuit jusqu'à la fin de la période de facturation en cours. Les prix peuvent changer sur préavis." },
+        { h: "Droit applicable", p: "Les présentes conditions sont régies par les lois de la province de l'Ontario et les lois fédérales du Canada qui y sont applicables, sans égard aux règles de conflit de lois." },
         { h: "Responsabilité et modifications", p: `Dans la mesure permise par la loi, le service est fourni « tel quel » et ${COMPANY} n'est pas responsable des décisions prises en l'utilisant. Nous pouvons mettre à jour ces conditions et en indiquerons la date d'entrée en vigueur ci-dessus. Questions : ${CONTACT}.` },
       ],
     },
@@ -118,8 +132,20 @@ export default function Legal({ doc = "privacy" }) {
         <Link to="/" className="inline-flex items-center gap-2 text-sm font-semibold text-[#00DF89] hover:underline" data-testid="legal-back">
           <ArrowLeft size={15} /> {lang === "fr" ? "Retour à l'accueil" : "Back to home"}
         </Link>
-        <h1 className="mt-6 font-heading text-3xl font-extrabold tracking-tight sm:text-4xl">{d.title}</h1>
-        <p className="mt-2 text-xs uppercase tracking-wider text-[#8C82B5]">{UPDATED[L]}</p>
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <h1 className="font-heading text-3xl font-extrabold tracking-tight sm:text-4xl">{d.title}</h1>
+          <span className="rounded-full border border-[#FFC24B]/40 bg-[#FFC24B]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#FFC24B]" data-testid="legal-badge">{BADGE[L]}</span>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs uppercase tracking-wider text-[#8C82B5]">
+          <span data-testid="legal-effective">{EFFECTIVE[L]}</span>
+          <span data-testid="legal-updated">{UPDATED[L]}</span>
+        </div>
+
+        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.05] p-4" data-testid="legal-disclaimer">
+          <Info size={18} className="mt-0.5 shrink-0 text-[#00DF89]" />
+          <p className="text-sm leading-relaxed text-[#C0B8E3]">{DISCLAIMER[L]}</p>
+        </div>
+
         <p className="mt-6 text-base leading-relaxed text-[#C0B8E3]">{d.intro}</p>
 
         <div className="mt-10 space-y-8">
