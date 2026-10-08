@@ -3,7 +3,7 @@ import os, pyotp, pytest, requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 API = f"{BASE_URL}/api"
-PWD = "Compass2026!"
+PWD = os.environ.get("TEST_PASSWORD", "Compass2026!")
 DEMO_SECRET = "JBSWY3DPEHPK3PXP"
 
 

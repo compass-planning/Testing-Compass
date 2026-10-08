@@ -15,7 +15,7 @@ import requests
 BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 API = f"{BASE_URL}/api"
 ADVISOR = "advisor@compass.ca"
-PASSWORD = "Compass2026!"
+PASSWORD = os.environ.get("TEST_PASSWORD", "Compass2026!")
 EXISTING = {"client_a1", "client_a2", "client_a3"}
 
 

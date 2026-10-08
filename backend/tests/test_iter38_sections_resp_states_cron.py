@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parents[2] / "frontend" / ".env")
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
-PWD = "Compass2026!"
+PWD = os.environ.get("TEST_PASSWORD", "Compass2026!")
 TOTP = "JBSWY3DPEHPK3PXP"
 HID = "client_a1"
 

@@ -13,7 +13,7 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 load_dotenv(Path(__file__).resolve().parents[2] / "frontend" / ".env")
 
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
-PASS = "Compass2026!"
+PASS = os.environ.get("TEST_PASSWORD", "Compass2026!")
 
 
 # ----- auth helper -----

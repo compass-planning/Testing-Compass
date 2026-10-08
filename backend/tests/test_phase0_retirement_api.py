@@ -2,8 +2,8 @@
 import os, pyotp, pytest, requests, uuid
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://compass-vault.preview.emergentagent.com").rstrip("/")
-TOTP_SECRET = "JBSWY3DPEHPK3PXP"
-PASS = "Compass2026!"
+TOTP_SECRET = os.environ.get("TEST_TOTP_SECRET", "JBSWY3DPEHPK3PXP")
+PASS = os.environ.get("TEST_PASSWORD", "Compass2026!")
 API = f"{BASE_URL}/api"
 
 

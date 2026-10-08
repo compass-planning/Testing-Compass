@@ -23,7 +23,7 @@ HID = "client_a1"
 
 
 def _login(email):
-    r = requests.post(f"{API}/auth/login", json={"email": email, "password": "Compass2026!"}, timeout=20)
+    r = requests.post(f"{API}/auth/login", json={"email": email, "password": os.environ.get("TEST_PASSWORD", "Compass2026!")}, timeout=20)
     assert r.status_code == 200, r.text
     d = r.json()
     code = pyotp.TOTP(TOTP).now()

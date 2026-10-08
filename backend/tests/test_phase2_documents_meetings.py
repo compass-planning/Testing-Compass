@@ -13,7 +13,7 @@ TOTP = pyotp.TOTP("JBSWY3DPEHPK3PXP")
 HID = "client_a1"
 
 
-def _login(email, password="Compass2026!"):
+def _login(email, password=os.environ.get("TEST_PASSWORD", "Compass2026!")):
     r = requests.post(f"{BASE}/api/auth/login", json={"email": email, "password": password})
     assert r.status_code == 200, r.text
     ch = r.json()["challenge"]

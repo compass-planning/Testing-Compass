@@ -1,17 +1,11 @@
 import React, { useState } from "react";
 import { toast } from "sonner";
-import { ShieldCheck, ArrowRight, Building2, UserCog, User as UserIcon, ArrowLeft, KeyRound, QrCode, Check, X, TrendingUp, Calculator, Wallet, Sparkles } from "lucide-react";
+import { ShieldCheck, ArrowRight, ArrowLeft, KeyRound, QrCode, Check, X, TrendingUp, Calculator, Wallet, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Logo } from "@/components/Logo";
 import { Button, Input, Field, Select, Toggle } from "@/components/ui-kit";
 import api, { formatApiError } from "@/lib/api";
-
-const DEMOS = [
-  { email: "scott@sweston.ca", label: "Enterprise Admin", icon: Building2, desc: "CRM-driven, corp-scoped" },
-  { email: "advisor@compass.ca", label: "Advisor", icon: UserCog, desc: "Client roster & households" },
-  { email: "solo@compass.ca", label: "Solo Planner", icon: UserIcon, desc: "Self-serve retirement" },
-];
 
 const FEATURES = [
   { icon: TrendingUp, title: "Retirement projections", desc: "Monte Carlo + guardrails engine" },
@@ -125,19 +119,6 @@ export default function Login() {
                         <Button type="submit" className="w-full" disabled={loading} data-testid="login-submit">{loading ? "Checking…" : "Sign In"} <ArrowRight size={16} /></Button>
                       </form>
                       <button onClick={() => { setCtx({}); setStep("forgot"); }} className="mt-3 text-sm font-semibold text-compass-blue" data-testid="forgot-link">Forgot password?</button>
-                      <div className="mt-6">
-                        <div className="muted-label mb-2">Try a demo workspace</div>
-                        <div className="space-y-2">
-                          {DEMOS.map((d) => (
-                            <button key={d.email} onClick={() => { setEmail(d.email); setPassword("Compass2026!"); }} data-testid={`demo-${d.label.split(" ")[0].toLowerCase()}`}
-                              className="flex w-full items-center gap-3 rounded-xl border border-compass-border px-3 py-2.5 text-left hover:border-compass-blue transition-colors">
-                              <d.icon size={18} className="text-compass-blue" />
-                              <div className="flex-1"><div className="text-sm font-semibold text-compass-navy">{d.label}</div><div className="text-xs text-compass-muted">{d.desc}</div></div>
-                              <span className="text-xs text-compass-muted">use</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
                     </>
                   )}
 

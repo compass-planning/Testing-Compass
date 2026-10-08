@@ -108,209 +108,69 @@ def _audit(store, scope, actor, action, resource, detail):
     }
 
 
-def _ensure_platform_seed():
-    """Idempotently seed the platform super-admin + admin-console demo data."""
-    if repo.find_user_by_email("admin@compass.ca"):
+DEMO_EMAILS = [
+    "planner@sweston.ca", "firmadmin@compass.ca", "advisor@compass.ca",
+    "solo@compass.ca", "admin@compass.ca",
+]
+DEMO_SCOPE_VALUES = {
+    "corp_id": ["corp_sweston"],
+    "org_id": ["org_maple"],
+    "client_id": ["client_solo1", "client_a1", "client_a2", "client_a3"],
+}
+
+
+def cleanup_demo():
+    """One-time removal of any pre-existing demo accounts and their tenant data (idempotent)."""
+    db = getattr(repo, "db", None)
+    if db is None:
         return
-    ph = hash_password(os.environ.get("DEMO_PASSWORD", "Compass2026!"))
-    answer_hash = hash_password("toronto")
+    if db["shared__system_flags"].find_one({"id": "demo_purged"}):
+        return
+    for em in DEMO_EMAILS:
+        db["shared__users"].delete_many({"email": em})
+    or_q = [{f"scope.{k}": {"$in": v}} for k, v in DEMO_SCOPE_VALUES.items()]
+    for name in db.list_collection_names():
+        if "__" not in name or name in ("shared__users", "shared__system_flags"):
+            continue
+        db[name].delete_many({"$or": or_q})
+    for coll in ("announcements", "status_posts", "tickets", "subscriptions", "invoices"):
+        db[f"shared__{coll}"].delete_many({})
+    db["shared__system_flags"].insert_one({"id": "demo_purged", "at": _now()})
+
+
+def _ensure_admin():
+    """Idempotently ensure a single platform-admin owner exists (from env; create-or-promote, never resets an existing password)."""
+    email = os.environ.get("ADMIN_EMAIL", "scott@sweston.ca").lower()
+    password = os.environ.get("ADMIN_PASSWORD", "Compass2026!")
+    admin_scope = {"corp_id": None, "org_id": None, "advisor_id": None, "client_id": None}
+    existing = repo.find_user_by_email(email)
+    if existing:
+        patch = {}
+        if existing.get("tier") != "admin":
+            patch["tier"] = "admin"
+        if existing.get("role") != "platform_admin":
+            patch["role"] = "platform_admin"
+        if existing.get("scope") != admin_scope:
+            patch["scope"] = admin_scope
+        if existing.get("status") != "active":
+            patch["status"] = "active"
+        if patch:
+            repo.update_user(existing["id"], patch)
+        return
     repo.insert_user({
-        "id": _id(), "email": "admin@compass.ca", "password_hash": ph,
+        "id": _id(), "email": email, "password_hash": hash_password(password),
         "name": "Platform Admin", "tier": "admin", "role": "platform_admin",
-        "scope": {"corp_id": None, "org_id": None, "advisor_id": None, "client_id": None},
+        "scope": admin_scope,
         "mfa_enabled": False, "mfa_secret": None, "must_change_password": False,
         "status": "active",
-        "security_question": "What city were you born in?", "security_answer_hash": answer_hash,
-        "consent": {"marketing": False, "data_processing": True, "crm_sharing": False, "updated_at": _now()},
+        "security_question": None, "security_answer_hash": None,
+        "consent": {"marketing": False, "data_processing": True, "crm_sharing": False,
+                    "updated_at": _now()},
         "created_at": _now(),
     })
 
-    def pr(coll, doc):
-        return repo.create("shared", coll, {"id": _id(), "store": "shared", "scope": {}, "created_at": _now(), **doc})
-
-    pr("announcements", {"title": "Scheduled maintenance Sunday 2 AM ET",
-                         "body": "Compass will be briefly unavailable during a database upgrade.",
-                         "audience": "all", "active": True, "created_by": "admin@compass.ca"})
-    pr("announcements", {"title": "New: Education (RESP) planning is live",
-                         "body": "Advisors can now model CESG/CLB grants per child.",
-                         "audience": "advisor", "active": False, "created_by": "admin@compass.ca"})
-    pr("status_posts", {"title": "All systems operational", "body": "No incidents reported.",
-                        "severity": "operational", "resolved_at": None})
-    pr("tickets", {"type": "service_request", "subject": "Add 3 advisor seats — Maple Advisory",
-                   "description": "Firm admin requested additional seats.", "status": "open",
-                   "priority": "normal", "requester_email": "firmadmin@compass.ca", "notes": []})
-    pr("tickets", {"type": "incident", "subject": "Book report PDF slow for 50+ households",
-                   "description": "Export takes >20s for large books.", "status": "in_progress",
-                   "priority": "high", "requester_email": "advisor@compass.ca", "notes": []})
-    subs = [
-        {"account_label": "Sweston Financial (Enterprise)", "owner_email": "scott@sweston.ca", "tier": "enterprise", "plan": "Enterprise",
-         "seats": 25, "status": "active", "amount": 1250, "currency": "CAD", "billing_period": "monthly",
-         "features": ["sso", "api_access", "priority_support"]},
-        {"account_label": "Maple Advisory (Advisor)", "owner_email": "firmadmin@compass.ca", "tier": "advisor", "plan": "Advisor Pro",
-         "seats": 5, "status": "active", "amount": 300, "currency": "CAD", "billing_period": "monthly",
-         "features": ["client_portal", "ai_reports", "ocr_import"]},
-        {"account_label": "Jordan Blake (Solo)", "owner_email": "solo@compass.ca", "tier": "solo", "plan": "Solo",
-         "seats": 1, "status": "past_due", "amount": 19, "currency": "CAD", "billing_period": "monthly",
-         "features": ["monte_carlo", "ai_reports"]},
-    ]
-    for s in subs:
-        sub = pr("subscriptions", {**s, "provider": "chase_mock"})
-        pr("invoices", {"subscription_id": sub["id"], "account_label": s["account_label"],
-                        "amount": s["amount"], "currency": s["currency"],
-                        "status": "paid" if s["status"] == "active" else "open",
-                        "number": "INV-" + sub["id"][:6].upper(), "issued_at": _now(),
-                        "paid_at": _now() if s["status"] == "active" else None})
-
 
 def seed():
-    _ensure_platform_seed()
-    if repo.find_user_by_email("scott@sweston.ca"):
-        return  # already seeded
-
-    pw = os.environ.get("DEMO_PASSWORD", "Compass2026!")
-    ph = hash_password(pw)
-    totp_secret = os.environ.get("DEMO_TOTP_SECRET", "JBSWY3DPEHPK3PXP")
-    answer_hash = hash_password("toronto")
-
-    # ---------------- Users ----------------
-    users = [
-        {"email": "scott@sweston.ca", "name": "Scott Weston", "tier": "enterprise",
-         "role": "enterprise_admin", "scope": {"corp_id": CORP_SWESTON}, "mfa_enabled": True},
-        {"email": "planner@sweston.ca", "name": "Priya Nair", "tier": "enterprise",
-         "role": "enterprise_planner", "scope": {"corp_id": CORP_SWESTON}, "mfa_enabled": False},
-        {"email": "firmadmin@compass.ca", "name": "Marcus Reid", "tier": "advisor",
-         "role": "firm_admin", "scope": {"org_id": ORG_MAPLE}, "mfa_enabled": False},
-        {"email": "advisor@compass.ca", "name": "Lena Tremblay", "tier": "advisor",
-         "role": "advisor", "scope": {"org_id": ORG_MAPLE, "advisor_id": ADV_LENA}, "mfa_enabled": True},
-        {"email": "solo@compass.ca", "name": "Jordan Blake", "tier": "solo",
-         "role": "solo_user", "scope": {"client_id": CLIENT_SOLO}, "mfa_enabled": False,
-         "must_change": True},
-    ]
-    for u in users:
-        repo.insert_user({
-            "id": _id(), "email": u["email"].lower(), "password_hash": ph,
-            "name": u["name"], "tier": u["tier"], "role": u["role"],
-            "scope": {"corp_id": None, "org_id": None, "advisor_id": None, "client_id": None, **u["scope"]},
-            "mfa_enabled": False, "mfa_secret": None,
-            "must_change_password": u.get("must_change", False),
-            "security_question": "What city were you born in?", "security_answer_hash": answer_hash,
-            "consent": {"marketing": False, "data_processing": True,
-                        "crm_sharing": u["tier"] == "enterprise", "updated_at": _now()},
-            "created_at": _now(),
-        })
-
-    # ---------------- Enterprise store (corp_sweston, CRM-authoritative) ----------------
-    ent_scope = {"corp_id": CORP_SWESTON}
-    ent_owners = [
-        _owner("enterprise", ent_scope, "Eleanor Whitfield", "self", "1968-04-12", "ON", "crm", "SF-0012"),
-        _owner("enterprise", ent_scope, "Raymond Whitfield", "spouse", "1966-09-02", "ON", "crm", "SF-0013"),
-        _owner("enterprise", ent_scope, "Dev Patel", "self", "1972-01-25", "BC", "crm", "SF-0021"),
-        _owner("enterprise", ent_scope, "Sophie Girard", "self", "1979-11-08", "QC", "crm", "SF-0033"),
-    ]
-    for o in ent_owners:
-        repo.create("enterprise", "owners", o)
-    repo.create("enterprise", "accounts", _account("enterprise", ent_scope, ent_owners[0]["id"], "DB Pension", "Sweston Pension Trust", 842000, 0))
-    repo.create("enterprise", "accounts", _account("enterprise", ent_scope, ent_owners[0]["id"], "RRSP", "RBC", 310500, 12000))
-    repo.create("enterprise", "accounts", _account("enterprise", ent_scope, ent_owners[1]["id"], "TFSA", "TD", 88000, 7000))
-    repo.create("enterprise", "accounts", _account("enterprise", ent_scope, ent_owners[2]["id"], "DC Pension", "Sweston Group RRSP", 415000, 18000))
-    repo.create("enterprise", "accounts", _account("enterprise", ent_scope, ent_owners[3]["id"], "RRSP", "Desjardins", 205000, 9000))
-    repo.create("enterprise", "goals", _goal("enterprise", ent_scope, ent_owners[0]["id"], "Retire at 62", "retirement", 1500000, 1240500, 2030, "on_track"))
-    repo.create("enterprise", "goals", _goal("enterprise", ent_scope, ent_owners[2]["id"], "Bridge to CPP", "income", 500000, 415000, 2034, "at_risk"))
-    repo.create("enterprise", "goals", _goal("enterprise", ent_scope, ent_owners[3]["id"], "Legacy fund", "legacy", 300000, 205000, 2040, "behind"))
-
-    repo.create("enterprise", "crm_sync_state", {
-        "id": _id(), "store": "enterprise", "scope": ent_scope,
-        "connector": "Salesforce", "status": "connected", "authoritative": True,
-        "last_synced_at": _now(), "records_synced": 4, "pending_changes": 0,
-        "delete_propagation": False,
-    })
-    for a in [
-        _audit("enterprise", ent_scope, "system@compass.ca", "crm.sync", "owners", "Pulled 4 records from Salesforce"),
-        _audit("enterprise", ent_scope, "scott@sweston.ca", "auth.login", "session", "Enterprise admin signed in"),
-    ]:
-        repo.create("enterprise", "audit_log", a)
-
-    # ---------------- Shared store: Advisor tier (org_maple / adv_lena) ----------------
-    clients = [
-        ("client_a1", "The Nguyen Household", "Anh Nguyen", "self", "1975-06-14", "ON"),
-        ("client_a2", "The Okafor Household", "Chidi Okafor", "self", "1981-03-22", "AB"),
-        ("client_a3", "The Rossi Household", "Elena Rossi", "self", "1969-12-01", "ON"),
-    ]
-    for cid, hh, name, rel, dob, prov in clients:
-        sc = {"org_id": ORG_MAPLE, "advisor_id": ADV_LENA, "client_id": cid}
-        o = _owner("shared", sc, name, rel, dob, prov)
-        repo.create("shared", "owners", o)
-        repo.create("shared", "accounts", _account("shared", sc, o["id"], "RRSP", "Wealthsimple", 180000 + hash(cid) % 90000, 11000))
-        repo.create("shared", "accounts", _account("shared", sc, o["id"], "TFSA", "EQ Bank", 62000 + hash(name) % 30000, 7000))
-        repo.create("shared", "goals", _goal("shared", sc, o["id"], f"{hh.split()[1]} retirement", "retirement", 900000, 420000 + hash(cid) % 200000, 2036, "on_track"))
-        repo.create("shared", "audit_log", _audit("shared", sc, "advisor@compass.ca", "client.create", "household", f"Onboarded {hh}"))
-
-    # Enrich the first advisor household (client_a1) for the household-centric planner
-    a1 = {"org_id": ORG_MAPLE, "advisor_id": ADV_LENA, "client_id": "client_a1"}
-    a1_owners = repo.list("shared", "owners", {"client_id": "client_a1"})
-    if a1_owners:
-        self_o = a1_owners[0]
-        repo.update("shared", "owners", self_o["id"], {
-            "email": "anh@nguyen.ca", "phone": "416-555-0123", "occupation": "Software Engineer",
-            "annual_income": 132000, "pension_type": "DCPP", "retirement_age": 63, "desired_income": 6000,
-        }, {"client_id": "client_a1"})
-        repo.create("shared", "owners", _owner("shared", a1, "Mai Nguyen", "spouse", "1977-05-10", "ON"))
-        mai = repo.list("shared", "owners", {"client_id": "client_a1"})
-        mai_o = next((o for o in mai if o.get("relationship") == "spouse"), None)
-        if mai_o:
-            repo.update("shared", "owners", mai_o["id"], {
-                "occupation": "Teacher", "annual_income": 78000, "pension_type": "DBPP",
-                "retirement_age": 61, "desired_income": 3500,
-            }, {"client_id": "client_a1"})
-        repo.create("shared", "owners", _owner("shared", a1, "Linh Nguyen", "dependent", "2010-09-01", "ON"))
-
-        def PA(coll, data):
-            repo.create("shared", f"plan_{coll}", {"id": _id(), "store": "shared", "scope": a1,
-                                                    "household_id": "client_a1", "created_at": _now(), **data})
-        PA("networth", {"kind": "asset", "category": "Property", "name": "Family home", "value": 820000})
-        PA("networth", {"kind": "liability", "category": "Mortgage", "name": "Home mortgage", "value": 390000})
-        PA("debts", {"name": "Mortgage", "balance": 390000, "rate": 4.6, "payment": 2400, "lender": "Scotiabank"})
-        PA("expenses", {"category": "Housing", "name": "Mortgage + utilities", "amount": 2700})
-        PA("expenses", {"category": "Food", "name": "Groceries", "amount": 1100})
-        PA("insurance", {"policy_type": "Term Life", "carrier": "Sun Life", "coverage": 750000, "premium": 62, "insured": "Anh Nguyen"})
-        PA("documents", {"name": "Will.pdf", "doc_type": "Estate", "status": "On file"})
-        PA("retirement", {"name": "Base case", "retire_age": 63, "monthly_income_goal": 6000, "result": "On track", "note": "DCPP + CPP"})
-
-    # ---------------- Shared store: Solo tier (client_solo1) ----------------
-    solo_scope = {"client_id": CLIENT_SOLO}
-    so = _owner("shared", solo_scope, "Jordan Blake", "self", "1985-08-30", "ON")
-    repo.create("shared", "owners", so)
-    repo.create("shared", "owners", _owner("shared", solo_scope, "Sam Blake", "spouse", "1987-02-17", "ON"))
-    repo.create("shared", "accounts", _account("shared", solo_scope, so["id"], "TFSA", "Questrade", 41500, 6500))
-    repo.create("shared", "accounts", _account("shared", solo_scope, so["id"], "RRSP", "Wealthsimple", 73200, 8000))
-    repo.create("shared", "goals", _goal("shared", solo_scope, so["id"], "Retire at 65", "retirement", 850000, 114700, 2050, "on_track"))
-    repo.create("shared", "goals", _goal("shared", solo_scope, so["id"], "Home down payment", "purchase", 120000, 41500, 2028, "at_risk"))
-    repo.create("shared", "audit_log", _audit("shared", solo_scope, "solo@compass.ca", "auth.register", "account", "Solo self-signup completed"))
-
-    repo.create("shared", "retention_schedule", {
-        "id": _id(), "store": "shared", "scope": solo_scope,
-        "controller": "self", "tier": "solo", "policy": "30_day_purge_on_optout",
-        "opt_out_at": None, "purge_at": None, "status": "active",
-    })
-
-    # ---------------- Planning workspace seed (Solo household) ----------------
-    def P(coll, data):
-        repo.create("shared", f"plan_{coll}", {
-            "id": _id(), "store": "shared", "scope": solo_scope,
-            "household_id": CLIENT_SOLO, "created_at": _now(), **data,
-        })
-
-    P("networth", {"kind": "asset", "category": "Property", "name": "Primary residence", "value": 650000})
-    P("networth", {"kind": "asset", "category": "Vehicle", "name": "Honda CR-V", "value": 28000})
-    P("networth", {"kind": "liability", "category": "Other", "name": "Student loan", "value": 14000})
-    P("debts", {"name": "Mortgage", "balance": 420000, "rate": 4.9, "payment": 2600, "lender": "TD"})
-    P("debts", {"name": "Line of credit", "balance": 11000, "rate": 8.2, "payment": 300, "lender": "RBC"})
-    P("expenses", {"category": "Housing", "name": "Mortgage + utilities", "amount": 2900})
-    P("expenses", {"category": "Food", "name": "Groceries & dining", "amount": 950})
-    P("expenses", {"category": "Transport", "name": "Fuel, insurance, transit", "amount": 520})
-    P("insurance", {"policy_type": "Term Life", "carrier": "Canada Life", "coverage": 500000, "premium": 46, "insured": "Jordan Blake"})
-    P("insurance", {"policy_type": "Critical Illness", "carrier": "Manulife", "coverage": 100000, "premium": 38, "insured": "Jordan Blake"})
-    P("documents", {"name": "Will & POA.pdf", "doc_type": "Estate", "status": "On file"})
-    P("documents", {"name": "Mortgage statement.pdf", "doc_type": "Debt", "status": "On file"})
-    P("retirement", {"name": "Base case", "retire_age": 65, "monthly_income_goal": 4500, "result": "On track", "note": "CPP + OAS + RRSP drawdown"})
-    P("tax_notes", {"name": "TFSA room", "note": "Maximize TFSA before RRSP given current bracket", "category": "Planning"})
+    """Production seed: purge any legacy demo data once, then ensure the platform-admin owner."""
+    cleanup_demo()
+    _ensure_admin()

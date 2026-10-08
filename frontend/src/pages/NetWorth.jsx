@@ -67,7 +67,7 @@ export default function NetWorth() {
     queryKey: ["nw-history", Math.round(netWorthValue)],
     enabled: !nw.isLoading,
     queryFn: async () => {
-      try { await api.post("/plan/networth/snapshot", { value: netWorthValue }); } catch (e) { /* noop */ }
+      try { await api.post("/plan/networth/snapshot", { value: netWorthValue }); } catch (e) { console.warn("Net-worth snapshot skipped:", e?.response?.status || e?.message); }
       return (await api.get("/plan/networth/history")).data;
     },
   });

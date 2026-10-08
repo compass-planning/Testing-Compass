@@ -24,10 +24,10 @@ def _read_frontend_env():
 BASE_URL = (os.environ.get("REACT_APP_BACKEND_URL") or _read_frontend_env() or "").rstrip("/")
 assert BASE_URL, "REACT_APP_BACKEND_URL not available"
 API = f"{BASE_URL}/api"
-TOTP_SECRET = "JBSWY3DPEHPK3PXP"
+TOTP_SECRET = os.environ.get("TEST_TOTP_SECRET", "JBSWY3DPEHPK3PXP")
 
 
-def _login(email: str, password: str = "Compass2026!") -> str:
+def _login(email: str, password: str = os.environ.get("TEST_PASSWORD", "Compass2026!")) -> str:
     r = requests.post(f"{API}/auth/login", json={"email": email, "password": password}, timeout=20)
     assert r.status_code == 200, r.text
     data = r.json()

@@ -1,10 +1,11 @@
 import React from "react";
 import { NavLink, Outlet, useNavigate, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { LayoutDashboard, Users, CreditCard, Megaphone, LifeBuoy, Activity, LogOut, ShieldCheck, ScrollText, Inbox } from "lucide-react";
+import { LayoutDashboard, Users, CreditCard, Megaphone, LifeBuoy, Activity, LogOut, ShieldCheck, ScrollText, Inbox, KeyRound } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
 import { Logo } from "@/components/Logo";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
 
 const NAV = [
   { to: "/admin", label: "Overview", icon: LayoutDashboard, end: true },
@@ -25,6 +26,7 @@ const linkCls = ({ isActive }) =>
 export default function AdminLayout() {
   const { user, logout } = useAuth();
   const nav = useNavigate();
+  const [pwOpen, setPwOpen] = React.useState(false);
   const { data: leadData } = useQuery({
     queryKey: ["admin-leads-badge"],
     queryFn: () => api.get("/admin/leads").then((r) => r.data),
@@ -55,6 +57,9 @@ export default function AdminLayout() {
         <div className="p-4 border-t border-compass-border">
           <div className="text-sm font-semibold text-compass-navy truncate">{user.name}</div>
           <div className="text-xs text-compass-muted truncate mb-3">{user.email}</div>
+          <button onClick={() => setPwOpen(true)} data-testid="admin-change-password" className="flex w-full items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-compass-navy hover:bg-compass-bg mb-1">
+            <KeyRound size={16} /> Change password
+          </button>
           <button onClick={doLogout} data-testid="admin-logout" className="flex w-full items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-compass-red hover:bg-compass-red/10">
             <LogOut size={16} /> Sign out
           </button>
@@ -65,7 +70,10 @@ export default function AdminLayout() {
       <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-compass-border">
         <div className="px-4 py-3 flex items-center justify-between">
           <Logo compact />
-          <button onClick={doLogout} data-testid="admin-logout-mobile" className="text-compass-red"><LogOut size={18} /></button>
+          <div className="flex items-center gap-4">
+            <button onClick={() => setPwOpen(true)} data-testid="admin-change-password-mobile" className="text-compass-navy"><KeyRound size={18} /></button>
+            <button onClick={doLogout} data-testid="admin-logout-mobile" className="text-compass-red"><LogOut size={18} /></button>
+          </div>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-2">
           {NAV.map((it) => (
@@ -80,6 +88,8 @@ export default function AdminLayout() {
       <div className="lg:pl-64">
         <main className="px-4 sm:px-8 py-6 max-w-[1200px] mx-auto animate-fade-up" data-testid="admin-main"><Outlet /></main>
       </div>
+
+      <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
     </div>
   );
 }

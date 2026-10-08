@@ -6,7 +6,7 @@ import requests
 
 BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/") if os.environ.get("REACT_APP_BACKEND_URL") else "https://compass-vault.preview.emergentagent.com"
 API = f"{BASE_URL}/api"
-PW = "Compass2026!"
+PW = os.environ.get("TEST_PASSWORD", "Compass2026!")
 DEMO_TOTP = "JBSWY3DPEHPK3PXP"
 
 

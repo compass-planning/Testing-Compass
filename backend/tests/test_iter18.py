@@ -9,7 +9,7 @@ BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://compass-vault.previe
 API = f"{BASE_URL}/api"
 
 ADVISOR_EMAIL = "advisor@compass.ca"
-ADVISOR_PW = "Compass2026!"
+ADVISOR_PW = os.environ.get("TEST_PASSWORD", "Compass2026!")
 
 
 @pytest.fixture(scope="module")

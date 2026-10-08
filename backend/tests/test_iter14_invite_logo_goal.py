@@ -18,7 +18,7 @@ load_dotenv(Path("/app/frontend/.env"))
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
 API = f"{BASE_URL}/api"
 ADVISOR_EMAIL = "advisor@compass.ca"
-PWD = "Compass2026!"
+PWD = os.environ.get("TEST_PASSWORD", "Compass2026!")
 
 
 # ---------- helpers ----------

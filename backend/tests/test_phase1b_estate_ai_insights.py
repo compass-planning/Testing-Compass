@@ -9,10 +9,10 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[2] / "frontend" / ".env")
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
 API = f"{BASE_URL}/api"
-TOTP_SECRET = "JBSWY3DPEHPK3PXP"
+TOTP_SECRET = os.environ.get("TEST_TOTP_SECRET", "JBSWY3DPEHPK3PXP")
 
 
-def _login(email: str, password: str = "Compass2026!") -> str:
+def _login(email: str, password: str = os.environ.get("TEST_PASSWORD", "Compass2026!")) -> str:
     s = requests.Session()
     r = s.post(f"{API}/auth/login", json={"email": email, "password": password}, timeout=30)
     assert r.status_code == 200, f"login {email}: {r.status_code} {r.text}"

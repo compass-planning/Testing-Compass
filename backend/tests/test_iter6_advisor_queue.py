@@ -10,7 +10,7 @@ import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://compass-vault.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
-PW = "Compass2026!"
+PW = os.environ.get("TEST_PASSWORD", "Compass2026!")
 DEMO_TOTP = "JBSWY3DPEHPK3PXP"
 HH = "client_a1"  # Nguyen household
 

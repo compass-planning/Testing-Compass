@@ -6,8 +6,8 @@ import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://compass-vault.preview.emergentagent.com").rstrip("/")
 EMAIL = "advisor@compass.ca"
-PASSWORD = "Compass2026!"
-TOTP_SECRET = "JBSWY3DPEHPK3PXP"
+PASSWORD = os.environ.get("TEST_PASSWORD", "Compass2026!")
+TOTP_SECRET = os.environ.get("TEST_TOTP_SECRET", "JBSWY3DPEHPK3PXP")
 
 
 @pytest.fixture(scope="module")

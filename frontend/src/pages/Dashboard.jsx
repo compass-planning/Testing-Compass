@@ -80,7 +80,7 @@ export default function Dashboard() {
                 <Tooltip formatter={(v) => money(v)} cursor={{ fill: "rgba(0,82,255,0.05)" }}
                   contentStyle={{ borderRadius: 12, border: "1px solid #E2E8F0" }} />
                 <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                  {data.assets_by_type.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                  {data.assets_by_type.map((d, i) => <Cell key={d.type} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -96,7 +96,7 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={180}>
                 <PieChart>
                   <Pie data={statusData} dataKey="value" innerRadius={50} outerRadius={80} paddingAngle={3}>
-                    {statusData.map((s, i) => <Cell key={i} fill={s.color} />)}
+                    {statusData.map((s) => <Cell key={s.name} fill={s.color} />)}
                   </Pie>
                   <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #E2E8F0" }} />
                 </PieChart>

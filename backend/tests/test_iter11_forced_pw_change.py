@@ -19,7 +19,7 @@ BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 API = f"{BASE_URL}/api"
 SOLO = "solo@compass.ca"
 ADVISOR = "advisor@compass.ca"
-PASSWORD = "Compass2026!"
+PASSWORD = os.environ.get("TEST_PASSWORD", "Compass2026!")
 NEW_PW = "NewTempPass9!"
 
 

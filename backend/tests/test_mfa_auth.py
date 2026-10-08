@@ -7,7 +7,7 @@ import requests
 
 BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 API = f"{BASE_URL}/api"
-PW = "Compass2026!"
+PW = os.environ.get("TEST_PASSWORD", "Compass2026!")
 DEMO = "JBSWY3DPEHPK3PXP"
 
 
