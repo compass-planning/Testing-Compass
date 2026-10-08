@@ -1,0 +1,21 @@
+{
+  "summary": "Frontend-only regression for demo-login removal + solo self-registration + self-serve/admin change-password. All 5 required flows PASS at 100%. (1) /login is clean — no demo-enterprise/demo-advisor/demo-solo testids, no 'Try a demo workspace' block; Email/Password form, Forgot password link, and Sign In / Register tabs all present. (2) Demo accounts advisor@compass.ca and solo@compass.ca both fail login with 'Invalid email or password' and never reach MFA/dashboard. (3) Register tab created qa+<rand>@example.com (tier solo); first login showed MFA setup screen with on-screen secret (LWI2Z6UIB2MO72NKYJKF…), pyotp code accepted, security-form answered, landed on /dashboard. (4) /security exposes security-change-password; modal opened, cp-current=Testpass1!, cp-new=cp-confirm=Testpass2@ submitted; 'Password updated' toast shown; signed out and signed back in with new password and same MFA secret → /dashboard. (5) scott@sweston.ca / Compass2026! + TOTP(JBSWY3DPEHPK3PXP) landed on /admin (admin-main present); admin-change-password button in sidebar footer opens ChangePasswordModal with cp-current/cp-new/cp-confirm fields — DID NOT submit, closed via cp-cancel (scott's password preserved as Compass2026!).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Several background 401 console errors on /login (unauth probe for session/me). Not blocking any flow but noisy — consider swallowing 401 on the public login page or not making the auth-check call pre-login."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "seed_data_creation": "Created one throwaway solo account qa+icd8nlk0@example.com (password rotated to Testpass2@, MFA secret LWI2Z6UIB2MO72NKYJKF3BZVR5P6O6MY). Safe to delete.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Login/Register/MFA testids: login-email, login-password, login-submit, tab-signin, tab-register, register-email, register-name, register-password, register-consent, register-submit, mfa-qr, mfa-code, mfa-submit, security-form, security-question, security-answer, security-submit. The MFA setup screen shows the plaintext secret in the body (16+ base32 chars); regex r'\\b([A-Z2-7]{16,})\\b' extracts it reliably. Self-serve change-password lives at /security (security-change-password). AdminLayout footer has admin-change-password (desktop) and admin-change-password-mobile.",
+  "rca of the issue": "N/A — no issues found."
+}

@@ -12,6 +12,14 @@ User language: **English** (respond in English).
 - i18n: `/app/frontend/src/lib/i18n.jsx` — `useLang()` → {lang, setLang, t, tr}; persisted in localStorage `compass_lang`.
 
 ## Implemented (latest first)
+### 2026-06 — Production hardening: demo logins removed + admin bootstrap + admin password change (DONE, tested — iteration_49, frontend 100%)
+- **Removed the 3 demo quick-login buttons** ("Try a demo workspace") from the sign-in screen (`Login.jsx`). Sign-in is now just email/password + Register + Forgot password.
+- **Removed all demo seeding** (`seed.py`): `seed()` now runs `cleanup_demo()` (one-time Mongo purge of the 5 demo accounts — advisor/solo/firmadmin/planner/admin@compass.ca — plus their corp_sweston/org_maple/client_solo data and demo platform docs, guarded by a `demo_purged` flag) and `_ensure_admin()`. `_seed_corp_book`/`reset_corp_demo` kept (used by the enterprise reset endpoint).
+- **Single platform-admin bootstrap** (`_ensure_admin`): create-or-promote the `ADMIN_EMAIL` account (default `scott@sweston.ca`, password from `ADMIN_PASSWORD`, default `Compass2026!`) to tier `admin`/`platform_admin`; never resets an existing password. Production should set `ADMIN_PASSWORD` (and optionally `ADMIN_EMAIL`) as secrets.
+- **Tier is account-driven**: `/auth/register` creates `solo`; login resolves tier from the stored account by email; no tier picker. Advisor/Enterprise are admin/invite-provisioned.
+- **Admin "Change password"** on the management side (`AdminLayout` sidebar footer + mobile), reusing `ChangePasswordModal` → `POST /auth/change-password-self` (verifies current password, 8-char+complexity, rate-limited).
+- Also applied earlier code-review safe fixes: centralized hardcoded demo creds in backend tests to `os.environ.get(..., default)`; stable React keys on Dashboard charts; logging on the NetWorth snapshot catch. (Flagged hook-dependency warnings reviewed individually → false positives / intentional eslint-disables; not changed.)
+
 ### 2026-06 — Retirement teaser + Advisor digest preview + Legal polish (DONE, tested — iteration_47, frontend 100%)
 - **Retirement Calculator Teaser (Landing)**: new interactive, client-side widget in `Landing.jsx` (`RetirementTeaser` + `DialInput`), section `id="calculator"` + nav item (`nav-calculator`). 6 sliders (current age, retirement age, current savings, monthly contribution, desired monthly income, **CPP/OAS government benefits** `teaser-pension`) feed the existing `monteCarlo()` from `lib/finance.js` live via `useMemo` (pension indexed to inflation). Right card shows a dynamic success gauge (color-banded On track/Needs attention/At risk via `teaser-band`), projected nest egg (`teaser-nest-egg`), median balance at 95 (`teaser-median`) and a CTA (`teaser-cta` → `/login?mode=register`). **Shareable result**: `teaser-copy-link` copies a URL encoding all inputs (`?ca&ra&sv&mo&in&pen#calculator`) to the clipboard (toast); on load the teaser prefills its sliders from those query params. Bilingual (`COPY.*.calc`). Defaults tuned to a realistic/encouraging ~80% result (savings $150k, $1,800/mo, income $4,000/mo, $22k CPP/OAS, 35→65). Verified iteration_47 + iteration_48 (frontend 100%).
 - **Advisor Digest Preview (inline, read-only)**: `TaskBoard.jsx` DigestSettings now has an Eye **Preview** button per digest row (`digest-preview-daily-btn`/`-weekly-btn`/`-summary-btn`) that opens `DigestPreviewModal` (`digest-preview-modal`) rendering the exact email HTML in a sandboxed iframe (`digest-preview-iframe`). Closes via button (`digest-preview-close`), backdrop, or Escape. No email is sent (distinct from the existing "Send test" buttons). Backend GET endpoints return `{subject, html}`: `/api/advisor/digest-preview/daily` + `/summary` (tasks.py), `/api/advisor/digest-preview/weekly` (advisor.py).
@@ -79,7 +87,7 @@ User language: **English** (respond in English).
 - P3: Landing teaser — shareable result link + pension/CPP-OAS slider (DONE 2026-06). Future: shortlink service for prettier share URLs.
 
 ## Credentials
-See `/app/memory/test_credentials.md`. Enterprise admin `scott@sweston.ca`; platform super-admin `admin@compass.ca`; TOTP secret `JBSWY3DPEHPK3PXP`.
+See `/app/memory/test_credentials.md`. Single platform-admin/owner: `scott@sweston.ca` / `Compass2026!` / TOTP `JBSWY3DPEHPK3PXP` (tier `admin` → `/admin`). All demo accounts removed; self-registration creates Solo accounts.
 
 ## Mocked
 - Chase Payment Solutions billing (`chase_mock.py`).
